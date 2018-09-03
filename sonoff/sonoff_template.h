@@ -1,7 +1,7 @@
 /*
   sonoff_template.h - template settings for Sonoff-Tasmota
 
-  Copyright (C) 2017  Theo Arends
+  Copyright (C) 2018  Theo Arends
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -24,8 +24,8 @@
 enum UserSelectablePins {
   GPIO_NONE,           // Not used
   GPIO_DHT11,          // DHT11
-  GPIO_DHT21,          // DHT21, AM2301
-  GPIO_DHT22,          // DHT22, AM2302, AM2321
+  GPIO_DHT22,          // DHT21, DHT22, AM2301, AM2302, AM2321
+  GPIO_SI7021,         // iTead SI7021
   GPIO_DSB,            // Single wire DS18B20 or DS18S20
   GPIO_I2C_SCL,        // I2C SCL
   GPIO_I2C_SDA,        // I2C SDA
@@ -35,6 +35,10 @@ enum UserSelectablePins {
   GPIO_SWT2,
   GPIO_SWT3,
   GPIO_SWT4,
+  GPIO_SWT5,
+  GPIO_SWT6,
+  GPIO_SWT7,
+  GPIO_SWT8,
   GPIO_KEY1,           // Button usually connected to GPIO0
   GPIO_KEY2,
   GPIO_KEY3,
@@ -78,72 +82,53 @@ enum UserSelectablePins {
   GPIO_LED2_INV,
   GPIO_LED3_INV,
   GPIO_LED4_INV,
+  GPIO_MHZ_TXD,        // MH-Z19 Serial interface
+  GPIO_MHZ_RXD,        // MH-Z19 Serial interface
+  GPIO_PZEM_TX,        // PZEM004T Serial interface
+  GPIO_PZEM_RX,        // PZEM004T Serial interface
+  GPIO_SAIR_TX,        // SenseAir Serial interface
+  GPIO_SAIR_RX,        // SenseAir Serial interface
+  GPIO_SPI_CS,         // SPI Chip Select
+  GPIO_SPI_DC,         // SPI Data Direction
+  GPIO_BACKLIGHT,      // Display backlight control
+  GPIO_PMS5003,        // Plantower PMS5003 Serial interface
+  GPIO_SDS0X1,         // Nova Fitness SDS011 Serial interface
+  GPIO_SBR_TX,         // Serial Bridge Serial interface
+  GPIO_SBR_RX,         // Serial Bridge Serial interface
+  GPIO_SR04_TRIG,      // SR04 Trigger pin
+  GPIO_SR04_ECHO,      // SR04 Echo pin
+  GPIO_SDM120_TX,      // SDM120 Serial interface
+  GPIO_SDM120_RX,      // SDM120 Serial interface
+  GPIO_SDM630_TX,      // SDM630 Serial interface
+  GPIO_SDM630_RX,      // SDM630 Serial interface
+  GPIO_TM16CLK,        // TM1638 Clock
+  GPIO_TM16DIO,        // TM1638 Data I/O
+  GPIO_TM16STB,        // TM1638 Strobe
+  GPIO_SWT1_NP,        // User connected external switches
+  GPIO_SWT2_NP,
+  GPIO_SWT3_NP,
+  GPIO_SWT4_NP,
+  GPIO_SWT5_NP,
+  GPIO_SWT6_NP,
+  GPIO_SWT7_NP,
+  GPIO_SWT8_NP,
+  GPIO_KEY1_NP,        // Button usually connected to GPIO0
+  GPIO_KEY2_NP,
+  GPIO_KEY3_NP,
+  GPIO_KEY4_NP,
+  GPIO_CNTR1_NP,
+  GPIO_CNTR2_NP,
+  GPIO_CNTR3_NP,
+  GPIO_CNTR4_NP,
   GPIO_SENSOR_END };
-
-// Text in webpage Module Parameters and commands GPIOS and GPIO
-const char kSensors[GPIO_SENSOR_END][9] PROGMEM = {
-  D_SENSOR_NONE,
-  D_SENSOR_DHT11,
-  D_SENSOR_AM2301,
-  D_SENSOR_DHT22,
-  D_SENSOR_DS18X20,
-  D_SENSOR_I2C_SCL,
-  D_SENSOR_I2C_SDA,
-  D_SENSOR_WS2812,
-  D_SENSOR_IRSEND,
-  D_SENSOR_SWITCH "1",
-  D_SENSOR_SWITCH "2",
-  D_SENSOR_SWITCH "3",
-  D_SENSOR_SWITCH "4",
-  D_SENSOR_BUTTON "1",
-  D_SENSOR_BUTTON "2",
-  D_SENSOR_BUTTON "3",
-  D_SENSOR_BUTTON "4",
-  D_SENSOR_RELAY "1",
-  D_SENSOR_RELAY "2",
-  D_SENSOR_RELAY "3",
-  D_SENSOR_RELAY "4",
-  D_SENSOR_RELAY "5",
-  D_SENSOR_RELAY "6",
-  D_SENSOR_RELAY "7",
-  D_SENSOR_RELAY "8",
-  D_SENSOR_RELAY "1i",
-  D_SENSOR_RELAY "2i",
-  D_SENSOR_RELAY "3i",
-  D_SENSOR_RELAY "4i",
-  D_SENSOR_RELAY "5i",
-  D_SENSOR_RELAY "6i",
-  D_SENSOR_RELAY "7i",
-  D_SENSOR_RELAY "8i",
-  D_SENSOR_PWM "1",
-  D_SENSOR_PWM "2",
-  D_SENSOR_PWM "3",
-  D_SENSOR_PWM "4",
-  D_SENSOR_PWM "5",
-  D_SENSOR_COUNTER "1",
-  D_SENSOR_COUNTER "2",
-  D_SENSOR_COUNTER "3",
-  D_SENSOR_COUNTER "4",
-  D_SENSOR_PWM "1i",
-  D_SENSOR_PWM "2i",
-  D_SENSOR_PWM "3i",
-  D_SENSOR_PWM "4i",
-  D_SENSOR_PWM "5i",
-  D_SENSOR_IRRECV,
-  D_SENSOR_LED "1",
-  D_SENSOR_LED "2",
-  D_SENSOR_LED "3",
-  D_SENSOR_LED "4",
-  D_SENSOR_LED "1i",
-  D_SENSOR_LED "2i",
-  D_SENSOR_LED "3i",
-  D_SENSOR_LED "4i"
-};
 
 // Programmer selectable GPIO functionality offset by user selectable GPIOs
 enum ProgramSelectablePins {
   GPIO_RXD = GPIO_SENSOR_END,  // Serial interface
   GPIO_TXD,            // Serial interface
+  GPIO_SPI_MISO,       // SPI MISO library fixed pin GPIO12
+  GPIO_SPI_MOSI,       // SPI MOSI library fixed pin GPIO13
+  GPIO_SPI_CLK,        // SPI Clk library fixed pin GPIO14
   GPIO_HLW_SEL,        // HLW8012 Sel output (Sonoff Pow)
   GPIO_HLW_CF1,        // HLW8012 CF1 voltage / current (Sonoff Pow)
   GPIO_HLW_CF,         // HLW8012 CF power (Sonoff Pow)
@@ -153,6 +138,38 @@ enum ProgramSelectablePins {
   GPIO_ARIRFRCV,       // AliLux RF Receive input
   GPIO_USER,           // User configurable
   GPIO_MAX };
+
+// Text in webpage Module Parameters and commands GPIOS and GPIO
+const char kSensorNames[] PROGMEM =
+  D_SENSOR_NONE "|"
+  D_SENSOR_DHT11 "|" D_SENSOR_AM2301 "|" D_SENSOR_SI7021 "|"
+  D_SENSOR_DS18X20 "|"
+  D_SENSOR_I2C_SCL "|" D_SENSOR_I2C_SDA "|"
+  D_SENSOR_WS2812 "|"
+  D_SENSOR_IRSEND "|"
+  D_SENSOR_SWITCH "1|" D_SENSOR_SWITCH "2|" D_SENSOR_SWITCH "3|" D_SENSOR_SWITCH "4|" D_SENSOR_SWITCH "5|" D_SENSOR_SWITCH "6|" D_SENSOR_SWITCH "7|" D_SENSOR_SWITCH "8|"
+  D_SENSOR_BUTTON "1|" D_SENSOR_BUTTON "2|" D_SENSOR_BUTTON "3|" D_SENSOR_BUTTON "4|"
+  D_SENSOR_RELAY "1|" D_SENSOR_RELAY "2|" D_SENSOR_RELAY "3|" D_SENSOR_RELAY "4|" D_SENSOR_RELAY "5|" D_SENSOR_RELAY "6|" D_SENSOR_RELAY "7|" D_SENSOR_RELAY "8|"
+  D_SENSOR_RELAY "1i|" D_SENSOR_RELAY "2i|" D_SENSOR_RELAY "3i|" D_SENSOR_RELAY "4i|" D_SENSOR_RELAY "5i|" D_SENSOR_RELAY "6i|" D_SENSOR_RELAY "7i|" D_SENSOR_RELAY "8i|"
+  D_SENSOR_PWM "1|" D_SENSOR_PWM "2|" D_SENSOR_PWM "3|" D_SENSOR_PWM "4|" D_SENSOR_PWM "5|"
+  D_SENSOR_COUNTER "1|" D_SENSOR_COUNTER "2|" D_SENSOR_COUNTER "3|" D_SENSOR_COUNTER "4|"
+  D_SENSOR_PWM "1i|" D_SENSOR_PWM "2i|" D_SENSOR_PWM "3i|" D_SENSOR_PWM "4i|" D_SENSOR_PWM "5i|"
+  D_SENSOR_IRRECV "|"
+  D_SENSOR_LED "1|" D_SENSOR_LED "2|" D_SENSOR_LED "3|" D_SENSOR_LED "4|"
+  D_SENSOR_LED "1i|" D_SENSOR_LED "2i|" D_SENSOR_LED "3i|" D_SENSOR_LED "4i|"
+  D_SENSOR_MHZ_TX "|" D_SENSOR_MHZ_RX "|"
+  D_SENSOR_PZEM_TX "|" D_SENSOR_PZEM_RX "|"
+  D_SENSOR_SAIR_TX "|" D_SENSOR_SAIR_RX "|"
+  D_SENSOR_SPI_CS "|" D_SENSOR_SPI_DC "|" D_SENSOR_BACKLIGHT "|"
+  D_SENSOR_PMS5003 "|" D_SENSOR_SDS0X1 "|"
+  D_SENSOR_SBR_TX "|" D_SENSOR_SBR_RX "|"
+  D_SENSOR_SR04_TRIG "|" D_SENSOR_SR04_ECHO "|"
+  D_SENSOR_SDM120_TX "|" D_SENSOR_SDM120_RX "|"
+  D_SENSOR_SDM630_TX "|" D_SENSOR_SDM630_RX "|"
+  D_SENSOR_TM1638_CLK "|" D_SENSOR_TM1638_DIO "|" D_SENSOR_TM1638_STB "|"
+  D_SENSOR_SWITCH "1n|" D_SENSOR_SWITCH "2n|" D_SENSOR_SWITCH "3n|" D_SENSOR_SWITCH "4n|" D_SENSOR_SWITCH "5n|" D_SENSOR_SWITCH "6n|" D_SENSOR_SWITCH "7n|" D_SENSOR_SWITCH "8n|"
+  D_SENSOR_BUTTON "1n|" D_SENSOR_BUTTON "2n|" D_SENSOR_BUTTON "3n|" D_SENSOR_BUTTON "4n|"
+  D_SENSOR_COUNTER "1n|" D_SENSOR_COUNTER "2n|" D_SENSOR_COUNTER "3n|" D_SENSOR_COUNTER "4n|";
 
 /********************************************************************************************/
 
@@ -165,7 +182,7 @@ enum SupportedModules {
   SONOFF_DUAL,
   SONOFF_POW,
   SONOFF_4CH,
-  S20,
+  SONOFF_S2X,
   SLAMPHER,
   SONOFF_TOUCH,
   SONOFF_LED,
@@ -197,13 +214,19 @@ enum SupportedModules {
   ARILUX_LC01,
   ARILUX_LC11,
   SONOFF_DUAL_R2,
+  ARILUX_LC06,
+  SONOFF_S31,
+  ZENGGE_ZF_WF017,
+  SONOFF_POW_R2,
+  SONOFF_IFAN02,
+  BLITZWOLF_BWSHP2,
   MAXMODULE };
 
 /********************************************************************************************/
 
 #define MAX_GPIO_PIN       18   // Number of supported GPIO
 
-const char PINS_WEMOS[] PROGMEM = "D3TXD4RXD2D1flashcontrolD6D7D5D8D0A0";
+const char PINS_WEMOS[] PROGMEM = "D3TXD4RXD2D1flashcFLFLolD6D7D5D8D0A0";
 
 typedef struct MYIO {
   uint8_t      io[MAX_GPIO_PIN];
@@ -221,11 +244,13 @@ const uint8_t kNiceList[MAXMODULE] PROGMEM = {
   SONOFF_DUAL,
   SONOFF_DUAL_R2,
   SONOFF_POW,
+  SONOFF_POW_R2,
+  SONOFF_S31,
   SONOFF_4CH,
   SONOFF_4CHPRO,
   SONOFF_SV,
   SONOFF_DEV,
-  S20,
+  SONOFF_S2X,
   SLAMPHER,
   SONOFF_TOUCH,
   SONOFF_T11,
@@ -235,6 +260,7 @@ const uint8_t kNiceList[MAXMODULE] PROGMEM = {
   SONOFF_B1,
   SONOFF_LED,
   SONOFF_BN,
+  SONOFF_IFAN02,
   SONOFF_BRIDGE,
   CH1,
   CH4,
@@ -245,10 +271,13 @@ const uint8_t kNiceList[MAXMODULE] PROGMEM = {
   LUANIHVIO,
   YUNSHAN,
   WION,
+  BLITZWOLF_BWSHP2,
   H801,
   MAGICHOME,
   ARILUX_LC01,
+  ARILUX_LC06,
   ARILUX_LC11,
+  ZENGGE_ZF_WF017,
   HUAFAN_SS,
   KMC_70011,
   AILIGHT,
@@ -331,7 +360,7 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      GPIO_USER,        // GPIO14 Optional sensor
      0, 0, 0
   },
-  { "Sonoff Pow",      // Sonoff Pow (ESP8266)
+  { "Sonoff Pow",      // Sonoff Pow (ESP8266 - HLW8012)
      GPIO_KEY1,        // GPIO00 Button
      0, 0, 0, 0,
      GPIO_HLW_SEL,     // GPIO05 HLW8012 Sel output
@@ -339,7 +368,7 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      GPIO_REL1,        // GPIO12 Red Led and Relay (0 = Off, 1 = On)
      GPIO_HLW_CF1,     // GPIO13 HLW8012 CF1 voltage / current
      GPIO_HLW_CF,      // GPIO14 HLW8012 CF power
-     GPIO_LED1,        // GPIO15 Green Led (0 = On, 1 = Off)
+     GPIO_LED1,        // GPIO15 Blue Led (0 = On, 1 = Off)
      0, 0
   },
   { "Sonoff 4CH",      // Sonoff 4CH (ESP8285)
@@ -359,15 +388,15 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      GPIO_REL4,        // GPIO15 Red Led and Relay 4 (0 = Off, 1 = On)
      0, 0
   },
-  { "S20 Socket",      // S20 Smart Socket (ESP8266)
+  { "Sonoff S2X",      // Sonoff S20, S22 and S26 Smart Socket (ESP8266)
      GPIO_KEY1,        // GPIO00 Button
      GPIO_USER,        // GPIO01 Serial RXD and Optional sensor
-     0,
+     GPIO_USER,        // GPIO02 Optional sensor
      GPIO_USER,        // GPIO03 Serial TXD and Optional sensor
      0, 0,
      0, 0, 0, 0, 0, 0, // Flash connection
      GPIO_REL1,        // GPIO12 Red Led and Relay (0 = Off, 1 = On)
-     GPIO_LED1_INV,    // GPIO13 Green Led (0 = On, 1 = Off)
+     GPIO_LED1_INV,    // GPIO13 Green/Blue Led (0 = On, 1 = Off)
      0, 0, 0, 0
   },
   { "Slampher",        // Slampher (ESP8266)
@@ -448,7 +477,8 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      GPIO_LED1,        // GPIO16 Green/Blue Led (1 = On, 0 = Off)
      GPIO_ADC0         // ADC0   A0 Analog input
   },
-  { "EXS Relay",       // Latching relay https://ex-store.de/ESP8266-WiFi-Relay-V31 (ESP8266)
+  { "EXS Relay",       // Latching relay (ESP8266)
+                       // https://ex-store.de/ESP8266-WiFi-Relay-V31
                        //   Module Pin 1 VCC 3V3, Module Pin 6 GND
      GPIO_KEY1,        // GPIO00 Module Pin 8 - Button (firmware flash)
      GPIO_USER,        // GPIO01 Module Pin 2 = UART0_TXD
@@ -464,7 +494,8 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      GPIO_USER,        // GPIO16 Module Pin 4
      0
   },
-  { "WiOn",            // Indoor Tap https://www.amazon.com/gp/product/B00ZYLUBJU/ref=s9_acsd_al_bw_c_x_3_w (ESP8266)
+  { "WiOn",            // Indoor Tap (ESP8266)
+                       // https://www.amazon.com/gp/product/B00ZYLUBJU/ref=s9_acsd_al_bw_c_x_3_w
      GPIO_USER,        // GPIO00 Optional sensor (pm clock)
      0,
      GPIO_LED1,        // GPIO02 Green Led (1 = On, 0 = Off)
@@ -476,14 +507,17 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      GPIO_REL1,        // GPIO15 Relay (0 = Off, 1 = On)
      0, 0
   },
-  { "WeMos D1 mini",   // WeMos and NodeMCU hardware (ESP8266)
+  { "Generic",         // Any ESP8266/ESP8285 device like WeMos and NodeMCU hardware (ESP8266)
      GPIO_USER,        // GPIO00 D3 Wemos Button Shield
      GPIO_USER,        // GPIO01 TX Serial RXD
      GPIO_USER,        // GPIO02 D4 Wemos DHT Shield
      GPIO_USER,        // GPIO03 RX Serial TXD and Optional sensor
      GPIO_USER,        // GPIO04 D2 Wemos I2C SDA
      GPIO_USER,        // GPIO05 D1 Wemos I2C SCL / Wemos Relay Shield (0 = Off, 1 = On) / Wemos WS2812B RGB led Shield
-     0, 0, 0, 0, 0, 0, // Flash connection
+     0, 0, 0,          // Flash connection
+     GPIO_USER,        // Flash connection or GPIO09 on ESP8285 only!
+     GPIO_USER,        // Flash connection or GPIO10 on ESP8285 only!
+     0,                // Flash connection
      GPIO_USER,        // GPIO12 D6
      GPIO_USER,        // GPIO13 D7
      GPIO_USER,        // GPIO14 D5
@@ -500,23 +534,23 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      GPIO_USER,        // GPIO05 Optional sensor
      0, 0, 0, 0, 0, 0, // Flash connection
      GPIO_USER,        // GPIO12
-     GPIO_LED1_INV,    // GPIO13 BLUE LED
+     GPIO_USER,        // GPIO13 BLUE LED
      GPIO_USER,        // GPIO14 Optional sensor
      0,                // GPIO15
      0,                // GPIO16
      GPIO_ADC0         // ADC0 A0 Analog input
   },
   { "H801",            // Lixada H801 Wifi (ESP8266)
-     GPIO_KEY1,        // GPIO00 E-FW Button
+     GPIO_USER,        // GPIO00 E-FW Button
      GPIO_LED1,        // GPIO01 Green LED
      GPIO_TXD,         // GPIO02 RX - Pin next to TX on the PCB
      GPIO_RXD,         // GPIO03 TX - Pin next to GND on the PCB
-     GPIO_USER,        // GPIO04 W2 - PWM5
+     GPIO_PWM5,        // GPIO04 W2 - PWM5
      GPIO_LED2_INV,    // GPIO05 Red LED
      0, 0, 0, 0, 0, 0, // Flash connection
      GPIO_PWM3,        // GPIO12 Blue
      GPIO_PWM2,        // GPIO13 Green
-     GPIO_USER,        // GPIO14 W1 - PWM4
+     GPIO_PWM4,        // GPIO14 W1 - PWM4
      GPIO_PWM1,        // GPIO15 Red
      0, 0
   },
@@ -616,7 +650,7 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
   { "Sonoff T1 1CH",   // Sonoff T1 1CH (ESP8285)
      GPIO_KEY1,        // GPIO00 Button 1
      GPIO_USER,        // GPIO01 Serial RXD and Optional sensor
-     0,
+     GPIO_USER,        // GPIO02 Optional Sensor (J3 Pin 5)
      GPIO_USER,        // GPIO03 Serial TXD and Optional sensor
      0, 0,
      0, 0, 0,          // Flash connection
@@ -629,7 +663,7 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
   { "Sonoff T1 2CH",   // Sonoff T1 2CH (ESP8285)
      GPIO_KEY1,        // GPIO00 Button 1
      GPIO_USER,        // GPIO01 Serial RXD and Optional sensor
-     0,
+     GPIO_USER,        // GPIO02 Optional Sensor (J3 Pin 5)
      GPIO_USER,        // GPIO03 Serial TXD and Optional sensor
      0,
      GPIO_REL2,        // GPIO05 Blue Led and Relay 2 (0 = Off, 1 = On)
@@ -644,7 +678,7 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
   { "Sonoff T1 3CH",   // Sonoff T1 3CH (ESP8285)
      GPIO_KEY1,        // GPIO00 Button 1
      GPIO_USER,        // GPIO01 Serial RXD and Optional sensor
-     0,
+     GPIO_USER,        // GPIO02 Optional Sensor (J3 Pin 5)
      GPIO_USER,        // GPIO03 Serial TXD and Optional sensor
      GPIO_REL3,        // GPIO04 Blue Led and Relay 3 (0 = Off, 1 = On)
      GPIO_REL2,        // GPIO05 Blue Led and Relay 2 (0 = Off, 1 = On)
@@ -656,7 +690,8 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      GPIO_LED1_INV,    // GPIO13 Blue Led (0 = On, 1 = Off)
      0, 0, 0, 0
   },
-  { "Supla Espablo",   // Supla Espablo (ESP8266) - http://www.wykop.pl/ramka/3325399/diy-supla-do-puszki-instalacyjnej-podtynkowej-supla-org/
+  { "Supla Espablo",   // Supla Espablo (ESP8266)
+                       // http://www.wykop.pl/ramka/3325399/diy-supla-do-puszki-instalacyjnej-podtynkowej-supla-org/
      0,                // GPIO00 Flash jumper
      GPIO_USER,        // GPIO01 Serial RXD and Optional sensor
      GPIO_DSB,         // GPIO02 DS18B20 sensor
@@ -671,7 +706,8 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      GPIO_LED1,        // GPIO16 Led (1 = On, 0 = Off)
      GPIO_ADC0         // ADC0 A0 Analog input
   },
-  { "Witty Cloud",     // Witty Cloud Dev Board (ESP8266) - https://www.aliexpress.com/item/ESP8266-serial-WIFI-Witty-cloud-Development-Board-ESP-12F-module-MINI-nodemcu/32643464555.html
+  { "Witty Cloud",     // Witty Cloud Dev Board (ESP8266)
+                       // https://www.aliexpress.com/item/ESP8266-serial-WIFI-Witty-cloud-Development-Board-ESP-12F-module-MINI-nodemcu/32643464555.html
      GPIO_USER,        // GPIO00 D3 flash push button on interface board
      GPIO_USER,        // GPIO01 Serial RXD and Optional sensor
      GPIO_LED1_INV,    // GPIO02 D4 Blue Led (0 = On, 1 = Off) on ESP-12F
@@ -686,7 +722,8 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      GPIO_USER,        // GPIO16 D0 optional sensor
      GPIO_ADC0         // ADC0 A0 Light sensor / Requires USE_ADC_VCC in user_config.h to be disabled
   },
-  { "Yunshan Relay",   // Yunshan Wifi Relay (ESP8266) - https://www.ebay.com/p/Esp8266-220v-10a-Network-Relay-WiFi-Module/1369583381
+  { "Yunshan Relay",   // Yunshan Wifi Relay (ESP8266)
+                       // https://www.ebay.com/p/Esp8266-220v-10a-Network-Relay-WiFi-Module/1369583381
                        // Schematics and Info https://ucexperiment.wordpress.com/2016/12/18/yunshan-esp8266-250v-15a-acdc-network-wifi-relay-module/
      0,                // GPIO00 Flash jumper - Module Pin 8
      GPIO_USER,        // GPIO01 Serial RXD and Optional sensor - Module Pin 2
@@ -697,10 +734,12 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      0, 0, 0, 0, 0, 0, // Flash connection
      0, 0, 0, 0, 0
   },
-  { "MagicHome",       // Magic Home (aka Flux-light) (ESP8266) - https://www.aliexpress.com/item/Magic-Home-Mini-RGB-RGBW-Wifi-Controller-For-Led-Strip-Panel-light-Timing-Function-16million-colors/32686853650.html
-     0, 0,
-     GPIO_LED1_INV,    // GPIO02 Blue onboard LED
+  { "MagicHome",       // Magic Home (aka Flux-light) (ESP8266)
+                       // https://www.aliexpress.com/item/Magic-Home-Mini-RGB-RGBW-Wifi-Controller-For-Led-Strip-Panel-light-Timing-Function-16million-colors/32686853650.html
      0,
+     GPIO_USER,        // GPIO01 Serial RXD and Optional sensor
+     GPIO_LED1_INV,    // GPIO02 Blue onboard LED
+     GPIO_USER,        // GPIO03 Serial TXD and Optional sensor
      GPIO_USER,        // GPIO04 IR receiver (optional)
      GPIO_PWM2,        // GPIO05 RGB LED Green
      0, 0, 0, 0, 0, 0, // Flash connection
@@ -709,7 +748,8 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      GPIO_PWM1,        // GPIO14 RGB LED Red
      0, 0, 0
   },
-  { "Luani HVIO",      // ESP8266_HVIO - https://luani.de/projekte/esp8266-hvio/
+  { "Luani HVIO",      // ESP8266_HVIO
+                       // https://luani.de/projekte/esp8266-hvio/
      0,                // GPIO00 Flash jumper
      GPIO_USER,        // GPIO01 Serial RXD and Optional sensor
      GPIO_USER,        // GPIO02 Optional sensor / I2C SDA pad
@@ -724,7 +764,8 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      0,
      GPIO_ADC0         // ADC0 A0 Analog input
   },
-  { "KMC 70011",       // KMC 70011 (https://www.amazon.com/KMC-Timing-Monitoring-Network-125V-240V/dp/B06XRX2GTQ)
+  { "KMC 70011",       // KMC 70011
+                       // https://www.amazon.com/KMC-Timing-Monitoring-Network-125V-240V/dp/B06XRX2GTQ
      GPIO_KEY1,        // GPIO00 Button
      0, 0, 0,
      GPIO_HLW_CF,      // GPIO04 HLW8012 CF
@@ -735,12 +776,13 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      GPIO_REL1,        // GPIO14 Relay
      0, 0, 0
   },
-  { "Arilux",          // Arilux AL-LC01 (ESP8285) - https://www.banggood.com/nl/ARILUX-AL-LC01-Super-Mini-LED-WIFI-Smart-RGB-Controller-For-RGB-LED-Strip-Light-DC-9-12V-p-1058603.html
+  { "Arilux LC01",     // Arilux AL-LC01 (ESP8285)
+                       // https://www.banggood.com/nl/ARILUX-AL-LC01-Super-Mini-LED-WIFI-Smart-RGB-Controller-For-RGB-LED-Strip-Light-DC-9-12V-p-1058603.html
                        //  (PwmFrequency 1111Hz)
      GPIO_KEY1,        // GPIO00 Optional Button
-     0,
+     GPIO_USER,        // GPIO01 Serial RXD and Optional sensor
      GPIO_LED2_INV,    // GPIO02 RF receiver control
-     0,
+     GPIO_USER,        // GPIO03 Serial TXD and Optional sensor
      GPIO_ARIRFRCV,    // GPIO04 IR or RF receiver (optional)
      GPIO_PWM1,        // GPIO05 RGB LED Red
      0, 0, 0, 0, 0, 0, // Flash connection
@@ -749,12 +791,13 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      GPIO_USER,        // GPIO14 RGBW LED White (optional - set to PWM4 for Cold White or Warm White)
      0, 0, 0
   },
-  { "Arilux LC11",     // Arilux AL-LC11 (ESP8266) - https://www.banggood.com/nl/ARILUX-AL-LC11-Super-Mini-LED-WIFI-APP-Controller-RF-Remote-Control-For-RGBWW-LED-Strip-DC9-28V-p-1085112.html
+  { "Arilux LC11",     // Arilux AL-LC11 (ESP8266)
+                       // https://www.banggood.com/nl/ARILUX-AL-LC11-Super-Mini-LED-WIFI-APP-Controller-RF-Remote-Control-For-RGBWW-LED-Strip-DC9-28V-p-1085112.html
                        //  (PwmFrequency 540Hz)
      GPIO_KEY1,        // GPIO00 Optional Button
-     0,
+     GPIO_USER,        // GPIO01 Serial RXD and Optional sensor
      GPIO_LED2_INV,    // GPIO02 RF receiver control
-     0,
+     GPIO_USER,        // GPIO03 Serial TXD and Optional sensor
      GPIO_PWM2,        // GPIO04 RGB LED Green
      GPIO_PWM1,        // GPIO05 RGB LED Red
      0, 0, 0, 0, 0, 0, // Flash connection
@@ -765,20 +808,209 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      0, 0
   },
   { "Sonoff Dual R2",  // Sonoff Dual R2 (ESP8285)
-     GPIO_SWT1,        // GPIO00 Button 1 on header
+     GPIO_USER,        // GPIO00 Button 0 on header (0 = On, 1 = Off)
      GPIO_USER,        // GPIO01 Serial RXD and Optional sensor
      0,
      GPIO_USER,        // GPIO03 Serial TXD and Optional sensor
      0,
      GPIO_REL2,        // GPIO05 Relay 2 (0 = Off, 1 = On)
      0, 0, 0,          // Flash connection
-     GPIO_SWT2,        // GPIO09 Button 2 on header
-     GPIO_KEY1,        // GPIO10 Button 3 on casing
+     GPIO_USER,        // GPIO09 Button 1 on header (0 = On, 1 = Off)
+     GPIO_KEY1,        // GPIO10 Button on casing
      0,                // Flash connection
      GPIO_REL1,        // GPIO12 Relay 1 (0 = Off, 1 = On)
      GPIO_LED1_INV,    // GPIO13 Blue Led (0 = On, 1 = Off)
      0, 0, 0, 0
+  },
+  { "Arilux LC06",     // Arilux AL-LC06 (ESP8285)
+                       // https://www.banggood.com/ARILUX-AL-LC06-LED-WIFI-Smartphone-Controller-Romote-5-Channels-DC12-24V-For-RGBWW-Strip-light-p-1061476.html
+     GPIO_KEY1,        // GPIO00 Optional Button
+     GPIO_USER,        // GPIO01 Serial RXD and Optional sensor
+     GPIO_USER,        // GPIO02 Empty pad
+     GPIO_USER,        // GPIO03 Serial TXD and Optional sensor
+     GPIO_USER,        // GPIO04 W2 - PWM5
+     0,
+     0, 0, 0, 0, 0, 0, // Flash connection
+     GPIO_PWM2,        // GPIO12 RGB LED Green
+     GPIO_PWM3,        // GPIO13 RGB LED Blue
+     GPIO_PWM1,        // GPIO14 RGB LED Red
+     GPIO_USER,        // GPIO15 RGBW LED White
+     0, 0
+  },
+  { "Sonoff S31",      // Sonoff S31 (ESP8266 - CSE7766)
+     GPIO_KEY1,        // GPIO00 Button
+     0,                // GPIO01 Serial RXD 4800 baud 8E1 CSE7766 energy sensor
+     0,
+     0,                // GPIO03 Serial TXD
+     0, 0,
+     0, 0, 0, 0, 0, 0, // Flash connection
+     GPIO_REL1,        // GPIO12 Red Led and Relay (0 = Off, 1 = On)
+     GPIO_LED1_INV,    // GPIO13 Green Led (0 = On, 1 = Off)
+     0, 0, 0, 0
+  },
+  { "Zengge WF017",    // Zenggee ZJ-WF017-A (ESP12S))
+                       // https://www.ebay.com/p/Smartphone-Android-IOS-WiFi-Music-Controller-for-RGB-5050-3528-LED-Strip-Light/534446632?_trksid=p2047675.l2644
+     GPIO_KEY1,        // GPIO00 Optional Button
+     0,
+     GPIO_USER,        // GPIO02 Empty pad
+     0,
+     GPIO_USER,        // GPIO04 W2 - PWM5
+     0,
+     0, 0, 0, 0, 0, 0, // Flash connection
+     GPIO_PWM2,        // GPIO12 RGB LED Green
+     GPIO_PWM1,        // GPIO13 RGB LED Red
+     GPIO_PWM3,        // GPIO14 RGB LED Blue
+     0, 0, 0
+  },
+  { "Sonoff Pow R2",   // Sonoff Pow R2 (ESP8285 - CSE7766)
+     GPIO_KEY1,        // GPIO00 Button
+     0,                // GPIO01 Serial RXD 4800 baud 8E1 CSE7766 energy sensor
+     0,
+     0,                // GPIO03 Serial TXD
+     0, 0,
+     0, 0, 0, 0, 0, 0, // Flash connection
+     GPIO_REL1,        // GPIO12 Red Led and Relay (0 = Off, 1 = On)
+     GPIO_LED1_INV,    // GPIO13 Blue Led (0 = On, 1 = Off)
+     0, 0, 0, 0
+  },
+  { "Sonoff iFan02",   // Sonoff iFan02 (ESP8285)
+     GPIO_KEY1,        // GPIO00 WIFI_KEY0 Virtual button 1 as feedback from RC
+     GPIO_USER,        // GPIO01 ESP_TXD Serial RXD and Optional sensor
+     0,                // GPIO02 ESP_LOG
+     GPIO_USER,        // GPIO03 ESP_RXD Serial TXD and Optional sensor
+     GPIO_REL3,        // GPIO04 WIFI_O2 Relay 3 (0 = Off, 1 = On) controlling the fan
+     GPIO_REL2,        // GPIO05 WIFI_O1 Relay 2 (0 = Off, 1 = On) controlling the fan
+     0, 0, 0,          // Flash connection
+     GPIO_KEY2,        // GPIO09 WIFI_KEY1 Virtual button 2 as feedback from RC
+     GPIO_KEY3,        // GPIO10 WIFI_KEY2 Virtual button 3 as feedback from RC
+     0,                // Flash connection
+     GPIO_REL1,        // GPIO12 WIFI_O0 Relay 1 (0 = Off, 1 = On) controlling the light
+     GPIO_LED1_INV,    // GPIO13 WIFI_CHK Blue Led on PCA (0 = On, 1 = Off)
+     GPIO_KEY4,        // GPIO14 WIFI_KEY3 Virtual button 4 as feedback from RC
+     GPIO_REL4,        // GPIO15 WIFI_O3 Relay 4 (0 = Off, 1 = On) controlling the fan
+     0, 0
+  },
+  { "BlitzWolf SHP2",  // BlitzWolf BW-SHP2 (ESP8285 - BL0937 or HJL-01 Energy Monitoring)
+                       // https://www.banggood.com/BlitzWolf-BW-SHP2-Smart-WIFI-Socket-EU-Plug-220V-16A-Work-with-Amazon-Alexa-Google-Assistant-p-1292899.html
+                       // https://www.amazon.de/Steckdose-Homecube-intelligente-Verbrauchsanzeige-funktioniert/dp/B076Q2LKHG/ref=sr_1_fkmr0_1
+                       // https://www.amazon.de/Intelligente-Stromverbrauch-Fernsteurung-Schaltbare-Energieklasse/dp/B076WZQS4S/ref=sr_1_1
+     GPIO_LED2_INV,    // GPIO00 Red Led (1 = On, 0 = Off)
+     GPIO_USER,        // GPIO01 Serial RXD and Optional sensor
+     GPIO_LED1_INV,    // GPIO02 Blue Led (1 = On, 0 = Off)
+     GPIO_USER,        // GPIO03 Serial TXD and Optional sensor
+     0,
+     GPIO_HLW_CF,      // GPIO05 BL0937 or HJL-01 CF power
+     0, 0, 0, 0, 0, 0, // Flash connection
+     GPIO_HLW_SEL,     // GPIO12 BL0937 or HJL-01 Sel output
+     GPIO_KEY1,        // GPIO13 Button
+     GPIO_HLW_CF1,     // GPIO14 BL0937 or HJL-01 CF1 voltage / current
+     GPIO_REL1,        // GPIO15 Relay (0 = Off, 1 = On)
+     0, 0
   }
 };
+
+/*
+  Optionals
+
+  { "Xenon 3CH",       // Xenon 3CH (ESP8266) - (#1128)
+     0, 0, 0,
+     GPIO_KEY2,        // GPIO03 Serial TXD and Optional sensor
+     GPIO_REL2,        // GPIO04 Relay 2
+     GPIO_KEY3,        // GPIO05 Input 2
+     0, 0, 0, 0, 0, 0, // Flash connection
+     GPIO_KEY1,        // GPIO12 Key input
+     GPIO_REL1,        // GPIO13 Relay 1
+     0,
+     GPIO_REL3,        // GPIO15 Relay 3
+     0, 0
+  }
+
+  { "PowStro Basic",   // PowStro (ESP8266) - (#1419)
+     0, 0, 0, 0,
+     GPIO_REL1,        // GPIO04 Relay (0 = Off, 1 = On)
+     0,
+     0, 0, 0, 0, 0, 0, // Flash connection
+     GPIO_KEY1,        // GPIO12 Button
+     0, 0,
+     GPIO_LED1,        // GPIO15 Led (1 = On, 0 = Off)
+     0, 0
+  }
+
+  { "SMPW701E",        // SM-PW701E WLAN Socket (#1190)
+     0, 0, 0, 0,
+     GPIO_LED1_INV,    // GPIO04 Blue Led (0 = On, 1 = Off)
+     0,                // GPIO05 IR or RF receiver (optional)
+     0, 0, 0, 0, 0, 0, // Flash connection
+     GPIO_REL1,        // GPIO12 Relay and Red Led (0 = Off, 1 = On)
+     GPIO_KEY1,        // GPIO13 Button
+     0, 0, 0, 0
+  }
+
+  { "SWA1",            // Smart Plugs (ESP8266)
+     0,
+     GPIO_USER,        // GPIO01
+     0,
+     GPIO_USER,        // GPIO03
+     GPIO_LED1_INV,    // GPIO04 Blue LED
+     GPIO_REL1,        // GPIO05 Red LED and relay
+     0, 0, 0, 0, 0, 0, // Flash connection
+     0,
+     GPIO_KEY1,        // GPIO13 Button (normally GPIO00)
+     GPIO_USER,        // GPIO14
+     0, 0, 0
+  }
+
+  { "MagicHome v2.3",  // Magic Home (aka Flux-light) (ESP8266) (#1353)
+     0, 0,
+     GPIO_LED1_INV,    // GPIO02 Blue onboard LED
+     0,
+     GPIO_USER,        // GPIO04 IR receiver (optional)
+     GPIO_PWM2,        // GPIO05 RGB LED Green
+     0, 0, 0, 0, 0, 0, // Flash connection
+     GPIO_PWM1,        // GPIO12 RGB LED Red
+     GPIO_PWM3,        // GPIO13 RGB LED Blue
+     0,
+     GPIO_PWM4,        // GPIO15 RGBW LED White
+     0, 0
+  }
+
+  { "Ledunia",         // Ledunia (ESP8266) - http://ledunia.de/
+     GPIO_USER,        // GPIO00 (D0)
+     GPIO_USER,        // GPIO01 (D7) Serial RXD
+     GPIO_USER,        // GPIO02 (D2)
+     GPIO_USER,        // GPIO03 (D8) Serial TXD
+     GPIO_USER,        // GPIO04 (D4) 4 x WS2812 Leds, (DOUT) Extents WS2812 string
+     GPIO_USER,        // GPIO05 (D5) Blue Led
+     0, 0, 0, 0, 0, 0, // Flash connection
+     GPIO_USER,        // GPIO12 (D12)
+     GPIO_USER,        // GPIO13 (D13)
+     GPIO_USER,        // GPIO14 (D14)
+     GPIO_USER,        // GPIO15 (D15)
+     GPIO_USER,        // GPIO16 (D16)
+     0                 // ADC0 Analog input (A0)
+  },
+
+  { "Shelly 1",        // Shelly1 Open Source (ESP8266 - 2MB) - https://shelly.cloud/shelly1-open-source/
+     GPIO_KEY1,        // GPIO00 Button
+     GPIO_USER,        // GPIO01 Serial RXD and Optional sensor
+     0,
+     GPIO_USER,        // GPIO03 Serial TXD and Optional sensor
+     GPIO_REL1,        // GPIO04 Relay (0 = Off, 1 = On)
+     GPIO_SWT1_NP,     // GPIO05 Switch
+     0, 0, 0, 0, 0, 0, // Flash connection
+     0, 0, 0, 0, 0, 0
+  },
+  { "Shelly 2",        // Shelly2 (ESP8266 - 2MB) - https://shelly.cloud/shelly2/
+                       // As Gnd is connected to AC no user GPIO allowed
+     0, 0, 0, 0,
+     GPIO_REL1,        // GPIO04 Relay 1 (0 = Off, 1 = On)
+     GPIO_REL2,        // GPIO05 Relay 2 (0 = Off, 1 = On)
+     0, 0, 0, 0, 0, 0, // Flash connection
+     GPIO_SWT1_NP,     // GPIO12 Switch 1
+     0,
+     GPIO_SWT2_NP,     // GPIO14 Switch 2
+     0, 0, 0
+  },
+*/
 
 #endif  // _SONOFF_TEMPLATE_H_
