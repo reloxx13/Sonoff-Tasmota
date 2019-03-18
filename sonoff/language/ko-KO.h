@@ -644,4 +644,5 @@
 #define D_UNIT_KWARH      "kVArh"
 #define D_UNIT_ANGLE      "Deg"
 
+#define D_MODIFIED "modified"
 #endif  // _LANGUAGE_KO_KO_H_
