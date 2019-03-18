@@ -72,24 +72,23 @@ uint8_t energy_power_delta = 0;
 
 bool energy_type_dc = false;
 bool energy_power_on = true;
+bool energy_min_power_flag = false;
+bool energy_max_power_flag = false;
+bool energy_min_voltage_flag = false;
+bool energy_max_voltage_flag = false;
+bool energy_min_current_flag = false;
+bool energy_max_current_flag = false;
 
-byte energy_min_power_flag = 0;
-byte energy_max_power_flag = 0;
-byte energy_min_voltage_flag = 0;
-byte energy_max_voltage_flag = 0;
-byte energy_min_current_flag = 0;
-byte energy_max_current_flag = 0;
-
-byte energy_power_steady_cntr = 8;  // Allow for power on stabilization
-byte energy_max_energy_state = 0;
+uint8_t energy_power_steady_cntr = 8;  // Allow for power on stabilization
+uint8_t energy_max_energy_state = 0;
 
 #if FEATURE_POWER_LIMIT
-byte energy_mplr_counter = 0;
+uint8_t energy_mplr_counter = 0;
 uint16_t energy_mplh_counter = 0;
 uint16_t energy_mplw_counter = 0;
 #endif  // FEATURE_POWER_LIMIT
 
-byte energy_fifth_second = 0;
+uint8_t energy_fifth_second = 0;
 Ticker ticker_energy;
 
 int energy_command_code = 0;
@@ -147,9 +146,9 @@ void EnergySaveState(void)
   Settings.energy_kWhtotal = RtcSettings.energy_kWhtotal;
 }
 
-boolean EnergyMargin(byte type, uint16_t margin, uint16_t value, byte &flag, byte &save_flag)
+bool EnergyMargin(bool type, uint16_t margin, uint16_t value, bool &flag, bool &save_flag)
 {
-  byte change;
+  bool change;
 
   if (!margin) return false;
   change = save_flag;
@@ -173,8 +172,8 @@ void EnergyMarginCheck(void)
   uint16_t energy_power_u = 0;
   uint16_t energy_voltage_u = 0;
   uint16_t energy_current_u = 0;
-  boolean flag;
-  boolean jsonflg;
+  bool flag;
+  bool jsonflg;
 
   if (energy_power_steady_cntr) {
     energy_power_steady_cntr--;
@@ -200,34 +199,33 @@ void EnergyMarginCheck(void)
     energy_voltage_u = (uint16_t)(energy_voltage);
     energy_current_u = (uint16_t)(energy_current * 1000);
 
-//    snprintf_P(log_data, sizeof(log_data), PSTR("NRG: W %d, U %d, I %d"), energy_power_u, energy_voltage_u, energy_current_u);
-//    AddLog(LOG_LEVEL_DEBUG);
+//    AddLog_P2(LOG_LEVEL_DEBUG, PSTR("NRG: W %d, U %d, I %d"), energy_power_u, energy_voltage_u, energy_current_u);
 
     snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{"));
-    jsonflg = 0;
-    if (EnergyMargin(0, Settings.energy_min_power, energy_power_u, flag, energy_min_power_flag)) {
+    jsonflg = false;
+    if (EnergyMargin(false, Settings.energy_min_power, energy_power_u, flag, energy_min_power_flag)) {
       snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s%s\"" D_CMND_POWERLOW "\":\"%s\""), mqtt_data, (jsonflg)?",":"", GetStateText(flag));
-      jsonflg = 1;
+      jsonflg = true;
     }
-    if (EnergyMargin(1, Settings.energy_max_power, energy_power_u, flag, energy_max_power_flag)) {
+    if (EnergyMargin(true, Settings.energy_max_power, energy_power_u, flag, energy_max_power_flag)) {
       snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s%s\"" D_CMND_POWERHIGH "\":\"%s\""), mqtt_data, (jsonflg)?",":"", GetStateText(flag));
-      jsonflg = 1;
+      jsonflg = true;
     }
-    if (EnergyMargin(0, Settings.energy_min_voltage, energy_voltage_u, flag, energy_min_voltage_flag)) {
+    if (EnergyMargin(false, Settings.energy_min_voltage, energy_voltage_u, flag, energy_min_voltage_flag)) {
       snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s%s\"" D_CMND_VOLTAGELOW "\":\"%s\""), mqtt_data, (jsonflg)?",":"", GetStateText(flag));
-      jsonflg = 1;
+      jsonflg = true;
     }
-    if (EnergyMargin(1, Settings.energy_max_voltage, energy_voltage_u, flag, energy_max_voltage_flag)) {
+    if (EnergyMargin(true, Settings.energy_max_voltage, energy_voltage_u, flag, energy_max_voltage_flag)) {
       snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s%s\"" D_CMND_VOLTAGEHIGH "\":\"%s\""), mqtt_data, (jsonflg)?",":"", GetStateText(flag));
-      jsonflg = 1;
+      jsonflg = true;
     }
-    if (EnergyMargin(0, Settings.energy_min_current, energy_current_u, flag, energy_min_current_flag)) {
+    if (EnergyMargin(false, Settings.energy_min_current, energy_current_u, flag, energy_min_current_flag)) {
       snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s%s\"" D_CMND_CURRENTLOW "\":\"%s\""), mqtt_data, (jsonflg)?",":"", GetStateText(flag));
-      jsonflg = 1;
+      jsonflg = true;
     }
-    if (EnergyMargin(1, Settings.energy_max_current, energy_current_u, flag, energy_max_current_flag)) {
+    if (EnergyMargin(true, Settings.energy_max_current, energy_current_u, flag, energy_max_current_flag)) {
       snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s%s\"" D_CMND_CURRENTHIGH "\":\"%s\""), mqtt_data, (jsonflg)?",":"", GetStateText(flag));
-      jsonflg = 1;
+      jsonflg = true;
     }
     if (jsonflg) {
       snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s}"), mqtt_data);
@@ -310,7 +308,7 @@ void EnergyMqttShow(void)
   snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_JSON_TIME "\":\"%s\""), GetDateAndTime(DT_LOCAL).c_str());
   int tele_period_save = tele_period;
   tele_period = 2;
-  EnergyShow(1);
+  EnergyShow(true);
   tele_period = tele_period_save;
   snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s}"), mqtt_data);
   MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_SENSOR), Settings.flag.mqtt_sensor_retain);
@@ -321,12 +319,12 @@ void EnergyMqttShow(void)
  * Commands
 \*********************************************************************************************/
 
-boolean EnergyCommand(void)
+bool EnergyCommand(void)
 {
   char command [CMDSZ];
   char sunit[CMDSZ];
-  boolean serviced = true;
-  uint8_t status_flag = 0;
+  bool serviced = true;
+  bool status_flag = false;
   uint8_t unit = 0;
   unsigned long nvalue = 0;
 
@@ -396,6 +394,7 @@ boolean EnergyCommand(void)
         Settings.energy_kWhtoday = energy_kWhtoday;
         RtcSettings.energy_kWhtoday = energy_kWhtoday;
         energy_daily = (float)energy_kWhtoday / 100000;
+        if (!RtcSettings.energy_kWhtotal && !energy_kWhtoday) { Settings.energy_kWhtotal_time = LocalTime(); }
         break;
       case 2:
         Settings.energy_kWhyesterday = lnum *100;
@@ -404,7 +403,7 @@ boolean EnergyCommand(void)
         RtcSettings.energy_kWhtotal = lnum *100;
         Settings.energy_kWhtotal = RtcSettings.energy_kWhtotal;
         energy_total = (float)(RtcSettings.energy_kWhtotal + energy_kWhtoday) / 100000;
-        if (!energy_total) { Settings.energy_kWhtotal_time = LocalTime(); }
+        Settings.energy_kWhtotal_time = (!energy_kWhtoday) ? LocalTime() : Midnight();
         break;
       }
     }
@@ -417,7 +416,7 @@ boolean EnergyCommand(void)
 
     snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"%s\":{\"" D_JSON_TOTAL "\":%s,\"" D_JSON_YESTERDAY "\":%s,\"" D_JSON_TODAY "\":%s}}"),
       command, energy_total_chr, energy_yesterday_chr, energy_daily_chr);
-    status_flag = 1;
+    status_flag = true;
   }
   else if ((CMND_POWERCAL == command_code) && XnrgCall(FUNC_COMMAND)) {  // microseconds
     if ((XdrvMailbox.payload > 999) && (XdrvMailbox.payload < 32001)) { Settings.energy_power_calibration = XdrvMailbox.payload; }
@@ -568,7 +567,7 @@ const char HTTP_ENERGY_SNS4[] PROGMEM = "%s"
   "{s}" D_ENERGY_TOTAL "{m}%s " D_UNIT_KILOWATTHOUR "{e}";      // {s} = <tr><th>, {m} = </th><td>, {e} = </td></tr>
 #endif  // USE_WEBSERVER
 
-void EnergyShow(boolean json)
+void EnergyShow(bool json)
 {
   char speriod[20];
   char sfrequency[20];
@@ -681,9 +680,9 @@ void EnergyShow(boolean json)
  * Interface
 \*********************************************************************************************/
 
-boolean Xdrv03(byte function)
+bool Xdrv03(uint8_t function)
 {
-  boolean result = false;
+  bool result = false;
 
   if (FUNC_PRE_INIT == function) {
     EnergyDrvInit();
@@ -696,6 +695,9 @@ boolean Xdrv03(byte function)
       case FUNC_SET_POWER:
         EnergySetPowerSteadyCounter();
         break;
+      case FUNC_LOOP:
+        XnrgCall(FUNC_LOOP);
+        break;
       case FUNC_SERIAL:
         result = XnrgCall(FUNC_SERIAL);
         break;
@@ -704,9 +706,9 @@ boolean Xdrv03(byte function)
   return result;
 }
 
-boolean Xsns03(byte function)
+bool Xsns03(uint8_t function)
 {
-  boolean result = false;
+  bool result = false;
 
   if (energy_flg) {
     switch (function) {
@@ -717,11 +719,11 @@ boolean Xsns03(byte function)
         EnergyMarginCheck();
         break;
       case FUNC_JSON_APPEND:
-        EnergyShow(1);
+        EnergyShow(true);
         break;
 #ifdef USE_WEBSERVER
       case FUNC_WEB_APPEND:
-        EnergyShow(0);
+        EnergyShow(false);
         break;
 #endif  // USE_WEBSERVER
       case FUNC_SAVE_BEFORE_RESTART:

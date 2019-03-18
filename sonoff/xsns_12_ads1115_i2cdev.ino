@@ -55,7 +55,7 @@ uint8_t ads1115_addresses[] = {
   ADS1115_ADDRESS_ADDR_SCL   // address pin tied to SCL pin
 };
 
-int16_t Ads1115GetConversion(byte channel)
+int16_t Ads1115GetConversion(uint8_t channel)
 {
   switch (channel) {
     case 0:
@@ -81,7 +81,7 @@ void Ads1115Detect(void)
     return;
   }
 
-  for (byte i = 0; i < sizeof(ads1115_addresses); i++) {
+  for (uint8_t i = 0; i < sizeof(ads1115_addresses); i++) {
     ads1115_address = ads1115_addresses[i];
     ADS1115 adc0(ads1115_address);
     if (adc0.testConnection()) {
@@ -90,20 +90,19 @@ void Ads1115Detect(void)
       adc0.setRate(ADS1115_RATE_860);
       adc0.setMode(ADS1115_MODE_CONTINUOUS);
       ads1115_type = 1;
-      snprintf_P(log_data, sizeof(log_data), S_LOG_I2C_FOUND_AT, "ADS1115", ads1115_address);
-      AddLog(LOG_LEVEL_DEBUG);
+      AddLog_P2(LOG_LEVEL_DEBUG, S_LOG_I2C_FOUND_AT, "ADS1115", ads1115_address);
       break;
     }
   }
 }
 
-void Ads1115Show(boolean json)
+void Ads1115Show(bool json)
 {
   if (ads1115_type) {
     char stemp[10];
 
-    byte dsxflg = 0;
-    for (byte i = 0; i < 4; i++) {
+    uint8_t dsxflg = 0;
+    for (uint8_t i = 0; i < 4; i++) {
       int16_t adc_value = Ads1115GetConversion(i);
 
       if (json) {
@@ -132,9 +131,9 @@ void Ads1115Show(boolean json)
  * Interface
 \*********************************************************************************************/
 
-boolean Xsns12(byte function)
+bool Xsns12(uint8_t function)
 {
-  boolean result = false;
+  bool result = false;
 
   if (i2c_flg) {
     switch (function) {
