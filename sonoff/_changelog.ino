@@ -1,5 +1,9 @@
-/* 6.5.0.2 20190325
+/* 6.5.0.3 20190328
+ * Add command Sensor20 1..255 to change Nova Fitness SDS01 working period in minutes (#5452)
+ *
+ * 6.5.0.2 20190325
  * Change UDP initial message handling from string to char using static memory and add debug info (#5505)
+ * Add optional support for Badger HR-E Water Meter (#5539)
  *
  * 6.5.0.1 20190319
  * Change Web GUI sensor data collection
