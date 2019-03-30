@@ -35,4 +35,5 @@ copy ..\.pioenvs\sonoff-display\firmware.bin %version%\DISPLAY-firmware-%version
 
 
 copy ..\.pioenvs\sonoff-DE-4MB\firmware.bin %version%\4MB-DE-firmware-%version%.bin
+copy ..\.pioenvs\sonoff-DE-2MB\firmware.bin %version%\2MB-DE-firmware-%version%.bin
 copy ..\.pioenvs\wemos-d1-mini-DE\firmware.bin %version%\wemos-d1-mini-DE-firmware-%version%.bin
