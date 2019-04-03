@@ -28,7 +28,7 @@ uint32_t syslog_host_hash = 0;   // Syslog host name hash
 
 Ticker tickerOSWatch;
 
-#define OSWATCH_RESET_TIME 120
+const uint32_t OSWATCH_RESET_TIME = 120;
 
 static unsigned long oswatch_last_loop_time;
 uint8_t oswatch_blocked_loop = 0;
@@ -123,6 +123,89 @@ size_t strcspn(const char *str1, const char *str2)
   }
   return ret;
 }
+
+/*
+ * Convert a string to an unsigned long long integer.
+ *
+ * Assumes that the upper and lower case
+ * alphabets and digits are each contiguous.
+ * https://opensource.apple.com/source/Libc/Libc-583/stdlib/FreeBSD/strtoull.c
+ */
+
+#ifndef __LONG_LONG_MAX__
+#define __LONG_LONG_MAX__ 9223372036854775807LL
+#endif
+#undef ULLONG_MAX
+#define ULLONG_MAX (__LONG_LONG_MAX__ * 2ULL + 1)
+
+unsigned long long strtoull(const char *__restrict nptr, char **__restrict endptr, int base)
+{
+	const char *s;
+	unsigned long long acc;
+	char c;
+	unsigned long long cutoff;
+	int neg, any, cutlim;
+
+	/*
+	 * See strtoq for comments as to the logic used.
+	 */
+	s = nptr;
+	do {
+		c = *s++;
+	} while (isspace((unsigned char)c));
+	if (c == '-') {
+		neg = 1;
+		c = *s++;
+	} else {
+		neg = 0;
+		if (c == '+')
+			c = *s++;
+	}
+	if ((base == 0 || base == 16) &&
+	    c == '0' && (*s == 'x' || *s == 'X')) {
+		c = s[1];
+		s += 2;
+		base = 16;
+	}
+	if (base == 0)
+		base = c == '0' ? 8 : 10;
+	acc = any = 0;
+	if (base < 2 || base > 36)
+		goto noconv;
+
+	cutoff = ULLONG_MAX / base;
+	cutlim = ULLONG_MAX % base;
+	for ( ; ; c = *s++) {
+		if (c >= '0' && c <= '9')
+			c -= '0';
+		else if (c >= 'A' && c <= 'Z')
+			c -= 'A' - 10;
+		else if (c >= 'a' && c <= 'z')
+			c -= 'a' - 10;
+		else
+			break;
+		if (c >= base)
+			break;
+		if (any < 0 || acc > cutoff || (acc == cutoff && c > cutlim))
+			any = -1;
+		else {
+			any = 1;
+			acc *= base;
+			acc += c;
+		}
+	}
+	if (any < 0) {
+		acc = ULLONG_MAX;
+	} else if (!any) {
+noconv:
+    uint8_t dummy = 0;
+	} else if (neg)
+		acc = -acc;
+	if (endptr != nullptr)
+		*endptr = (char *)(any ? s - 1 : nptr);
+	return (acc);
+}
+
 #endif  // ARDUINO_ESP8266_RELEASE_2_3_0
 
 // Get span until single character in string
@@ -198,6 +281,27 @@ int TextToInt(char *str)
     str++;
   }
   return strtol(str, &p, radix);
+}
+
+char* ulltoa(unsigned long long value, char *str, int radix)
+{
+  char digits[64];
+  char *dst = str;
+  int i = 0;
+  int n = 0;
+
+//  if (radix < 2 || radix > 36) { radix = 10; }
+
+  do {
+    n = value % radix;
+    digits[i++] = (n < 10) ? (char)n+'0' : (char)n-10+'A';
+    value /= radix;
+  } while (value != 0);
+
+  while (i > 0) { *dst++ = digits[--i]; }
+
+  *dst = 0;
+  return str;
 }
 
 char* dtostrfd(double number, unsigned char prec, char *s)
@@ -368,6 +472,14 @@ uint8_t Shortcut(const char* str)
     }
   }
   return result;
+}
+
+bool ValidIpAddress(const char* str)
+{
+  const char* p = str;
+
+  while (*p && ((*p == '.') || ((*p >= '0') && (*p <= '9')))) { p++; }
+  return (*p == '\0');
 }
 
 bool ParseIp(uint32_t* addr, const char* str)
@@ -996,7 +1108,7 @@ void SetNextTimeInterval(unsigned long& timer, const unsigned long step)
 \*********************************************************************************************/
 
 #ifdef USE_I2C
-#define I2C_RETRY_COUNTER 3
+const uint8_t I2C_RETRY_COUNTER = 3;
 
 uint32_t i2c_buffer = 0;
 
@@ -1247,8 +1359,9 @@ void Syslog(void)
   // Destroys log_data
   char syslog_preamble[64];  // Hostname + Id
 
-  if (syslog_host_hash != GetHash(Settings.syslog_host, strlen(Settings.syslog_host))) {
-    syslog_host_hash = GetHash(Settings.syslog_host, strlen(Settings.syslog_host));
+  uint32_t current_hash = GetHash(Settings.syslog_host, strlen(Settings.syslog_host));
+  if (syslog_host_hash != current_hash) {
+    syslog_host_hash = current_hash;
     WiFi.hostByName(Settings.syslog_host, syslog_host_addr);  // If sleep enabled this might result in exception so try to do it once using hash
   }
   if (PortUdp.beginPacket(syslog_host_addr, Settings.syslog_port)) {

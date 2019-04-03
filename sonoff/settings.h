@@ -20,7 +20,7 @@
 #ifndef _SETTINGS_H_
 #define _SETTINGS_H_
 
-#define PARAM8_SIZE  18                    // Number of param bytes (SetOption)
+const uint8_t PARAM8_SIZE = 18;            // Number of param bytes (SetOption)
 
 typedef union {                            // Restricted by MISRA-C Rule 18.4 but so useful...
   uint32_t data;                           // Allow bit manipulation using SetOption
@@ -185,12 +185,12 @@ struct SYSCFG {
   unsigned long bootcount;                 // 00C
 */
 struct SYSCFG {
-  uint16_t cfg_holder;                     // 000 v6 header
-  uint16_t cfg_size;                       // 002
+  uint16_t      cfg_holder;                // 000 v6 header
+  uint16_t      cfg_size;                  // 002
   unsigned long save_flag;                 // 004
   unsigned long version;                   // 008
-  uint16_t bootcount;                      // 00C
-  uint16_t cfg_crc;                        // 00E
+  uint16_t      bootcount;                 // 00C
+  uint16_t      cfg_crc;                   // 00E
   SysBitfield   flag;                      // 010
   int16_t       save_data;                 // 014
   int8_t        timezone;                  // 016
@@ -397,7 +397,7 @@ struct XDRVMAILBOX {
   char         *data;
 } XdrvMailbox;
 
-#define MAX_RULES_FLAG  7                  // Number of bits used in RulesBitfield (tricky I know...)
+const uint8_t MAX_RULES_FLAG = 7;          // Number of bits used in RulesBitfield (tricky I know...)
 typedef union {                            // Restricted by MISRA-C Rule 18.4 but so useful...
   uint16_t data;                           // Allow bit manipulation
   struct {
