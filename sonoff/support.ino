@@ -108,7 +108,7 @@ void* memchr(const void* ptr, int value, size_t num)
   return 0;
 }
 
-// http://clc-wiki.net/wiki/C_standard_library:string.h:strspn
+// http://clc-wiki.net/wiki/C_standard_library:string.h:strcspn
 // Get span until any character in string
 size_t strcspn(const char *str1, const char *str2)
 {
@@ -124,88 +124,76 @@ size_t strcspn(const char *str1, const char *str2)
   return ret;
 }
 
-/*
- * Convert a string to an unsigned long long integer.
- *
- * Assumes that the upper and lower case
- * alphabets and digits are each contiguous.
- * https://opensource.apple.com/source/Libc/Libc-583/stdlib/FreeBSD/strtoull.c
- */
-
+// https://opensource.apple.com/source/Libc/Libc-583/stdlib/FreeBSD/strtoull.c
+// Convert a string to an unsigned long long integer
 #ifndef __LONG_LONG_MAX__
 #define __LONG_LONG_MAX__ 9223372036854775807LL
 #endif
-#undef ULLONG_MAX
+#ifndef ULLONG_MAX
 #define ULLONG_MAX (__LONG_LONG_MAX__ * 2ULL + 1)
+#endif
 
 unsigned long long strtoull(const char *__restrict nptr, char **__restrict endptr, int base)
 {
-	const char *s;
-	unsigned long long acc;
-	char c;
-	unsigned long long cutoff;
-	int neg, any, cutlim;
+  const char *s = nptr;
+  char c;
+  do { c = *s++; } while (isspace((unsigned char)c));                         // Trim leading spaces
 
-	/*
-	 * See strtoq for comments as to the logic used.
-	 */
-	s = nptr;
-	do {
-		c = *s++;
-	} while (isspace((unsigned char)c));
-	if (c == '-') {
-		neg = 1;
-		c = *s++;
-	} else {
-		neg = 0;
-		if (c == '+')
-			c = *s++;
-	}
-	if ((base == 0 || base == 16) &&
-	    c == '0' && (*s == 'x' || *s == 'X')) {
-		c = s[1];
-		s += 2;
-		base = 16;
-	}
-	if (base == 0)
-		base = c == '0' ? 8 : 10;
-	acc = any = 0;
-	if (base < 2 || base > 36)
-		goto noconv;
+  int neg = 0;
+  if (c == '-') {                                                             // Set minus flag and/or skip sign
+    neg = 1;
+    c = *s++;
+  } else {
+    if (c == '+') {
+      c = *s++;
+    }
+  }
 
-	cutoff = ULLONG_MAX / base;
-	cutlim = ULLONG_MAX % base;
-	for ( ; ; c = *s++) {
-		if (c >= '0' && c <= '9')
-			c -= '0';
-		else if (c >= 'A' && c <= 'Z')
-			c -= 'A' - 10;
-		else if (c >= 'a' && c <= 'z')
-			c -= 'a' - 10;
-		else
-			break;
-		if (c >= base)
-			break;
-		if (any < 0 || acc > cutoff || (acc == cutoff && c > cutlim))
-			any = -1;
-		else {
-			any = 1;
-			acc *= base;
-			acc += c;
-		}
-	}
-	if (any < 0) {
-		acc = ULLONG_MAX;
-	} else if (!any) {
-noconv:
-    uint8_t dummy = 0;
-	} else if (neg)
-		acc = -acc;
-	if (endptr != nullptr)
-		*endptr = (char *)(any ? s - 1 : nptr);
-	return (acc);
+  if ((base == 0 || base == 16) && (c == '0') && (*s == 'x' || *s == 'X')) {  // Set Hexadecimal
+    c = s[1];
+    s += 2;
+    base = 16;
+  }
+  if (base == 0) { base = (c == '0') ? 8 : 10; }                              // Set Octal or Decimal
+
+  unsigned long long acc = 0;
+  int any = 0;
+  if (base > 1 && base < 37) {
+    unsigned long long cutoff = ULLONG_MAX / base;
+    int cutlim = ULLONG_MAX % base;
+    for ( ; ; c = *s++) {
+      if (c >= '0' && c <= '9')
+        c -= '0';
+      else if (c >= 'A' && c <= 'Z')
+        c -= 'A' - 10;
+      else if (c >= 'a' && c <= 'z')
+        c -= 'a' - 10;
+      else
+        break;
+
+      if (c >= base)
+        break;
+
+      if (any < 0 || acc > cutoff || (acc == cutoff && c > cutlim))
+        any = -1;
+      else {
+        any = 1;
+        acc *= base;
+        acc += c;
+      }
+    }
+    if (any < 0) {
+      acc = ULLONG_MAX;                                                       // Range error
+    }
+    else if (any && neg) {
+      acc = -acc;
+    }
+  }
+
+  if (endptr != nullptr) { *endptr = (char *)(any ? s - 1 : nptr); }
+
+  return acc;
 }
-
 #endif  // ARDUINO_ESP8266_RELEASE_2_3_0
 
 // Get span until single character in string
@@ -858,6 +846,16 @@ uint8_t ModuleNr()
   return (USER_MODULE == Settings.module) ? 0 : Settings.module +1;
 }
 
+bool ValidModule(uint8_t index)
+{
+  for (uint8_t i = 0; i < sizeof(kModuleNiceList); i++) {
+    if (index == pgm_read_byte(kModuleNiceList + i)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 String AnyModuleName(uint8_t index)
 {
   if (USER_MODULE == index) {
@@ -1025,8 +1023,8 @@ bool JsonTemplate(const char* dataBuf)
   }
   if (obj[D_JSON_BASE].success()) {
     uint8_t base = obj[D_JSON_BASE];
-    if ((0 == base) || (base >= MAXMODULE)) { base = 17; } else { base--; }
-    Settings.user_template_base = base;  // Default WEMOS
+    if ((0 == base) || !ValidModule(base -1)) { base = 18; }
+    Settings.user_template_base = base -1;  // Default WEMOS
   }
   return true;
 }
