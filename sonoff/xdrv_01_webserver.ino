@@ -31,6 +31,55 @@
 #define WIFI_SOFT_AP_CHANNEL                  1          // Soft Access Point Channel number between 1 and 11 as used by SmartConfig web GUI
 #endif
 
+#ifndef COLOR_TEXT_WARNING
+#define COLOR_TEXT_WARNING                    "#f00"     // Warning text color - Red
+#endif
+#ifndef COLOR_TEXT_SUCCESS
+#define COLOR_TEXT_SUCCESS                    "#008000"  // Success text color - Green
+#endif
+#ifndef COLOR_TEXT
+#define COLOR_TEXT                            "#000"     // Global text color - Black
+#endif
+#ifndef COLOR_BACKGROUND
+#define COLOR_BACKGROUND                      "#fff"     // Global background color - White
+#endif
+#ifndef COLOR_FORM
+#define COLOR_FORM                            "#f2f2f2"  // Form background color - Greyish
+#endif
+#ifndef COLOR_INPUT_TEXT
+#define COLOR_INPUT_TEXT                      "#000"     // Input text color - Black
+#endif
+#ifndef COLOR_INPUT
+#define COLOR_INPUT                           "#fff"     // Input background color - White
+#endif
+#ifndef COLOR_CONSOLE_TEXT
+#define COLOR_CONSOLE_TEXT                    "#000"     // Console text color - Black
+#endif
+#ifndef COLOR_CONSOLE
+#define COLOR_CONSOLE                         "#fff"     // Console background color - White
+#endif
+#ifndef COLOR_BUTTON_TEXT
+#define COLOR_BUTTON_TEXT                     "#fff"     // Button text color - White
+#endif
+#ifndef COLOR_BUTTON
+#define COLOR_BUTTON                          "#1fa3ec"  // Button color - Blueish
+#endif
+#ifndef COLOR_BUTTON_HOVER
+#define COLOR_BUTTON_HOVER                    "#0e70a4"  // Button color when hovered over - Darker blueish
+#endif
+#ifndef COLOR_BUTTON_RESET
+#define COLOR_BUTTON_RESET                    "#d43535"  // Restart/Reset/Delete button color - Redish
+#endif
+#ifndef COLOR_BUTTON_RESET_HOVER
+#define COLOR_BUTTON_RESET_HOVER              "#931f1f"  // Restart/Reset/Delete button color when hovered over - Darker redish
+#endif
+#ifndef COLOR_BUTTON_SAVE
+#define COLOR_BUTTON_SAVE                     "#47c266"  // Save button color - Greenish
+#endif
+#ifndef COLOR_BUTTON_SAVE_HOVER
+#define COLOR_BUTTON_SAVE_HOVER               "#5aaf6f"  // Save button color when hovered over - Darker greenish
+#endif
+
 const uint16_t CHUNKED_BUFFER_SIZE = 400;                // Chunk buffer size (should be smaller than half mqtt_date size)
 
 const uint16_t HTTP_REFRESH_TIME = 2345;                 // milliseconds
@@ -241,21 +290,21 @@ const char HTTP_HEAD_STYLE1[] PROGMEM =
 
   "<style>"
   "div,fieldset,input,select{padding:5px;font-size:1em;}"
-  "fieldset{background-color:#f2f2f2;}"  // Also update HTTP_TIMER_STYLE
+  "fieldset{background:" COLOR_FORM ";}"  // Also update HTTP_TIMER_STYLE
   "p{margin:0.5em 0;}"
-  "input{width:100%%;box-sizing:border-box;-webkit-box-sizing:border-box;-moz-box-sizing:border-box;}"
+  "input{width:100%%;box-sizing:border-box;-webkit-box-sizing:border-box;-moz-box-sizing:border-box;background:" COLOR_INPUT ";color:" COLOR_INPUT_TEXT ";}"
   "input[type=checkbox],input[type=radio]{width:1em;margin-right:6px;vertical-align:-1px;}"
-  "select{width:100%%;}"
-  "textarea{resize:none;width:98%%;height:318px;padding:5px;overflow:auto;}"
-  "body{text-align:center;font-family:verdana;}"
+  "select{width:100%%;background:" COLOR_INPUT ";color:" COLOR_INPUT_TEXT ";}"
+  "textarea{resize:none;width:98%%;height:318px;padding:5px;overflow:auto;background:" COLOR_CONSOLE ";color:" COLOR_CONSOLE_TEXT ";}"
+  "body{text-align:center;font-family:verdana;background:" COLOR_BACKGROUND ";}"
   "td{padding:0px;}";
 const char HTTP_HEAD_STYLE2[] PROGMEM =
-  "button{border:0;border-radius:0.3rem;background-color:#1fa3ec;color:#fff;line-height:2.4rem;font-size:1.2rem;width:100%%;-webkit-transition-duration:0.4s;transition-duration:0.4s;cursor:pointer;}"
-  "button:hover{background-color:#0e70a4;}"
-  ".bred{background-color:#d43535;}"
-  ".bred:hover{background-color:#931f1f;}"
-  ".bgrn{background-color:#47c266;}"
-  ".bgrn:hover{background-color:#5aaf6f;}"
+  "button{border:0;border-radius:0.3rem;background:" COLOR_BUTTON ";color:" COLOR_BUTTON_TEXT ";line-height:2.4rem;font-size:1.2rem;width:100%%;-webkit-transition-duration:0.4s;transition-duration:0.4s;cursor:pointer;}"
+  "button:hover{background:" COLOR_BUTTON_HOVER ";}"
+  ".bred{background:" COLOR_BUTTON_RESET ";}"
+  ".bred:hover{background:" COLOR_BUTTON_RESET_HOVER ";}"
+  ".bgrn{background:" COLOR_BUTTON_SAVE ";}"
+  ".bgrn:hover{background:" COLOR_BUTTON_SAVE_HOVER ";}"
   "a{text-decoration:none;}"
   ".p{float:left;text-align:left;}"
   ".q{float:right;text-align:right;}";
@@ -264,9 +313,9 @@ const char HTTP_HEAD_STYLE3[] PROGMEM =
 
   "</head>"
   "<body>"
-  "<div style='text-align:left;display:inline-block;min-width:340px;'>"
+  "<div style='text-align:left;display:inline-block;color:" COLOR_TEXT ";min-width:340px;'>"
 #ifdef FIRMWARE_MINIMAL
-  "<div style='text-align:center;color:red;'><h3>" D_MINIMAL_FIRMWARE_PLEASE_UPGRADE "</h3></div>"
+  "<div style='text-align:center;color:" COLOR_TEXT_WARNING ";'><h3>" D_MINIMAL_FIRMWARE_PLEASE_UPGRADE "</h3></div>"
 #endif
   "<div style='text-align:center;'><noscript>" D_NOSCRIPT "<br/></noscript>"
 #ifdef LANGUAGE_MODULE_NAME
@@ -335,7 +384,7 @@ const char HTTP_FORM_OTHER[] PROGMEM =
   "<p><input id='t2' name='t2' type='checkbox'%s><b>" D_ACTIVATE "</b></p>"
   "</fieldset>"
   "<br/>"
-  "<b>" D_WEB_ADMIN_PASSWORD "</b><br/><input id='p1' name='p1' type='password' placeholder='" D_WEB_ADMIN_PASSWORD "' value='" D_ASTERIX "'><br/>"
+  "<b>" D_WEB_ADMIN_PASSWORD "</b><br/><input id='wp' name='wp' type='password' placeholder='" D_WEB_ADMIN_PASSWORD "' value='" D_ASTERIX "'><br/>"
   "<br>"
   "<input id='b1' name='b1' type='checkbox'%s><b>" D_MQTT_ENABLE "</b><br/>"
   "<br/>";
@@ -1099,7 +1148,7 @@ void HandleTemplateConfiguration(void)
     if ((i < 6) || ((i > 8) && (i != 11))) {          // Ignore flash pins GPIO06, 7, 8 and 11
       bool esp8285 = ((9==i)||(10==i));
       WSContentSend_P(PSTR("<tr><td><b>%s" D_GPIO "%d%s</b></td><td%s><select id='g%d' name='g%d'></select></td></tr>"),
-        (esp8285) ? "<font color='red'>" : "", i, (esp8285) ? "</font>" : "", (0==i) ? " style='width:200px'" : "", i, i);
+        (esp8285) ? "<font color='" COLOR_TEXT_WARNING "'>" : "", i, (esp8285) ? "</font>" : "", (0==i) ? " style='width:200px'" : "", i, i);
     }
   }
   WSContentSend_P(PSTR("</table>"));
@@ -1205,7 +1254,7 @@ void HandleModuleConfiguration(void)
     if (ValidGPIO(i, cmodule.io[i])) {
       snprintf_P(stemp, 3, PINS_WEMOS +i*2);
       WSContentSend_P(PSTR("<tr><td style='width:190px'>%s <b>" D_GPIO "%d</b> %s</td><td style='width:176px'><select id='g%d' name='g%d'></select></td></tr>"),
-        (WEMOS==my_module_type)?stemp:"", i, (0==i)? D_SENSOR_BUTTON "1":(1==i)? D_SERIAL_OUT :(3==i)? D_SERIAL_IN :((9==i)||(10==i))? "<font color='red'>ESP8285</font>" :(12==i)? D_SENSOR_RELAY "1":(13==i)? D_SENSOR_LED "1i":(14==i)? D_SENSOR :"", i, i);
+        (WEMOS==my_module_type)?stemp:"", i, (0==i)? D_SENSOR_BUTTON "1":(1==i)? D_SERIAL_OUT :(3==i)? D_SERIAL_IN :((9==i)||(10==i))? "<font color='" COLOR_TEXT_WARNING "'>ESP8285</font>" :(12==i)? D_SENSOR_RELAY "1":(13==i)? D_SENSOR_LED "1i":(14==i)? D_SENSOR :"", i, i);
     }
   }
   WSContentSend_P(PSTR("</table>"));
@@ -1497,7 +1546,7 @@ void OtherSaveSettings(void)
   char webindex[5];
   char friendlyname[sizeof(Settings.friendlyname[0])];
 
-  WebGetArg("p1", tmp, sizeof(tmp));
+  WebGetArg("wp", tmp, sizeof(tmp));
   strlcpy(Settings.web_password, (!strlen(tmp)) ? "" : (strchr(tmp,'*')) ? Settings.web_password : tmp, sizeof(Settings.web_password));
   Settings.flag.mqtt_enabled = WebServer->hasArg("b1");
 #ifdef USE_EMULATION
@@ -1774,7 +1823,7 @@ void HandleUploadDone(void)
   WSContentSendStyle();
   WSContentSend_P(PSTR("<div style='text-align:center;'><b>" D_UPLOAD " <font color='"));
   if (upload_error) {
-    WSContentSend_P(PSTR("red'>" D_FAILED "</font></b><br/><br/>"));
+    WSContentSend_P(PSTR(COLOR_TEXT_WARNING "'>" D_FAILED "</font></b><br/><br/>"));
 #ifdef USE_RF_FLASH
     if (upload_error < 14) {
 #else
@@ -1788,7 +1837,7 @@ void HandleUploadDone(void)
     AddLog_P2(LOG_LEVEL_DEBUG, PSTR(D_UPLOAD ": %s"), error);
     stop_flash_rotate = Settings.flag.stop_flash_rotate;
   } else {
-    WSContentSend_P(PSTR("green'>" D_SUCCESSFUL "</font></b><br/>"));
+    WSContentSend_P(PSTR(COLOR_TEXT_SUCCESS "'>" D_SUCCESSFUL "</font></b><br/>"));
     WSContentSend_P(HTTP_MSG_RSTRT);
     ShowWebSource(SRC_WEBGUI);
     restart_flag = 2;  // Always restart to re-enable disabled features during update
