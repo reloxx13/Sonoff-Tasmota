@@ -31,55 +31,6 @@
 #define WIFI_SOFT_AP_CHANNEL                  1          // Soft Access Point Channel number between 1 and 11 as used by SmartConfig web GUI
 #endif
 
-#ifndef COLOR_TEXT_WARNING
-#define COLOR_TEXT_WARNING                    "#f00"     // Warning text color - Red
-#endif
-#ifndef COLOR_TEXT_SUCCESS
-#define COLOR_TEXT_SUCCESS                    "#008000"  // Success text color - Green
-#endif
-#ifndef COLOR_TEXT
-#define COLOR_TEXT                            "#000"     // Global text color - Black
-#endif
-#ifndef COLOR_BACKGROUND
-#define COLOR_BACKGROUND                      "#fff"     // Global background color - White
-#endif
-#ifndef COLOR_FORM
-#define COLOR_FORM                            "#f2f2f2"  // Form background color - Greyish
-#endif
-#ifndef COLOR_INPUT_TEXT
-#define COLOR_INPUT_TEXT                      "#000"     // Input text color - Black
-#endif
-#ifndef COLOR_INPUT
-#define COLOR_INPUT                           "#fff"     // Input background color - White
-#endif
-#ifndef COLOR_CONSOLE_TEXT
-#define COLOR_CONSOLE_TEXT                    "#000"     // Console text color - Black
-#endif
-#ifndef COLOR_CONSOLE
-#define COLOR_CONSOLE                         "#fff"     // Console background color - White
-#endif
-#ifndef COLOR_BUTTON_TEXT
-#define COLOR_BUTTON_TEXT                     "#fff"     // Button text color - White
-#endif
-#ifndef COLOR_BUTTON
-#define COLOR_BUTTON                          "#1fa3ec"  // Button color - Blueish
-#endif
-#ifndef COLOR_BUTTON_HOVER
-#define COLOR_BUTTON_HOVER                    "#0e70a4"  // Button color when hovered over - Darker blueish
-#endif
-#ifndef COLOR_BUTTON_RESET
-#define COLOR_BUTTON_RESET                    "#d43535"  // Restart/Reset/Delete button color - Redish
-#endif
-#ifndef COLOR_BUTTON_RESET_HOVER
-#define COLOR_BUTTON_RESET_HOVER              "#931f1f"  // Restart/Reset/Delete button color when hovered over - Darker redish
-#endif
-#ifndef COLOR_BUTTON_SAVE
-#define COLOR_BUTTON_SAVE                     "#47c266"  // Save button color - Greenish
-#endif
-#ifndef COLOR_BUTTON_SAVE_HOVER
-#define COLOR_BUTTON_SAVE_HOVER               "#5aaf6f"  // Save button color when hovered over - Darker greenish
-#endif
-
 const uint16_t CHUNKED_BUFFER_SIZE = 400;                // Chunk buffer size (should be smaller than half mqtt_date size)
 
 const uint16_t HTTP_REFRESH_TIME = 2345;                 // milliseconds
@@ -290,21 +241,21 @@ const char HTTP_HEAD_STYLE1[] PROGMEM =
 
   "<style>"
   "div,fieldset,input,select{padding:5px;font-size:1em;}"
-  "fieldset{background:" COLOR_FORM ";}"  // Also update HTTP_TIMER_STYLE
+  "fieldset{background:#%06x;}"  // COLOR_FORM, Also update HTTP_TIMER_STYLE
   "p{margin:0.5em 0;}"
-  "input{width:100%%;box-sizing:border-box;-webkit-box-sizing:border-box;-moz-box-sizing:border-box;background:" COLOR_INPUT ";color:" COLOR_INPUT_TEXT ";}"
+  "input{width:100%%;box-sizing:border-box;-webkit-box-sizing:border-box;-moz-box-sizing:border-box;background:#%06x;color:#%06x;}"  // COLOR_INPUT, COLOR_INPUT_TEXT
   "input[type=checkbox],input[type=radio]{width:1em;margin-right:6px;vertical-align:-1px;}"
-  "select{width:100%%;background:" COLOR_INPUT ";color:" COLOR_INPUT_TEXT ";}"
-  "textarea{resize:none;width:98%%;height:318px;padding:5px;overflow:auto;background:" COLOR_CONSOLE ";color:" COLOR_CONSOLE_TEXT ";}"
-  "body{text-align:center;font-family:verdana;background:" COLOR_BACKGROUND ";}"
+  "select{width:100%%;background:#%06x;color:#%06x;}"  // COLOR_INPUT, COLOR_INPUT_TEXT
+  "textarea{resize:none;width:98%%;height:318px;padding:5px;overflow:auto;background:#%06x;color:#%06x;}"  // COLOR_CONSOLE, COLOR_CONSOLE_TEXT
+  "body{text-align:center;font-family:verdana;background:#%06x;}"  // COLOR_BACKGROUND
   "td{padding:0px;}";
 const char HTTP_HEAD_STYLE2[] PROGMEM =
-  "button{border:0;border-radius:0.3rem;background:" COLOR_BUTTON ";color:" COLOR_BUTTON_TEXT ";line-height:2.4rem;font-size:1.2rem;width:100%%;-webkit-transition-duration:0.4s;transition-duration:0.4s;cursor:pointer;}"
-  "button:hover{background:" COLOR_BUTTON_HOVER ";}"
-  ".bred{background:" COLOR_BUTTON_RESET ";}"
-  ".bred:hover{background:" COLOR_BUTTON_RESET_HOVER ";}"
-  ".bgrn{background:" COLOR_BUTTON_SAVE ";}"
-  ".bgrn:hover{background:" COLOR_BUTTON_SAVE_HOVER ";}"
+  "button{border:0;border-radius:0.3rem;background:#%06x;color:#%06x;line-height:2.4rem;font-size:1.2rem;width:100%%;-webkit-transition-duration:0.4s;transition-duration:0.4s;cursor:pointer;}"  // COLOR_BUTTON, COLOR_BUTTON_TEXT
+  "button:hover{background:#%06x;}"  // COLOR_BUTTON_HOVER
+  ".bred{background:#%06x;}"  // COLOR_BUTTON_RESET
+  ".bred:hover{background:#%06x;}"  // COLOR_BUTTON_RESET_HOVER
+  ".bgrn{background:#%06x;}"  // COLOR_BUTTON_SAVE
+  ".bgrn:hover{background:#%06x;}"  // COLOR_BUTTON_SAVE_HOVER
   "a{text-decoration:none;}"
   ".p{float:left;text-align:left;}"
   ".q{float:right;text-align:right;}";
@@ -313,9 +264,9 @@ const char HTTP_HEAD_STYLE3[] PROGMEM =
 
   "</head>"
   "<body>"
-  "<div style='text-align:left;display:inline-block;color:" COLOR_TEXT ";min-width:340px;'>"
+  "<div style='text-align:left;display:inline-block;color:#%06x;min-width:340px;'>"  // COLOR_TEXT
 #ifdef FIRMWARE_MINIMAL
-  "<div style='text-align:center;color:" COLOR_TEXT_WARNING ";'><h3>" D_MINIMAL_FIRMWARE_PLEASE_UPGRADE "</h3></div>"
+  "<div style='text-align:center;color:#%06x;'><h3>" D_MINIMAL_FIRMWARE_PLEASE_UPGRADE "</h3></div>"  // COLOR_TEXT_WARNING
 #endif
   "<div style='text-align:center;'><noscript>" D_NOSCRIPT "<br/></noscript>"
 #ifdef LANGUAGE_MODULE_NAME
@@ -350,6 +301,7 @@ const char HTTP_FORM_TEMPLATE_FLAG[] PROGMEM =
   "<p></p>"  // Keep close so do not use <br/>
   "<fieldset><legend><b>&nbsp;" D_TEMPLATE_FLAGS "&nbsp;</b></legend><p>"
   "<input id='c0' name='c0' type='checkbox'><b>" D_ALLOW_ADC0 "</b><br/>"
+  "<input id='c1' name='c1' type='checkbox'><b>" D_ALLOW_ADC0_TEMP "</b><br/>"
   "</p></fieldset>";
 
 const char HTTP_FORM_MODULE[] PROGMEM =
@@ -546,6 +498,7 @@ void StartWebserver(int type, IPAddress ipweb)
   }
   if (webserver_state != type) {
     AddLog_P2(LOG_LEVEL_INFO, PSTR(D_LOG_HTTP D_WEBSERVER_ACTIVE_ON " %s%s " D_WITH_IP_ADDRESS " %s"), my_hostname, (mdns_begun) ? ".local" : "", ipweb.toString().c_str());
+    rules_flag.http_init = 1;
   }
   if (type) { webserver_state = type; }
 }
@@ -753,19 +706,28 @@ void WSContentStart_P(const char* title)
   WSContentStart_P(title, true);
 }
 
-void WSContentSendStyle_P(const char* style)
+void WSContentSendStyle_P(const char* formatP, ...)
 {
   if (WifiIsInManagerMode()) {
     if (WifiConfigCounter()) {
       WSContentSend_P(HTTP_SCRIPT_COUNTER);
     }
   }
-  WSContentSend_P(HTTP_HEAD_STYLE1);
-  WSContentSend_P(HTTP_HEAD_STYLE2);
-  if (style != nullptr) {
-    WSContentSend_P(style);
+  WSContentSend_P(HTTP_HEAD_STYLE1, WebColor(COL_FORM), WebColor(COL_INPUT), WebColor(COL_INPUT_TEXT), WebColor(COL_INPUT), WebColor(COL_INPUT_TEXT), WebColor(COL_CONSOLE), WebColor(COL_CONSOLE_TEXT), WebColor(COL_BACKGROUND));
+  WSContentSend_P(HTTP_HEAD_STYLE2, WebColor(COL_BUTTON), WebColor(COL_BUTTON_TEXT), WebColor(COL_BUTTON_HOVER), WebColor(COL_BUTTON_RESET), WebColor(COL_BUTTON_RESET_HOVER), WebColor(COL_BUTTON_SAVE), WebColor(COL_BUTTON_SAVE_HOVER));
+  if (formatP != nullptr) {
+    // This uses char strings. Be aware of sending %% if % is needed
+    va_list arg;
+    va_start(arg, formatP);
+    vsnprintf_P(mqtt_data, sizeof(mqtt_data), formatP, arg);
+    va_end(arg);
+    _WSContentSendBuffer();
   }
-  WSContentSend_P(HTTP_HEAD_STYLE3, ModuleName().c_str(), Settings.friendlyname[0]);
+  WSContentSend_P(HTTP_HEAD_STYLE3, WebColor(COL_TEXT),
+#ifdef FIRMWARE_MINIMAL
+    WebColor(COL_TEXT_WARNING),
+#endif
+    ModuleName().c_str(), Settings.friendlyname[0]);
   if (Settings.flag3.gui_hostname_ip) {
     bool lip = (static_cast<uint32_t>(WiFi.localIP()) != 0);
     bool sip = (static_cast<uint32_t>(WiFi.softAPIP()) != 0);
@@ -1145,10 +1107,9 @@ void HandleTemplateConfiguration(void)
                        "<hr/>"));
   WSContentSend_P(HTTP_TABLE100);
   for (uint8_t i = 0; i < 17; i++) {
-    if ((i < 6) || ((i > 8) && (i != 11))) {          // Ignore flash pins GPIO06, 7, 8 and 11
-      bool esp8285 = ((9==i)||(10==i));
-      WSContentSend_P(PSTR("<tr><td><b>%s" D_GPIO "%d%s</b></td><td%s><select id='g%d' name='g%d'></select></td></tr>"),
-        (esp8285) ? "<font color='" COLOR_TEXT_WARNING "'>" : "", i, (esp8285) ? "</font>" : "", (0==i) ? " style='width:200px'" : "", i, i);
+    if ((i < 6) || ((i > 8) && (i != 11))) {                // Ignore flash pins GPIO06, 7, 8 and 11
+      WSContentSend_P(PSTR("<tr><td><b><font color='#%06x'>" D_GPIO "%d</font></b></td><td%s><select id='g%d' name='g%d'></select></td></tr>"),
+        ((9==i)||(10==i)) ? WebColor(COL_TEXT_WARNING) : WebColor(COL_TEXT), i, (0==i) ? " style='width:200px'" : "", i, i);
     }
   }
   WSContentSend_P(PSTR("</table>"));
@@ -1253,8 +1214,10 @@ void HandleModuleConfiguration(void)
   for (uint8_t i = 0; i < sizeof(cmodule); i++) {
     if (ValidGPIO(i, cmodule.io[i])) {
       snprintf_P(stemp, 3, PINS_WEMOS +i*2);
+      char sesp8285[40];
+      snprintf_P(sesp8285, sizeof(sesp8285), PSTR("<font color='#%06x'>ESP8285</font>"), WebColor(COL_TEXT_WARNING));
       WSContentSend_P(PSTR("<tr><td style='width:190px'>%s <b>" D_GPIO "%d</b> %s</td><td style='width:176px'><select id='g%d' name='g%d'></select></td></tr>"),
-        (WEMOS==my_module_type)?stemp:"", i, (0==i)? D_SENSOR_BUTTON "1":(1==i)? D_SERIAL_OUT :(3==i)? D_SERIAL_IN :((9==i)||(10==i))? "<font color='" COLOR_TEXT_WARNING "'>ESP8285</font>" :(12==i)? D_SENSOR_RELAY "1":(13==i)? D_SENSOR_LED "1i":(14==i)? D_SENSOR :"", i, i);
+        (WEMOS==my_module_type)?stemp:"", i, (0==i)? D_SENSOR_BUTTON "1":(1==i)? D_SERIAL_OUT :(3==i)? D_SERIAL_IN :((9==i)||(10==i))? sesp8285 :(12==i)? D_SENSOR_RELAY "1":(13==i)? D_SENSOR_LED "1i":(14==i)? D_SENSOR :"", i, i);
     }
   }
   WSContentSend_P(PSTR("</table>"));
@@ -1821,9 +1784,10 @@ void HandleUploadDone(void)
     WSContentSend_P(HTTP_SCRIPT_RELOAD_OTA);  // Refesh main web ui after OTA upgrade
   }
   WSContentSendStyle();
-  WSContentSend_P(PSTR("<div style='text-align:center;'><b>" D_UPLOAD " <font color='"));
+  WSContentSend_P(PSTR("<div style='text-align:center;'><b>" D_UPLOAD " <font color='#"));
   if (upload_error) {
-    WSContentSend_P(PSTR(COLOR_TEXT_WARNING "'>" D_FAILED "</font></b><br/><br/>"));
+//    WSContentSend_P(PSTR(COLOR_TEXT_WARNING "'>" D_FAILED "</font></b><br/><br/>"));
+    WSContentSend_P(PSTR("%06x'>" D_FAILED "</font></b><br/><br/>"), WebColor(COL_TEXT_WARNING));
 #ifdef USE_RF_FLASH
     if (upload_error < 14) {
 #else
@@ -1837,7 +1801,7 @@ void HandleUploadDone(void)
     AddLog_P2(LOG_LEVEL_DEBUG, PSTR(D_UPLOAD ": %s"), error);
     stop_flash_rotate = Settings.flag.stop_flash_rotate;
   } else {
-    WSContentSend_P(PSTR(COLOR_TEXT_SUCCESS "'>" D_SUCCESSFUL "</font></b><br/>"));
+    WSContentSend_P(PSTR("%06x'>" D_SUCCESSFUL "</font></b><br/>"), WebColor(COL_TEXT_SUCCESS));
     WSContentSend_P(HTTP_MSG_RSTRT);
     ShowWebSource(SRC_WEBGUI);
     restart_flag = 2;  // Always restart to re-enable disabled features during update
@@ -2327,8 +2291,36 @@ int WebSend(char *buffer)
 
 /*********************************************************************************************/
 
-enum WebCommands { CMND_WEBSERVER, CMND_WEBPASSWORD, CMND_WEBLOG, CMND_WEBREFRESH, CMND_WEBSEND, CMND_EMULATION };
-const char kWebCommands[] PROGMEM = D_CMND_WEBSERVER "|" D_CMND_WEBPASSWORD "|" D_CMND_WEBLOG "|" D_CMND_WEBREFRESH "|" D_CMND_WEBSEND "|" D_CMND_EMULATION ;
+bool JsonWebColor(const char* dataBuf)
+{
+  // Default (light)
+  // {"WebColor":["#000000","#ffffff","#f2f2f2","#000000","#ffffff","#000000","#ffffff","#ff0000","#008000","#ffffff","#1fa3ec","#0e70a4","#d43535","#931f1f","#47c266","#5aaf6f","#ffffff","#999999","#000000"]}
+  // Alternative (Dark)
+  // {"webcolor":["#eeeeee","#181818","#4f4f4f","#000000","#dddddd","#008000","#222222","#ff0000","#008000","#ffffff","#1fa3ec","#0e70a4","#d43535","#931f1f","#47c266","#5aaf6f","#ffffff","#999999","#000000"]}
+
+  char dataBufLc[strlen(dataBuf) +1];
+  LowerCase(dataBufLc, dataBuf);
+  RemoveSpace(dataBufLc);
+  if (strlen(dataBufLc) < 9) { return false; }  // Workaround exception if empty JSON like {} - Needs checks
+
+  StaticJsonBuffer<450> jb;  // 421 from https://arduinojson.org/v5/assistant/
+  JsonObject& obj = jb.parseObject(dataBufLc);
+  if (!obj.success()) { return false; }
+
+  char parm_lc[10];
+  if (obj[LowerCase(parm_lc, D_CMND_WEBCOLOR)].success()) {
+    for (uint8_t i = 0; i < COL_LAST; i++) {
+      const char* color = obj[parm_lc][i];
+      if (color != nullptr) {
+        WebHexCode(i, color);
+      }
+    }
+  }
+  return true;
+}
+
+enum WebCommands { CMND_WEBSERVER, CMND_WEBPASSWORD, CMND_WEBLOG, CMND_WEBREFRESH, CMND_WEBSEND, CMND_WEBCOLOR, CMND_EMULATION };
+const char kWebCommands[] PROGMEM = D_CMND_WEBSERVER "|" D_CMND_WEBPASSWORD "|" D_CMND_WEBLOG "|" D_CMND_WEBREFRESH "|" D_CMND_WEBSEND "|" D_CMND_WEBCOLOR "|" D_CMND_EMULATION ;
 const char kWebSendStatus[] PROGMEM = D_JSON_DONE "|" D_JSON_WRONG_PARAMETERS "|" D_JSON_CONNECT_FAILED "|" D_JSON_HOST_NOT_FOUND ;
 
 bool WebCommand(void)
@@ -2371,6 +2363,27 @@ bool WebCommand(void)
       char stemp1[20];
       Response_P(S_JSON_COMMAND_SVALUE, command, GetTextIndexed(stemp1, sizeof(stemp1), result, kWebSendStatus));
     }
+  }
+  else if (CMND_WEBCOLOR == command_code) {
+    if (XdrvMailbox.data_len > 0) {
+      if (strstr(XdrvMailbox.data, "{") == nullptr) {  // If no JSON it must be parameter
+        if ((XdrvMailbox.data_len > 3) && (XdrvMailbox.index > 0) && (XdrvMailbox.index <= COL_LAST)) {
+          WebHexCode(XdrvMailbox.index -1, XdrvMailbox.data);
+        }
+        else if (0 == XdrvMailbox.payload) {
+          SettingsDefaultWebColor();
+        }
+      }
+      else {
+        JsonWebColor(XdrvMailbox.data);
+      }
+    }
+    Response_P(PSTR("{\"" D_CMND_WEBCOLOR "\":["));
+    for (uint8_t i = 0; i < COL_LAST; i++) {
+      if (i) { ResponseAppend_P(PSTR(",")); }
+      ResponseAppend_P(PSTR("\"#%06x\""), WebColor(i));
+    }
+    ResponseAppend_P(PSTR("]}"));
   }
 #ifdef USE_EMULATION
   else if (CMND_EMULATION == command_code) {

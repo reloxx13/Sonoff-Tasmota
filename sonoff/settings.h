@@ -331,8 +331,9 @@ struct SYSCFG {
   uint8_t       user_template_base;        // 71F
   mytmplt       user_template;             // 720  29 bytes
   uint8_t       novasds_period;            // 73D
+  uint8_t       web_color[18][3];          // 73E
 
-  uint8_t       free_73D[86];              // 73E
+  uint8_t       free_774[32];              // 774
 
   uint32_t      drivers[3];                // 794
   uint32_t      monitors;                  // 7A0
@@ -340,9 +341,7 @@ struct SYSCFG {
   uint32_t      displays;                  // 7B0
   uint32_t      energy_kWhtotal_time;      // 7B4
   unsigned long weight_item;               // 7B8 Weight of one item in gram * 10
-
-  uint8_t       free_7BC[2];               // 7BC
-
+  uint16_t      ledmask;                   // 7BC
   uint16_t      weight_max;                // 7BE Total max weight in kilogram
   unsigned long weight_reference;          // 7C0 Reference weight in gram
   unsigned long weight_calibration;        // 7C4
@@ -397,7 +396,7 @@ struct XDRVMAILBOX {
   char         *data;
 } XdrvMailbox;
 
-const uint8_t MAX_RULES_FLAG = 7;          // Number of bits used in RulesBitfield (tricky I know...)
+const uint8_t MAX_RULES_FLAG = 8;          // Number of bits used in RulesBitfield (tricky I know...)
 typedef union {                            // Restricted by MISRA-C Rule 18.4 but so useful...
   uint16_t data;                           // Allow bit manipulation
   struct {
@@ -408,7 +407,7 @@ typedef union {                            // Restricted by MISRA-C Rule 18.4 bu
     uint16_t mqtt_disconnected : 1;
     uint16_t wifi_connected : 1;
     uint16_t wifi_disconnected : 1;
-    uint16_t spare07 : 1;
+    uint16_t http_init : 1;
     uint16_t spare08 : 1;
     uint16_t spare09 : 1;
     uint16_t spare10 : 1;

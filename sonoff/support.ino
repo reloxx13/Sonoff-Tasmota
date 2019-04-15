@@ -575,6 +575,9 @@ float ConvertTemp(float c)
 {
   float result = c;
 
+  global_update = uptime;
+  global_temperature = c;
+
   if (!isnan(c) && Settings.flag.temperature_conversion) {
     result = c * 1.8 + 32;  // Fahrenheit
   }
@@ -586,9 +589,20 @@ char TempUnit(void)
   return (Settings.flag.temperature_conversion) ? 'F' : 'C';
 }
 
+float ConvertHumidity(float h)
+{
+  global_update = uptime;
+  global_humidity = h;
+
+  return h;
+}
+
 float ConvertPressure(float p)
 {
   float result = p;
+
+  global_update = uptime;
+  global_pressure = p;
 
   if (!isnan(p) && Settings.flag.pressure_conversion) {
     result = p * 0.75006375541921;  // mmHg
@@ -601,19 +615,13 @@ String PressureUnit(void)
   return (Settings.flag.pressure_conversion) ? String(D_UNIT_MILLIMETER_MERCURY) : String(D_UNIT_PRESSURE);
 }
 
-void SetGlobalValues(float temperature, float humidity)
-{
-  global_update = uptime;
-  global_temperature = temperature;
-  global_humidity = humidity;
-}
-
 void ResetGlobalValues(void)
 {
   if ((uptime - global_update) > GLOBAL_VALUES_VALID) {  // Reset after 5 minutes
     global_update = 0;
     global_temperature = 0;
     global_humidity = 0;
+    global_pressure = 0;
   }
 }
 
@@ -810,6 +818,42 @@ void ShowSource(int source)
   }
 }
 
+void WebHexCode(uint8_t i, const char* code)
+{
+  char scolor[10];
+
+  strlcpy(scolor, code, sizeof(scolor));
+  char* p = scolor;
+  if ('#' == p[0]) { p++; }  // Skip
+
+  if (3 == strlen(p)) {  // Convert 3 character to 6 character color code
+    p[6] = p[3];  // \0
+    p[5] = p[2];  // 3
+    p[4] = p[2];  // 3
+    p[3] = p[1];  // 2
+    p[2] = p[1];  // 2
+    p[1] = p[0];  // 1
+  }
+
+  uint32_t color = strtol(p, nullptr, 16);
+/*
+  if (3 == strlen(p)) {  // Convert 3 character to 6 character color code
+    uint32_t w = ((color & 0xF00) << 8) | ((color & 0x0F0) << 4) | (color & 0x00F);  // 00010203
+    color = w | (w << 4);                                                            // 00112233
+  }
+*/
+
+  Settings.web_color[i][0] = (color >> 16) & 0xFF;  // Red
+  Settings.web_color[i][1] = (color >> 8) & 0xFF;   // Green
+  Settings.web_color[i][2] = color & 0xFF;          // Blue
+}
+
+uint32_t WebColor(uint8_t i)
+{
+  uint32_t tcolor = (Settings.web_color[i][0] << 16) | (Settings.web_color[i][1] << 8) | Settings.web_color[i][2];
+  return tcolor;
+}
+
 /*********************************************************************************************\
  * Response data handling
 \*********************************************************************************************/
@@ -846,7 +890,7 @@ uint8_t ModuleNr()
   return (USER_MODULE == Settings.module) ? 0 : Settings.module +1;
 }
 
-bool ValidModule(uint8_t index)
+bool ValidTemplateModule(uint8_t index)
 {
   for (uint8_t i = 0; i < sizeof(kModuleNiceList); i++) {
     if (index == pgm_read_byte(kModuleNiceList + i)) {
@@ -854,6 +898,12 @@ bool ValidModule(uint8_t index)
     }
   }
   return false;
+}
+
+bool ValidModule(uint8_t index)
+{
+  if (index == USER_MODULE) { return true; }
+  return ValidTemplateModule(index);
 }
 
 String AnyModuleName(uint8_t index)
@@ -1003,6 +1053,10 @@ bool GetUsedInModule(uint8_t val, uint8_t *arr)
 
 bool JsonTemplate(const char* dataBuf)
 {
+  // {"NAME":"Generic","GPIO":[17,254,29,254,7,254,254,254,138,254,139,254,254],"FLAG":1,"BASE":255}
+
+  if (strlen(dataBuf) < 9) { return false; }  // Workaround exception if empty JSON like {} - Needs checks
+
   StaticJsonBuffer<350> jb;  // 331 from https://arduinojson.org/v5/assistant/
   JsonObject& obj = jb.parseObject(dataBuf);
   if (!obj.success()) { return false; }
@@ -1023,7 +1077,7 @@ bool JsonTemplate(const char* dataBuf)
   }
   if (obj[D_JSON_BASE].success()) {
     uint8_t base = obj[D_JSON_BASE];
-    if ((0 == base) || !ValidModule(base -1)) { base = 18; }
+    if ((0 == base) || !ValidTemplateModule(base -1)) { base = 18; }
     Settings.user_template_base = base -1;  // Default WEMOS
   }
   return true;

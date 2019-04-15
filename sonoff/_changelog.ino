@@ -1,5 +1,28 @@
-/* 6.5.0.5 20190406
+/* 6.5.0.8 20190413
+ * Fix use of SerialDelimiter value 128 (#5634)
+ * Fix lost syslog connection regression from 6.5.0.4
+ * Add Shelly 2.5 Energy Monitoring (#5592)
+ * Add all temperature, humidity and pressure for global access
+ * Add Shelly 2.5 overtemp functionality
+ * Fix Shelly 2.5 I2C address priority issue when VEML6070 code is present by disabling VEML6070 for Shelly 2.5 (#5592)
+ *
+ * 6.5.0.7 20190410
+ * Add command LedMask to assign which relay has access to power LED (#5602, #5612)
+ *
+ * 6.5.0.6 20190409
+ * Add WebColor parameters to Settings making them persistent and remove the need for using a rule
+ * Add alternative IRSend command syntax IRSend raw,<freq>,<header mark>,<header space>,<bit mark>,<zero space>,<one space>,<bit stream> (#5610)
+ *
+ * 6.5.0.5 20190406
  * Add compile time GUI hexadecimal only color options in my_user_config.h (#5586)
+ * Fix template activation and/or module selection regression from 6.5.0.4 (#5598)
+ * Add rule Http#Initialized
+ * Add command WebColor to change non-persistent GUI colors on the fly
+   Use a rule like:
+   rule3 on http#initialized do webcolor {"webcolor":["#eeeeee","#181818","#4f4f4f","#000000","#dddddd","#008000","#222222","#ff0000","#008000","#ffffff","#1fa3ec","#0e70a4","#d43535","#931f1f","#47c266","#5aaf6f","#ffffff","#999999"]} endon
+   or
+   rule3 on http#initialized do webcolor {"webcolor":["#eee","#181818","#4f4f4f","#000","#ddd","#009800","#222"]} endon
+   to make color changes persistent)
  *
  * 6.5.0.4 20190402
  * Fix Configure Timer Web GUI (#5568)
