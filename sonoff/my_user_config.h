@@ -294,7 +294,7 @@
 #define USE_RULES                                // Add support for rules (+8k code)
 //#define USE_SCRIPT                               // Add support for script (+15k code)
 
-  #define USE_EXPRESSION                         // Add support for expression evaluation in rules (+3k2 code, +64 bytes mem)
+//  #define USE_EXPRESSION                         // Add support for expression evaluation in rules (+3k2 code, +64 bytes mem)
 //  #define SUPPORT_MQTT_EVENT                     // Support trigger event with MQTT subscriptions (+3k5 code)
 
 // -- Internal Analog input -----------------------

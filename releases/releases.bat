@@ -1,4 +1,4 @@
-set version=6.5.0.9-mod-1.45.10
+set version=6.5.0.12-mod-1.45.11-nils
 
 mkdir %version%
 
