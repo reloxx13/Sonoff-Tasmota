@@ -72,7 +72,7 @@ enum TasmotaCommands {
   CMND_BACKLOG, CMND_DELAY, CMND_POWER, CMND_FANSPEED, CMND_STATUS, CMND_STATE, CMND_POWERONSTATE, CMND_PULSETIME,
   CMND_BLINKTIME, CMND_BLINKCOUNT, CMND_SENSOR, CMND_SAVEDATA, CMND_SETOPTION, CMND_TEMPERATURE_RESOLUTION, CMND_HUMIDITY_RESOLUTION,
   CMND_PRESSURE_RESOLUTION, CMND_POWER_RESOLUTION, CMND_VOLTAGE_RESOLUTION, CMND_FREQUENCY_RESOLUTION, CMND_CURRENT_RESOLUTION, CMND_ENERGY_RESOLUTION, CMND_WEIGHT_RESOLUTION,
-  CMND_MODULE, CMND_MODULES, CMND_GPIO, CMND_GPIOS, CMND_PWM, CMND_PWMFREQUENCY, CMND_PWMRANGE, CMND_COUNTER, CMND_COUNTERTYPE,
+  CMND_MODULE, CMND_MODULES, CMND_ADC, CMND_ADCS, CMND_GPIO, CMND_GPIOS, CMND_PWM, CMND_PWMFREQUENCY, CMND_PWMRANGE, CMND_COUNTER, CMND_COUNTERTYPE,
   CMND_COUNTERDEBOUNCE, CMND_BUTTONDEBOUNCE, CMND_SWITCHDEBOUNCE, CMND_SLEEP, CMND_UPGRADE, CMND_UPLOAD, CMND_OTAURL, CMND_SERIALLOG, CMND_SYSLOG,
   CMND_LOGHOST, CMND_LOGPORT, CMND_IPADDRESS, CMND_NTPSERVER, CMND_AP, CMND_SSID, CMND_PASSWORD, CMND_HOSTNAME,
   CMND_WIFICONFIG, CMND_FRIENDLYNAME, CMND_SWITCHMODE, CMND_INTERLOCK, CMND_TEMPLATE,
@@ -82,7 +82,7 @@ const char kTasmotaCommands[] PROGMEM =
   D_CMND_BACKLOG "|" D_CMND_DELAY "|" D_CMND_POWER "|" D_CMND_FANSPEED "|" D_CMND_STATUS "|" D_CMND_STATE "|"  D_CMND_POWERONSTATE "|" D_CMND_PULSETIME "|"
   D_CMND_BLINKTIME "|" D_CMND_BLINKCOUNT "|" D_CMND_SENSOR "|" D_CMND_SAVEDATA "|" D_CMND_SETOPTION "|" D_CMND_TEMPERATURE_RESOLUTION "|" D_CMND_HUMIDITY_RESOLUTION "|"
   D_CMND_PRESSURE_RESOLUTION "|" D_CMND_POWER_RESOLUTION "|" D_CMND_VOLTAGE_RESOLUTION "|" D_CMND_FREQUENCY_RESOLUTION "|" D_CMND_CURRENT_RESOLUTION "|" D_CMND_ENERGY_RESOLUTION "|" D_CMND_WEIGHT_RESOLUTION "|"
-  D_CMND_MODULE "|" D_CMND_MODULES "|" D_CMND_GPIO "|" D_CMND_GPIOS "|" D_CMND_PWM "|" D_CMND_PWMFREQUENCY "|" D_CMND_PWMRANGE "|" D_CMND_COUNTER "|" D_CMND_COUNTERTYPE "|"
+  D_CMND_MODULE "|" D_CMND_MODULES "|" D_CMND_ADC "|" D_CMND_ADCS "|" D_CMND_GPIO "|" D_CMND_GPIOS "|" D_CMND_PWM "|" D_CMND_PWMFREQUENCY "|" D_CMND_PWMRANGE "|" D_CMND_COUNTER "|" D_CMND_COUNTERTYPE "|"
   D_CMND_COUNTERDEBOUNCE "|" D_CMND_BUTTONDEBOUNCE "|" D_CMND_SWITCHDEBOUNCE "|" D_CMND_SLEEP "|" D_CMND_UPGRADE "|" D_CMND_UPLOAD "|" D_CMND_OTAURL "|" D_CMND_SERIALLOG "|" D_CMND_SYSLOG "|"
   D_CMND_LOGHOST "|" D_CMND_LOGPORT "|" D_CMND_IPADDRESS "|" D_CMND_NTPSERVER "|" D_CMND_AP "|" D_CMND_SSID "|" D_CMND_PASSWORD "|" D_CMND_HOSTNAME "|"
   D_CMND_WIFICONFIG "|" D_CMND_FRIENDLYNAME "|" D_CMND_SWITCHMODE "|" D_CMND_INTERLOCK "|" D_CMND_TEMPLATE "|"
@@ -125,7 +125,7 @@ int blinks = 201;                           // Number of LED blinks
 uint32_t uptime = 0;                        // Counting every second until 4294967295 = 130 year
 uint32_t loop_load_avg = 0;                 // Indicative loop load average
 uint32_t global_update = 0;                 // Timestamp of last global temperature and humidity update
-float global_temperature = 0;               // Provide a global temperature to be used by some sensors
+float global_temperature = 9999;               // Provide a global temperature to be used by some sensors
 float global_humidity = 0;                  // Provide a global humidity to be used by some sensors
 float global_pressure = 0;                  // Provide a global pressure to be used by some sensors
 char *ota_url;                              // OTA url string pointer
@@ -142,7 +142,10 @@ uint8_t backlog_pointer = 0;                // Command backlog pointer
 uint8_t sleep;                              // Current copy of Settings.sleep
 uint8_t blinkspeed = 1;                     // LED blink rate
 uint8_t pin[GPIO_MAX];                      // Possible pin configurations
+uint8_t leds_present = 0;                   // Max number of LED supported
 uint8_t led_inverted = 0;                   // LED inverted flag (1 = (0 = On, 1 = Off))
+uint8_t led_power = 0;                      // LED power state
+uint8_t ledlnk_inverted = 0;                // Link LED inverted flag (1 = (0 = On, 1 = Off))
 uint8_t pwm_inverted = 0;                   // PWM inverted flag (1 = inverted)
 uint8_t counter_no_pullup = 0;              // Counter input pullup flag (1 = No pullup)
 uint8_t energy_flg = 0;                     // Energy monitor configured
@@ -154,6 +157,7 @@ uint8_t devices_present = 0;                // Max number of devices supported
 uint8_t seriallog_level;                    // Current copy of Settings.seriallog_level
 uint8_t syslog_level;                       // Current copy of Settings.syslog_level
 uint8_t my_module_type;                     // Current copy of Settings.module or user template type
+uint8_t my_adc0;                            // Active copy of Module ADC0
 //uint8_t mdns_delayed_start = 0;             // mDNS delayed start
 bool serial_local = false;                  // Handle serial locally;
 bool fallback_topic_flag = false;           // Use Topic or FallbackTopic
@@ -169,7 +173,7 @@ bool spi_flg = false;                       // SPI configured
 bool soft_spi_flg = false;                  // Software SPI configured
 bool ntp_force_sync = false;                // Force NTP sync
 myio my_module;                             // Active copy of Module GPIOs (17 x 8 bits)
-gpio_flag my_module_flag;                   // Active copy of Module GPIO flags
+gpio_flag my_module_flag;                   // Active copy of Template GPIO flags
 StateBitfield global_state;                 // Global states (currently Wifi and Mqtt) (8 bits)
 char my_version[33];                        // Composed version string
 char my_image[33];                          // Code image and/or commit
@@ -368,19 +372,56 @@ void SetDevicePower(power_t rpower, int source)
   }
 }
 
+void SetLedPowerIdx(uint8_t led, uint8_t state)
+{
+  if ((99 == pin[GPIO_LEDLNK]) && (0 == led)) {          // Legacy - LED1 is link led only if LED2 is present
+    if (pin[GPIO_LED2] < 99) { led = 1; }
+  }
+  if (pin[GPIO_LED1 + led] < 99) {
+    uint8_t mask = 1 << led;
+    if (state) {
+      state = 1;
+      led_power |= mask;
+    } else {
+      led_power &= (0xFF ^ mask);
+    }
+    digitalWrite(pin[GPIO_LED1 + led], bitRead(led_inverted, led) ? !state : state);
+  }
+}
+
 void SetLedPower(uint8_t state)
 {
-  if (state) { state = 1; }
+  if (99 == pin[GPIO_LEDLNK]) {                          // Legacy - Only use LED1 and/or LED2
+    SetLedPowerIdx(0, state);
+  } else {
+    power_t mask = 1;
+    for (uint8_t i = 0; i < leds_present; i++) {         // Map leds to power
+      bool tstate = (power & mask);
+      SetLedPowerIdx(i, tstate);
+      mask <<= 1;
+    }
+  }
+}
 
-  uint8_t led_pin = 0;
-  if (pin[GPIO_LED2] < 99) { led_pin = 1; }
-  digitalWrite(pin[GPIO_LED1 + led_pin], (bitRead(led_inverted, led_pin)) ? !state : state);
+void SetLedPowerAll(uint8_t state)
+{
+  for (uint8_t i = 0; i < leds_present; i++) {
+    SetLedPowerIdx(i, state);
+  }
 }
 
 void SetLedLink(uint8_t state)
 {
-  if (state) { state = 1; }
-  digitalWrite(pin[GPIO_LED1], (bitRead(led_inverted, 0)) ? !state : state);
+  uint8_t led_pin = pin[GPIO_LEDLNK];
+  uint8_t led_inv = ledlnk_inverted;
+  if (99 == led_pin) {                                   // Legacy - LED1 is status
+    led_pin = pin[GPIO_LED1];
+    led_inv = bitRead(led_inverted, 0);
+  }
+  if (led_pin < 99) {
+    if (state) { state = 1; }
+    digitalWrite(led_pin, (led_inv) ? !state : state);
+  }
 }
 
 uint8_t GetFanspeed(void)
@@ -917,6 +958,26 @@ void MqttDataHandler(char* topic, uint8_t* data, unsigned int data_len)
       }
       mqtt_data[0] = '\0';
     }
+#ifndef USE_ADC_VCC
+    else if (CMND_ADC == command_code) {
+      if (ValidAdc() && (payload >= 0) && (payload < ADC0_END)) {
+        Settings.my_adc0 = payload;
+        restart_flag = 2;
+      }
+      Response_P(PSTR("{\"" D_CMND_ADC "0\":\"%d (%s)\"}"), Settings.my_adc0, GetTextIndexed(stemp1, sizeof(stemp1), Settings.my_adc0, kAdc0Names));
+    }
+    else if (CMND_ADCS == command_code) {
+      Response_P(PSTR("{\"" D_CMND_ADCS "\":["));
+      for (uint8_t i = 0; i < ADC0_END; i++) {
+        if (jsflg) {
+          ResponseAppend_P(PSTR(","));
+        }
+        jsflg = true;
+        ResponseAppend_P(PSTR("\"%d (%s)\""), i, GetTextIndexed(stemp1, sizeof(stemp1), i, kAdc0Names));
+      }
+      ResponseAppend_P(PSTR("]}"));
+    }
+#endif  // USE_ADC_VCC
     else if ((CMND_GPIO == command_code) && (index < sizeof(Settings.my_gp))) {
       myio cmodule;
       ModuleGpios(&cmodule);
@@ -945,7 +1006,7 @@ void MqttDataHandler(char* topic, uint8_t* data, unsigned int data_len)
         }
       }
       if (jsflg) {
-        ResponseAppend_P(PSTR("}"));
+        ResponseJsonEnd();
       } else {
         Response_P(S_JSON_COMMAND_SVALUE, command, D_JSON_NOT_SUPPORTED);
       }
@@ -1023,7 +1084,7 @@ void MqttDataHandler(char* topic, uint8_t* data, unsigned int data_len)
       }
       Response_P(PSTR("{"));
       MqttShowPWMState();  // Render the PWM status to MQTT
-      ResponseAppend_P(PSTR("}"));
+      ResponseJsonEnd();
     }
     else if (CMND_PWMFREQUENCY == command_code) {
       if ((1 == payload) || ((payload >= PWM_MIN) && (payload <= PWM_MAX))) {
@@ -1400,7 +1461,8 @@ void MqttDataHandler(char* topic, uint8_t* data, unsigned int data_len)
       }
       Response_P(S_JSON_COMMAND_NVALUE, command, Settings.altitude);
     }
-    else if (CMND_LEDPOWER == command_code) {
+    else if ((CMND_LEDPOWER == command_code) && (index > 0) && (index <= MAX_LEDS)) {
+/*
       if ((payload >= 0) && (payload <= 2)) {
         Settings.ledstate &= 8;
         switch (payload) {
@@ -1413,15 +1475,83 @@ void MqttDataHandler(char* topic, uint8_t* data, unsigned int data_len)
           break;
         }
         blinks = 0;
-        SetLedPower(Settings.ledstate &8);
+        SetLedPowerIdx(index -1, Settings.ledstate &8);
       }
-      Response_P(S_JSON_COMMAND_SVALUE, command, GetStateText(bitRead(Settings.ledstate, 3)));
+      Response_P(S_JSON_COMMAND_INDEX_SVALUE, command, index, GetStateText(bitRead(Settings.ledstate, 3)));
+*/
+/*
+      if (99 == pin[GPIO_LEDLNK]) {
+        if ((payload >= 0) && (payload <= 2)) {
+          Settings.ledstate &= 8;
+          switch (payload) {
+          case 0: // Off
+          case 1: // On
+            Settings.ledstate = payload << 3;
+            break;
+          case 2: // Toggle
+            Settings.ledstate ^= 8;
+            break;
+          }
+          blinks = 0;
+          SetLedPower(Settings.ledstate &8);
+        }
+        Response_P(S_JSON_COMMAND_SVALUE, command, GetStateText(bitRead(Settings.ledstate, 3)));
+      } else {
+        if ((payload >= 0) && (payload <= 2)) {
+          Settings.ledstate &= 8;                // Disable power control
+          uint8_t mask = 1 << (index -1);        // Led to control
+          switch (payload) {
+          case 0: // Off
+            led_power &= (0xFF ^ mask);
+          case 1: // On
+            led_power |= mask;
+            break;
+          case 2: // Toggle
+            led_power ^= mask;
+            break;
+          }
+          blinks = 0;
+          SetLedPowerIdx(index -1, (led_power & mask));
+        }
+        Response_P(S_JSON_COMMAND_INDEX_SVALUE, command, index, GetStateText(bitRead(led_power, index -1)));
+      }
+*/
+      if (99 == pin[GPIO_LEDLNK]) { index = 1; }
+      if ((payload >= 0) && (payload <= 2)) {
+        Settings.ledstate &= 8;                // Disable power control
+        uint8_t mask = 1 << (index -1);        // Led to control
+        switch (payload) {
+        case 0: // Off
+          led_power &= (0xFF ^ mask);
+          Settings.ledstate = 0;
+          break;
+        case 1: // On
+          led_power |= mask;
+          Settings.ledstate = 8;
+          break;
+        case 2: // Toggle
+          led_power ^= mask;
+          Settings.ledstate ^= 8;
+          break;
+        }
+        blinks = 0;
+        if (99 == pin[GPIO_LEDLNK]) {
+          SetLedPower(Settings.ledstate &8);
+        } else {
+          SetLedPowerIdx(index -1, (led_power & mask));
+        }
+      }
+      uint8_t state = bitRead(led_power, index -1);
+      if (99 == pin[GPIO_LEDLNK]) {
+        state = bitRead(Settings.ledstate, 3);
+      }
+      Response_P(S_JSON_COMMAND_INDEX_SVALUE, command, index, GetStateText(state));
     }
     else if (CMND_LEDSTATE == command_code) {
       if ((payload >= 0) && (payload < MAX_LED_OPTION)) {
         Settings.ledstate = payload;
         if (!Settings.ledstate) {
-          SetLedPower(0);
+          SetLedPowerAll(0);
           SetLedLink(0);
         }
       }
@@ -1447,7 +1577,12 @@ void MqttDataHandler(char* topic, uint8_t* data, unsigned int data_len)
     Response_P(PSTR("{\"" D_JSON_COMMAND "\":\"" D_JSON_UNKNOWN "\"}"));
     type = (char*)topicBuf;
   }
-  if (mqtt_data[0] != '\0') { MqttPublishPrefixTopic_P(RESULT_OR_STAT, type); }
+  if (mqtt_data[0] != '\0') {
+     MqttPublishPrefixTopic_P(RESULT_OR_STAT, type);
+#ifdef USE_SCRIPT
+     XdrvRulesProcess();
+#endif
+  }
   fallback_topic_flag = false;
 }
 
@@ -1744,7 +1879,7 @@ void PublishStatus(uint8_t payload)
   if ((0 == payload) || (8 == payload) || (10 == payload)) {
     Response_P(PSTR("{\"" D_CMND_STATUS D_STATUS10_SENSOR "\":"));
     MqttShowSensor();
-    ResponseAppend_P(PSTR("}"));
+    ResponseJsonEnd();
     if (8 == payload) {
       MqttPublishPrefixTopic_P(option, PSTR(D_CMND_STATUS "8"));
     } else {
@@ -1755,7 +1890,7 @@ void PublishStatus(uint8_t payload)
   if ((0 == payload) || (11 == payload)) {
     Response_P(PSTR("{\"" D_CMND_STATUS D_STATUS11_STATUS "\":"));
     MqttShowState();
-    ResponseAppend_P(PSTR("}"));
+    ResponseJsonEnd();
     MqttPublishPrefixTopic_P(option, PSTR(D_CMND_STATUS "11"));
   }
 
@@ -1771,7 +1906,7 @@ void MqttShowPWMState(void)
       first = false;
     }
   }
-  ResponseAppend_P(PSTR("}"));
+  ResponseJsonEnd();
 }
 
 void MqttShowState(void)
@@ -1814,6 +1949,9 @@ void MqttPublishTeleState(void)
   mqtt_data[0] = '\0';
   MqttShowState();
   MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_STATE), MQTT_TELE_RETAIN);
+#ifdef USE_SCRIPT
+  RulesTeleperiod();  // Allow rule based HA messages
+#endif  // USE_SCRIPT
 }
 
 bool MqttShowSensor(void)
@@ -1838,7 +1976,7 @@ bool MqttShowSensor(void)
   if (strstr_P(mqtt_data, PSTR(D_JSON_TEMPERATURE)) != nullptr) {
     ResponseAppend_P(PSTR(",\"" D_JSON_TEMPERATURE_UNIT "\":\"%c\""), TempUnit());
   }
-  ResponseAppend_P(PSTR("}"));
+  ResponseJsonEnd();
 
   if (json_data_available) { XdrvCall(FUNC_SHOW_SENSOR); }
   return json_data_available;
@@ -1898,7 +2036,7 @@ void PerformEverySecond(void)
       mqtt_data[0] = '\0';
       if (MqttShowSensor()) {
         MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_SENSOR), Settings.flag.mqtt_sensor_retain);
-#ifdef USE_RULES
+#if defined(USE_RULES) || defined(USE_SCRIPT)
         RulesTeleperiod();  // Allow rule based HA messages
 #endif  // USE_RULES
       }
@@ -2001,8 +2139,6 @@ void Every250mSeconds(void)
       }
     }
     if ((!(Settings.ledstate &0x08)) && ((Settings.ledstate &0x06) || (blinks > 200) || (blinkstate))) {
-//    if ( (!Settings.flag.global_state && global_state.data) || ((!(Settings.ledstate &0x08)) && ((Settings.ledstate &0x06) || (blinks > 200) || (blinkstate))) ) {
-//      SetLedPower(blinkstate);                            // Set led on or off
       SetLedLink(blinkstate);                            // Set led on or off
     }
     if (!blinkstate) {
@@ -2152,7 +2288,9 @@ void Every250mSeconds(void)
         SettingsDefault();
         restart_flag = 2;
       }
-      SettingsSaveAll();
+      if (2 == restart_flag) {
+        SettingsSaveAll();
+      }
       restart_flag--;
       if (restart_flag <= 0) {
         AddLog_P(LOG_LEVEL_INFO, PSTR(D_LOG_APPLICATION D_RESTARTING));
@@ -2337,7 +2475,7 @@ void SerialInput(void)
       ResponseAppend_P(PSTR("\"}"));
     }
     MqttPublishPrefixTopic_P(RESULT_OR_TELE, PSTR(D_JSON_SERIALRECEIVED));
-//      XdrvRulesProcess();
+    XdrvRulesProcess();
     serial_in_byte_counter = 0;
   }
 }
@@ -2373,13 +2511,23 @@ void GpioInit(void)
       Settings.my_gp.io[i] = GPIO_NONE;             // Fix not supported sensor ids in module
     }
     else if (Settings.my_gp.io[i] > GPIO_NONE) {
-      my_module.io[i] = Settings.my_gp.io[i];
+      my_module.io[i] = Settings.my_gp.io[i];       // Set User selected Module sensors
     }
     if ((def_gp.io[i] > GPIO_NONE) && (def_gp.io[i] < GPIO_USER)) {
-      my_module.io[i] = def_gp.io[i];
+      my_module.io[i] = def_gp.io[i];               // Force Template override
     }
   }
+  if ((Settings.my_adc0 >= ADC0_END) && (Settings.my_adc0 < ADC0_USER)) {
+    Settings.my_adc0 = ADC0_NONE;                   // Fix not supported sensor ids in module
+  }
+  else if (Settings.my_adc0 > ADC0_NONE) {
+    my_adc0 = Settings.my_adc0;                     // Set User selected Module sensors
+  }
   my_module_flag = ModuleFlag();
+  uint8_t template_adc0 = my_module_flag.data &15;
+  if ((template_adc0 > ADC0_NONE) && (template_adc0 < ADC0_USER)) {
+    my_adc0 = template_adc0;                        // Force Template override
+  }
 
   for (uint16_t i = 0; i < GPIO_MAX; i++) {
     pin[i] = 99;
@@ -2414,6 +2562,10 @@ void GpioInit(void)
       else if ((mpin >= GPIO_LED1_INV) && (mpin < (GPIO_LED1_INV + MAX_LEDS))) {
         bitSet(led_inverted, mpin - GPIO_LED1_INV);
         mpin -= (GPIO_LED1_INV - GPIO_LED1);
+      }
+      else if (mpin == GPIO_LEDLNK_INV) {
+        ledlnk_inverted = 1;
+        mpin -= (GPIO_LEDLNK_INV - GPIO_LEDLNK);
       }
       else if ((mpin >= GPIO_PWM1_INV) && (mpin < (GPIO_PWM1_INV + MAX_PWMS))) {
         bitSet(pwm_inverted, mpin - GPIO_PWM1_INV);
@@ -2526,9 +2678,23 @@ void GpioInit(void)
 
   for (uint8_t i = 0; i < MAX_LEDS; i++) {
     if (pin[GPIO_LED1 +i] < 99) {
-      pinMode(pin[GPIO_LED1 +i], OUTPUT);
-      digitalWrite(pin[GPIO_LED1 +i], bitRead(led_inverted, i));
+#ifdef USE_ARILUX_RF
+      if ((3 == i) && (leds_present < 2) && (99 == pin[GPIO_ARIRFSEL])) {
+        pin[GPIO_ARIRFSEL] = pin[GPIO_LED4];  // Legacy support where LED4 was Arilux RF enable
+        pin[GPIO_LED4] = 99;
+      } else {
+#endif
+        pinMode(pin[GPIO_LED1 +i], OUTPUT);
+        leds_present++;
+        digitalWrite(pin[GPIO_LED1 +i], bitRead(led_inverted, i));
+#ifdef USE_ARILUX_RF
+      }
+#endif
     }
+  }
+  if (pin[GPIO_LEDLNK] < 99) {
+    pinMode(pin[GPIO_LEDLNK], OUTPUT);
+    digitalWrite(pin[GPIO_LEDLNK], ledlnk_inverted);
   }
 
   ButtonInit();
@@ -2615,6 +2781,13 @@ void setup(void)
   sleep = Settings.sleep;
 #ifndef USE_EMULATION
   Settings.flag2.emulation = 0;
+#else
+#ifndef USE_EMULATION_WEMO
+  if (EMUL_WEMO == Settings.flag2.emulation) { Settings.flag2.emulation = 0; }
+#endif
+#ifndef USE_EMULATION_HUE
+  if (EMUL_HUE == Settings.flag2.emulation) { Settings.flag2.emulation = 0; }
+#endif
 #endif  // USE_EMULATION
 
   if (Settings.param[P_BOOT_LOOP_OFFSET]) {
@@ -2635,6 +2808,7 @@ void setup(void)
         for (uint8_t i = 0; i < sizeof(Settings.my_gp); i++) {
           Settings.my_gp.io[i] = GPIO_NONE;         // Reset user defined GPIO disabling sensors
         }
+        Settings.my_adc0 = ADC0_NONE;               // Reset user defined ADC0 disabling sensors
       }
       if (RtcReboot.fast_reboot_count > Settings.param[P_BOOT_LOOP_OFFSET] +4) {  // Restarted 6 times
         Settings.module = SONOFF_BASIC;             // Reset module to Sonoff Basic

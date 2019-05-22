@@ -353,7 +353,7 @@ char* Unescape(char* buffer, uint16_t* size)
     }
   }
   *size = end_size;
-
+  *write++ = 0;   // add the end string pointer reference
 //  AddLogBuffer(LOG_LEVEL_DEBUG, (uint8_t*)buffer, *size);
 
   return buffer;
@@ -435,6 +435,21 @@ char* NoAlNumToUnderscore(char* dest, const char* source)
     *write++ = (isalnum(ch) || ('\0' == ch)) ? ch : '_';
   }
   return dest;
+}
+
+char IndexSeparator()
+{
+/*
+  // 20 bytes more costly !?!
+  const char separators[] = { "-_" };
+
+  return separators[Settings.flag3.use_underscore];
+*/
+  if (Settings.flag3.use_underscore) {
+    return '_';
+  } else {
+    return '-';
+  }
 }
 
 void SetShortcut(char* str, uint8_t action)
@@ -629,7 +644,7 @@ void ResetGlobalValues(void)
 {
   if ((uptime - global_update) > GLOBAL_VALUES_VALID) {  // Reset after 5 minutes
     global_update = 0;
-    global_temperature = 0;
+    global_temperature = 9999;
     global_humidity = 0;
     global_pressure = 0;
   }
@@ -639,7 +654,7 @@ double FastPrecisePow(double a, double b)
 {
   // https://martin.ankerl.com/2012/01/25/optimized-approximative-pow-in-c-and-cpp/
   // calculate approximation with fraction of the exponent
-  int e = (int)b;
+  int e = abs((int)b);
   union {
     double d;
     int x[2];
@@ -657,6 +672,42 @@ double FastPrecisePow(double a, double b)
     e >>= 1;
   }
   return r * u.d;
+}
+
+float FastPrecisePowf(const float x, const float y)
+{
+//  return (float)(pow((double)x, (double)y));
+  return (float)FastPrecisePow(x, y);
+}
+
+double TaylorLog(double x)
+{
+  // https://stackoverflow.com/questions/46879166/finding-the-natural-logarithm-of-a-number-using-taylor-series-in-c
+
+  if (x <= 0.0) { return NAN; }
+  double z = (x + 1) / (x - 1);                              // We start from power -1, to make sure we get the right power in each iteration;
+  double step = ((x - 1) * (x - 1)) / ((x + 1) * (x + 1));   // Store step to not have to calculate it each time
+  double totalValue = 0;
+  double powe = 1;
+  double y;
+  for (int count = 0; count < 10; count++) {                 // Experimental number of 10 iterations
+    z *= step;
+    y = (1 / powe) * z;
+    totalValue = totalValue + y;
+    powe = powe + 2;
+  }
+  totalValue *= 2;
+/*
+  char logxs[33];
+  dtostrfd(x, 8, logxs);
+  double log1 = log(x);
+  char log1s[33];
+  dtostrfd(log1, 8, log1s);
+  char log2s[33];
+  dtostrfd(totalValue, 8, log2s);
+  AddLog_P2(LOG_LEVEL_DEBUG, PSTR("input %s, log %s, taylor %s"), logxs, log1s, log2s);
+*/
+  return totalValue;
 }
 
 uint32_t SqrtInt(uint32_t num)
@@ -889,6 +940,11 @@ int ResponseAppend_P(const char* format, ...)  // Content send snprintf_P char d
   return len + mlen;
 }
 
+int ResponseJsonEnd(void)
+{
+  return ResponseAppend_P(PSTR("}"));
+}
+
 /*********************************************************************************************\
  * GPIO Module and Template management
 \*********************************************************************************************/
@@ -998,6 +1054,13 @@ uint8_t ValidPin(uint8_t pin, uint8_t gpio)
 bool ValidGPIO(uint8_t pin, uint8_t gpio)
 {
   return (GPIO_USER == ValidPin(pin, gpio));  // Only allow GPIO_USER pins
+}
+
+bool ValidAdc()
+{
+  gpio_flag flag = ModuleFlag();
+  uint8_t template_adc0 = flag.data &15;
+  return (ADC0_USER == template_adc0);
 }
 
 bool GetUsedInModule(uint8_t val, uint8_t *arr)
@@ -1176,10 +1239,11 @@ uint32_t i2c_buffer = 0;
 
 bool I2cValidRead(uint8_t addr, uint8_t reg, uint8_t size)
 {
-  uint8_t x = I2C_RETRY_COUNTER;
+  uint8_t retry = I2C_RETRY_COUNTER;
+  bool status = false;
 
   i2c_buffer = 0;
-  do {
+  while (!status && retry) {
     Wire.beginTransmission(addr);                       // start transmission to device
     Wire.write(reg);                                    // sends register address to read from
     if (0 == Wire.endTransmission(false)) {             // Try to become I2C Master, send data and collect bytes, keep master status for next request...
@@ -1188,11 +1252,12 @@ bool I2cValidRead(uint8_t addr, uint8_t reg, uint8_t size)
         for (uint8_t i = 0; i < size; i++) {
           i2c_buffer = i2c_buffer << 8 | Wire.read();   // receive DATA
         }
+        status = true;
       }
     }
-    x--;
-  } while (Wire.endTransmission(true) != 0 && x != 0);  // end transmission
-  return (x);
+    retry--;
+  }
+  return status;
 }
 
 bool I2cValidRead8(uint8_t *data, uint8_t addr, uint8_t reg)

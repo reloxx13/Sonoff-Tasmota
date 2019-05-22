@@ -215,6 +215,8 @@
 #define D_CMND_WEIGHT_RESOLUTION "WeightRes"
 #define D_CMND_MODULE "Module"
 #define D_CMND_MODULES "Modules"
+#define D_CMND_ADC "ADC"
+#define D_CMND_ADCS "ADCs"
 #define D_CMND_GPIO "GPIO"
   #define D_JSON_NOT_SUPPORTED "Not supported"
 #define D_CMND_GPIOS "GPIOs"
@@ -517,6 +519,8 @@ const char S_JSON_DRIVER_INDEX_SVALUE[] PROGMEM =             "{\"" D_CMND_DRIVE
 
 const char JSON_SNS_TEMP[] PROGMEM = ",\"%s\":{\"" D_JSON_TEMPERATURE "\":%s}";
 const char JSON_SNS_TEMPHUM[] PROGMEM = ",\"%s\":{\"" D_JSON_TEMPERATURE "\":%s,\"" D_JSON_HUMIDITY "\":%s}";
+
+const char JSON_SNS_ILLUMINANCE[] PROGMEM = ",\"%s\":{\"" D_JSON_ILLUMINANCE "\":%d}";
 
 const char JSON_SNS_GNGPM[] PROGMEM = ",\"%s\":{\"" D_JSON_TOTAL_USAGE "\":%s,\"" D_JSON_FLOWRATE "\":%s}";
 

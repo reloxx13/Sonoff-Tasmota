@@ -180,6 +180,7 @@ const char HTTP_SCRIPT_TEMPLATE[] PROGMEM =
       "eb('s1').value=k;"                 // Set NAME if not yet set
     "}"
     "os=o.shift();"                       // Complete GPIO sensor list
+    "as=o.shift();"                       // Complete ADC0 list
     "g=o.shift().split(',');"             // Array separator
     "j=0;"
     "for(i=0;i<13;i++){"                  // Supports 13 GPIOs
@@ -188,7 +189,10 @@ const char HTTP_SCRIPT_TEMPLATE[] PROGMEM =
       "sk(g[i],j);"                       // Set GPIO
       "j++;"
     "}"
-    "g=o.shift();"
+    "g=o.shift();"                        // FLAG
+    "os=as;"
+    "sk(g&15,17);"                        // Set ADC0
+    "g>>=4;"
     "for(i=0;i<" STR(GPIO_FLAG_USED) ";i++){"
       "p=(g>>i)&1;"
       "eb('c'+i).checked=p;"              // Set FLAG checkboxes
@@ -212,17 +216,24 @@ const char HTTP_SCRIPT_TEMPLATE[] PROGMEM =
   "window.onload=ld('tp?m=1',x2);";       // ?m related to WebServer->hasArg("m")
 
 const char HTTP_SCRIPT_MODULE1[] PROGMEM =
-  "function x1(a){"
+  "function x1(a){"                       // Module Type
     "os=a.responseText;"
     "sk(%d,99);"
   "}"
-  "function x2(b){"
+  "function x2(b){"                       // GPIOs
     "os=b.responseText;";
 const char HTTP_SCRIPT_MODULE2[] PROGMEM =
   "}"
+  "function x3(a){"                       // ADC0
+    "os=a.responseText;"
+    "sk(%d,17);"
+  "}"
   "function sl(){"
-    "ld('md?m=1',x1);"                     // ?m related to WebServer->hasArg("m")
-    "ld('md?g=1',x2);"                     // ?m related to WebServer->hasArg("m")
+    "ld('md?m=1',x1);"                    // ?m related to WebServer->hasArg("m")
+    "ld('md?g=1',x2);"                    // ?g related to WebServer->hasArg("g")
+    "if(eb('g17')){"
+      "ld('md?a=1',x3);"                  // ?a related to WebServer->hasArg("a")
+    "}"
   "}"
   "window.onload=sl;";
 
@@ -230,7 +241,7 @@ const char HTTP_SCRIPT_INFO_BEGIN[] PROGMEM =
   "function i(){"
     "var s,o=\"";
 const char HTTP_SCRIPT_INFO_END[] PROGMEM =
-    "\";"                                   // "}1" and "}2" means do not use "}x" in Information text
+    "\";"                                 // "}1" and "}2" means do not use "}x" in Information text
     "s=o.replace(/}1/g,\"</td></tr><tr><th>\").replace(/}2/g,\"</th><td>\");"
     "eb('i').innerHTML=s;"
   "}"
@@ -300,8 +311,7 @@ const char HTTP_FORM_TEMPLATE[] PROGMEM =
 const char HTTP_FORM_TEMPLATE_FLAG[] PROGMEM =
   "<p></p>"  // Keep close so do not use <br/>
   "<fieldset><legend><b>&nbsp;" D_TEMPLATE_FLAGS "&nbsp;</b></legend><p>"
-  "<input id='c0' name='c0' type='checkbox'><b>" D_ALLOW_ADC0 "</b><br/>"
-  "<input id='c1' name='c1' type='checkbox'><b>" D_ALLOW_ADC0_TEMP "</b><br/>"
+//  "<input id='c0' name='c0' type='checkbox'><b>" D_OPTION_TEXT "</b><br/>"
   "</p></fieldset>";
 
 const char HTTP_FORM_MODULE[] PROGMEM =
@@ -486,9 +496,6 @@ void StartWebserver(int type, IPAddress ipweb)
       WebServer->on("/rs", HandleRestoreConfiguration);
       WebServer->on("/rt", HandleResetConfiguration);
       WebServer->on("/in", HandleInformation);
-#ifdef USE_EMULATION
-      HueWemoAddHandlers();
-#endif  // USE_EMULATION
       XdrvCall(FUNC_WEB_ADD_HANDLER);
       XsnsCall(FUNC_WEB_ADD_HANDLER);
 #endif  // Not FIRMWARE_MINIMAL
@@ -1073,16 +1080,22 @@ void HandleTemplateConfiguration(void)
     WSContentBegin(200, CT_PLAIN);
     WSContentSend_P(PSTR("%s}1"), AnyModuleName(module).c_str());  // NAME: Generic
     for (uint8_t i = 0; i < sizeof(kGpioNiceList); i++) {   // GPIO: }2'0'>None (0)}3}2'17'>Button1 (17)}3...
-
       if (1 == i) {
         WSContentSend_P(HTTP_MODULE_TEMPLATE_REPLACE, 255, D_SENSOR_USER, 255);  // }2'255'>User (255)}3
       }
-
       uint8_t midx = pgm_read_byte(kGpioNiceList + i);
       WSContentSend_P(HTTP_MODULE_TEMPLATE_REPLACE, midx, GetTextIndexed(stemp, sizeof(stemp), midx, kSensorNames), midx);
     }
-
     WSContentSend_P(PSTR("}1"));                                   // Field separator
+
+    for (uint8_t i = 0; i < ADC0_END; i++) {                // FLAG: }2'0'>None (0)}3}2'17'>Analog (17)}3...
+      if (1 == i) {
+        WSContentSend_P(HTTP_MODULE_TEMPLATE_REPLACE, ADC0_USER, D_SENSOR_USER, ADC0_USER);  // }2'15'>User (15)}3
+      }
+      WSContentSend_P(HTTP_MODULE_TEMPLATE_REPLACE, i, GetTextIndexed(stemp, sizeof(stemp), i, kAdc0Names), i);
+    }
+    WSContentSend_P(PSTR("}1"));                                   // Field separator
+
     for (uint8_t i = 0; i < sizeof(cmodule); i++) {         // 17,148,29,149,7,255,255,255,138,255,139,255,255
       if ((i < 6) || ((i > 8) && (i != 11))) {              // Ignore flash pins GPIO06, 7, 8 and 11
         WSContentSend_P(PSTR("%s%d"), (i>0)?",":"", cmodule.io[i]);
@@ -1112,8 +1125,12 @@ void HandleTemplateConfiguration(void)
         ((9==i)||(10==i)) ? WebColor(COL_TEXT_WARNING) : WebColor(COL_TEXT), i, (0==i) ? " style='width:200px'" : "", i, i);
     }
   }
+  WSContentSend_P(PSTR("<tr><td><b><font color='#%06x'>" D_ADC "0</font></b></td><td><select id='g17' name='g17'></select></td></tr>"), WebColor(COL_TEXT));
   WSContentSend_P(PSTR("</table>"));
-  WSContentSend_P(HTTP_FORM_TEMPLATE_FLAG);
+  gpio_flag flag = ModuleFlag();
+  if (flag.data > ADC0_USER) {
+    WSContentSend_P(HTTP_FORM_TEMPLATE_FLAG);
+  }
   WSContentSend_P(HTTP_FORM_END);
   WSContentSpaceButton(BUTTON_CONFIGURATION);
   WSContentStop();
@@ -1139,10 +1156,11 @@ void TemplateSaveSettings(void)
     j++;
   }
 
-  uint8_t flag = 0;
+  WebGetArg("g17", tmp, sizeof(tmp));                        // FLAG - ADC0
+  uint8_t flag = atoi(tmp);
   for (uint8_t i = 0; i < GPIO_FLAG_USED; i++) {
     snprintf_P(webindex, sizeof(webindex), PSTR("c%d"), i);
-    uint8_t state = WebServer->hasArg(webindex) << i;       // FLAG
+    uint8_t state = WebServer->hasArg(webindex) << i +4;    // FLAG
     flag += state;
   }
   WebGetArg("g99", tmp, sizeof(tmp));                       // BASE
@@ -1198,6 +1216,17 @@ void HandleModuleConfiguration(void)
     return;
   }
 
+#ifndef USE_ADC_VCC
+  if (WebServer->hasArg("a")) {
+    WSContentBegin(200, CT_PLAIN);
+    for (uint8_t j = 0; j < ADC0_END; j++) {
+      WSContentSend_P(HTTP_MODULE_TEMPLATE_REPLACE, j, GetTextIndexed(stemp, sizeof(stemp), j, kAdc0Names), j);
+    }
+    WSContentEnd();
+    return;
+  }
+#endif  // USE_ADC_VCC
+
   AddLog_P(LOG_LEVEL_DEBUG, S_LOG_HTTP, S_CONFIGURE_MODULE);
 
   WSContentStart_P(S_CONFIGURE_MODULE);
@@ -1208,7 +1237,7 @@ void HandleModuleConfiguration(void)
       WSContentSend_P(PSTR("sk(%d,%d);"), my_module.io[i], i);  // g0 - g16
     }
   }
-  WSContentSend_P(HTTP_SCRIPT_MODULE2);
+  WSContentSend_P(HTTP_SCRIPT_MODULE2, Settings.my_adc0);
   WSContentSendStyle();
   WSContentSend_P(HTTP_FORM_MODULE, AnyModuleName(MODULE).c_str());
   for (uint8_t i = 0; i < sizeof(cmodule); i++) {
@@ -1220,6 +1249,11 @@ void HandleModuleConfiguration(void)
         (WEMOS==my_module_type)?stemp:"", i, (0==i)? D_SENSOR_BUTTON "1":(1==i)? D_SERIAL_OUT :(3==i)? D_SERIAL_IN :((9==i)||(10==i))? sesp8285 :(12==i)? D_SENSOR_RELAY "1":(13==i)? D_SENSOR_LED "1i":(14==i)? D_SENSOR :"", i, i);
     }
   }
+#ifndef USE_ADC_VCC
+  if (ValidAdc()) {
+    WSContentSend_P(PSTR("<tr><td>%s <b>" D_ADC "0</b></td><td style='width:176px'><select id='g17' name='g17'></select></td></tr>"), (WEMOS==my_module_type)?"A0":"");
+  }
+#endif  // USE_ADC_VCC
   WSContentSend_P(PSTR("</table>"));
   WSContentSend_P(HTTP_FORM_END);
   WSContentSpaceButton(BUTTON_CONFIGURATION);
@@ -1251,6 +1285,12 @@ void ModuleSaveSettings(void)
       }
     }
   }
+#ifndef USE_ADC_VCC
+  WebGetArg("g17", tmp, sizeof(tmp));
+  Settings.my_adc0 = (!strlen(tmp)) ? 0 : atoi(tmp);
+  gpios += F(", " D_ADC "0 "); gpios += String(Settings.my_adc0);
+#endif  // USE_ADC_VCC
+
   AddLog_P2(LOG_LEVEL_INFO, PSTR(D_LOG_MODULE "%s " D_CMND_MODULE "%s"), ModuleName().c_str(), gpios.c_str());
 }
 
@@ -1489,11 +1529,19 @@ void HandleOtherConfiguration(void)
 #ifdef USE_EMULATION
   WSContentSend_P(PSTR("<p></p><fieldset><legend><b>&nbsp;" D_EMULATION "&nbsp;</b></legend><p>"));  // Keep close to Friendlynames so do not use <br/>
   for (uint8_t i = 0; i < EMUL_MAX; i++) {
-    WSContentSend_P(PSTR("<input id='r%d' name='b2' type='radio' value='%d'%s><b>%s</b> %s<br/>"),  // Different id only used for labels
-      i, i,
-      (i == Settings.flag2.emulation) ? " checked" : "",
-      GetTextIndexed(stemp, sizeof(stemp), i, kEmulationOptions),
-      (i == EMUL_NONE) ? "" : (i == EMUL_WEMO) ? D_SINGLE_DEVICE : D_MULTI_DEVICE);
+#ifndef USE_EMULATION_WEMO
+    if (i == EMUL_WEMO) { i++; }
+#endif
+#ifndef USE_EMULATION_HUE
+    if (i == EMUL_HUE) { i++; }
+#endif
+    if (i < EMUL_MAX) {
+      WSContentSend_P(PSTR("<input id='r%d' name='b2' type='radio' value='%d'%s><b>%s</b> %s<br/>"),  // Different id only used for labels
+        i, i,
+        (i == Settings.flag2.emulation) ? " checked" : "",
+        GetTextIndexed(stemp, sizeof(stemp), i, kEmulationOptions),
+        (i == EMUL_NONE) ? "" : (i == EMUL_WEMO) ? D_SINGLE_DEVICE : D_MULTI_DEVICE);
+    }
   }
   WSContentSend_P(PSTR("</p></fieldset>"));
 #endif  // USE_EMULATION
@@ -2146,11 +2194,13 @@ void HandleNotFound(void)
   if (CaptivePortal()) { return; }  // If captive portal redirect instead of displaying the error page.
 
 #ifdef USE_EMULATION
+#ifdef USE_EMULATION_HUE
   String path = WebServer->uri();
   if ((EMUL_HUE == Settings.flag2.emulation) && (path.startsWith("/api"))) {
     HandleHueApi(&path);
   } else
-#endif // USE_EMULATION
+#endif  // USE_EMULATION_HUE
+#endif  // USE_EMULATION
   {
     WSContentBegin(404, CT_PLAIN);
     WSContentSend_P(PSTR(D_FILE_NOT_FOUND "\n\nURI: %s\nMethod: %s\nArguments: %d\n"), WebServer->uri().c_str(), (WebServer->method() == HTTP_GET) ? "GET" : "POST", WebServer->args());
@@ -2387,7 +2437,16 @@ bool WebCommand(void)
   }
 #ifdef USE_EMULATION
   else if (CMND_EMULATION == command_code) {
+#if defined(USE_EMULATION_WEMO) && defined(USE_EMULATION_HUE)
     if ((XdrvMailbox.payload >= EMUL_NONE) && (XdrvMailbox.payload < EMUL_MAX)) {
+#else
+#ifndef USE_EMULATION_WEMO
+    if ((EMUL_NONE == XdrvMailbox.payload) || (EMUL_HUE == XdrvMailbox.payload)) {
+#endif
+#ifndef USE_EMULATION_HUE
+    if ((EMUL_NONE == XdrvMailbox.payload) || (EMUL_WEMO == XdrvMailbox.payload)) {
+#endif
+#endif
       Settings.flag2.emulation = XdrvMailbox.payload;
       restart_flag = 2;
     }

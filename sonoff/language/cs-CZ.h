@@ -257,6 +257,7 @@
 #define D_MODULE_PARAMETERS "Nastavení modulu"
 #define D_MODULE_TYPE "Typ modulu"
 #define D_PULLUP_ENABLE "Tlačítko/Spínač bez pull-up"
+#define D_ADC "ADC"
 #define D_GPIO "GPIO"
 #define D_SERIAL_IN "Serial In"
 #define D_SERIAL_OUT "Serial Out"
@@ -306,9 +307,6 @@
 #define D_TEMPLATE_NAME "Název"
 #define D_BASE_TYPE "Vzor z"
 #define D_TEMPLATE_FLAGS "Volby"
-#define D_ALLOW_ADC0 "ADC0 vstup"
-#define D_ALLOW_ADC0_TEMP "ADC0 teplota"
-#define D_ALLOW_PULLUP "Pull-up volba uživatele"
 
 #define D_SAVE_CONFIGURATION "Ulož nastavení"
 #define D_CONFIGURATION_SAVED "Nastavení uloženo"
@@ -514,6 +512,7 @@
 #define D_SENSOR_BUTTON        "Tlačítko"   // Suffix "1"
 #define D_SENSOR_RELAY         "Relé"       // Suffix "1i"
 #define D_SENSOR_LED           "Led"        // Suffix "1i"
+#define D_SENSOR_LED_LINK      "LedLink"    // Suffix "i"
 #define D_SENSOR_PWM           "PWM"        // Suffix "1",
 #define D_SENSOR_COUNTER       "Počítadlo"  // Suffix "1"
 #define D_SENSOR_IRRECV        "IRrecv"
@@ -579,6 +578,7 @@
 #define D_SENSOR_MY92X1_DI     "MY92x1 DI"
 #define D_SENSOR_MY92X1_DCKI   "MY92x1 DCKI"
 #define D_SENSOR_ARIRFRCV      "ALux IrRcv"
+#define D_SENSOR_ARIRFSEL      "ALux IrSel"
 #define D_SENSOR_TXD           "Serial Tx"
 #define D_SENSOR_RXD           "Serial Rx"
 #define D_SENSOR_ROTARY        "Rotary"     // Suffix "1A"

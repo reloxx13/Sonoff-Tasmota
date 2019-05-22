@@ -444,6 +444,7 @@ void SettingsSaveAll(void)
     Settings.power = 0;
   }
   XsnsCall(FUNC_SAVE_BEFORE_RESTART);
+  XdrvCall(FUNC_SAVE_BEFORE_RESTART);
 #ifdef USE_EEPROM
   EepromCommit();
 #endif
@@ -1163,6 +1164,9 @@ void SettingsDelta(void)
     }
     if (Settings.version < 0x06050007) {
       Settings.ledmask = APP_LEDMASK;
+    }
+    if (Settings.version < 0x0605000A) {
+      Settings.my_adc0 = ADC0_NONE;
     }
 
     Settings.version = VERSION;

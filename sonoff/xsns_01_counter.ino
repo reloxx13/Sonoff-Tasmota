@@ -25,6 +25,14 @@
 
 unsigned long last_counter_timer[MAX_COUNTERS]; // Last counter time in micro seconds
 
+#ifndef ARDUINO_ESP8266_RELEASE_2_3_0       // Fix core 2.5.x ISR not in IRAM Exception
+void CounterUpdate(uint8_t index) ICACHE_RAM_ATTR;
+void CounterUpdate1(void) ICACHE_RAM_ATTR;
+void CounterUpdate2(void) ICACHE_RAM_ATTR;
+void CounterUpdate3(void) ICACHE_RAM_ATTR;
+void CounterUpdate4(void) ICACHE_RAM_ATTR;
+#endif  // ARDUINO_ESP8266_RELEASE_2_3_0
+
 void CounterUpdate(uint8_t index)
 {
   unsigned long counter_debounce_time = micros() - last_counter_timer[index -1];
@@ -131,7 +139,7 @@ void CounterShow(bool json)
   }
   if (json) {
     if (header) {
-      ResponseAppend_P(PSTR("}"));
+      ResponseJsonEnd();
     }
   }
 }
