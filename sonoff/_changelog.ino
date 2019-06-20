@@ -1,10 +1,45 @@
-/* 6.5.0.12 20190521
+/* 6.5.0.16 20190611
+ * Refactored TLS based on BearSSL, warning breaking change for fingerprints validation (see doc)
+ * Add checkbox to GUI password field enabling visibility during password entry only (#5934)
+ * Add using heap when more than 199 IRSend values need to be send. May need increase of define MQTT_MAX_PACKET_SIZE too (#5950)
+ * Fix channel command for dual dimmers (#5940)
+ * Add define USE_COUNTER to my_user_config.h to save space in sonoff-basic.bin and sonoff-minimal.bin
+ * Add define USE_DHT to my_user_config.h to save space in sonoff-basic.bin
+ * Change TLS+AWS IoT optimization for speed, code and memory footprint
+ * Add command SetOption40 0..250 to disable button functionality if activated for over 0.1 second. Needs SetOption1 1 and SetOption13 0 (#5449)
+ *
+ * 6.5.0.15 20190606
+ * Change pubsubclient MQTT_KEEPALIVE from 10 to 30 seconds in preparation of AWS IoT support
+ * Add support for AWS IoT with TLS 1.2 on core 2.5.2. Full doc here: https://github.com/arendst/Sonoff-Tasmota/wiki/AWS-IoT
+ * Add some MQTT housekeeping which might solve issue (#5755)
+ * Add command SetOption65 0/1 and more Tuya Serial based device support (#5815)
+ * Fix include of my_user_config.h in sonoff_aws_iot.cpp (#5930)
+ * Fix exception 9 when syslog is enabled and NTP is just synced (#5917)
+ * Fix Toggle functionality to button double press when one button and two devices are detected (#5935)
+ *
+ * 6.5.0.14 20190602
+ * Change webserver HTML input, button, textarea, and select name based on id
+ * Fix webserver multiple Javascript window.onload functionality
+ * Fix PZem startup issue (#5875)
+ * Add command SetOption39 1..255 to control CSE7766 (Pow R2) or HLW8032 (Blitzwolf SHP5) handling of power loads below 6W. Default setting is 128 (#5756)
+ * Add Toggle functionality to button double press when more devices are detected
+ *
+ * 6.5.0.13 20190527
+ * Add command SetOption38 6..255 to set IRReceive protocol detection sensitivity mimizing UNKNOWN protocols (#5853)
+ * Fix missing white channel for WS2812 (#5869)
+ * Add reset of Energy values when connection to sensor is lost for over 4 seconds (#5874, #5881)
+ * Work-around for Philips Hue emulation issue by using part of MAC address for LightId (#5849)
+ * Add support to Stage Arduino Core (next 2.6.0)
+ *
+ * 6.5.0.12 20190521
  * Add AriLux RF control GPIO option "ALux IrSel" (159) replacing "Led4i" (59) for full LED control (#5709)
  * Add LED GPIO option "LedLink" (157) and "LedLinki" (158) to select dedicated link status LED (#5709)
  * Add support for up to four LEDs related to four power outputs. Enabled when "LedLink(i)" is configured too (#5709)
  * Add extended LED power control using command LedPowerX where X is 1 to 4. Enabled when "LedLink(i)" is configured too (#5709)
  * Fix core 2.5.x ISR not in IRAM exception (#5837)
  * Add support for VL53L0x time of flight sensor. Might interfere with TSL2561 using same I2C address (#5845)
+ * Add command AdcParam to control ADC0 Temperature and Light formula parameters
+ * Change default PowerDelta from 80% to 0% on new installations (#5858, #5028, #4813, #4130, #4145, #3795, #3778, #3660, #3648)
  *
  * 6.5.0.11 20190517
  * Add command SetOption64 0/1 to switch between "-" or "_" as sensor index separator impacting DS18X20, DHT, BMP and SHT3X sensor names (#5689)

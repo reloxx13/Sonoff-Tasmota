@@ -67,6 +67,7 @@ uint8_t hlw_ui_flag = 1;
 uint8_t hlw_model_type = 0;
 uint8_t hlw_load_off = 1;
 uint8_t hlw_cf1_timer = 0;
+uint8_t hlw_power_retry = 0;
 
 // Fix core 2.5.x ISR not in IRAM Exception
 #ifndef USE_WS2812_DMA  // Collides with Neopixelbus but solves exception
@@ -86,6 +87,7 @@ void HlwCfInterrupt(void)  // Service Power
     hlw_cf_pulse_last_time = us;
     hlw_energy_period_counter++;
   }
+  energy_data_valid = 0;
 }
 
 void HlwCf1Interrupt(void)  // Service Voltage and Current
@@ -104,6 +106,7 @@ void HlwCf1Interrupt(void)  // Service Voltage and Current
       hlw_cf1_timer = 8;  // We need up to HLW_SAMPLE_COUNT samples within 1 second (low current could take up to 0.3 second)
     }
   }
+  energy_data_valid = 0;
 }
 
 /********************************************************************************************/
@@ -124,8 +127,13 @@ void HlwEvery200ms(void)
   if (hlw_cf_power_pulse_length && energy_power_on && !hlw_load_off) {
     hlw_w = (hlw_power_ratio * Settings.energy_power_calibration) / hlw_cf_power_pulse_length;  // W *10
     energy_active_power = (float)hlw_w / 10;
+    hlw_power_retry = 1;        // Workaround issue #5161
   } else {
-    energy_active_power = 0;
+    if (hlw_power_retry) {
+      hlw_power_retry--;
+    } else {
+      energy_active_power = 0;
+    }
   }
 
   if (pin[GPIO_NRG_CF1] < 99) {
@@ -189,14 +197,20 @@ void HlwEvery200ms(void)
 
 void HlwEverySecond(void)
 {
-  unsigned long hlw_len;
+  if (energy_data_valid > ENERGY_WATCHDOG) {
+    hlw_cf1_voltage_pulse_length = 0;
+    hlw_cf1_current_pulse_length = 0;
+    hlw_cf_power_pulse_length = 0;
+  } else {
+    unsigned long hlw_len;
 
-  if (hlw_energy_period_counter) {
-    hlw_len = 10000 / hlw_energy_period_counter;
-    hlw_energy_period_counter = 0;
-    if (hlw_len) {
-      energy_kWhtoday_delta += ((hlw_power_ratio * Settings.energy_power_calibration) / hlw_len) / 36;
-      EnergyUpdateToday();
+    if (hlw_energy_period_counter) {
+      hlw_len = 10000 / hlw_energy_period_counter;
+      hlw_energy_period_counter = 0;
+      if (hlw_len) {
+        energy_kWhtoday_delta += ((hlw_power_ratio * Settings.energy_power_calibration) / hlw_len) / 36;
+        EnergyUpdateToday();
+      }
     }
   }
 }

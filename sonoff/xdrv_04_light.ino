@@ -17,6 +17,7 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifdef USE_LIGHT
 /*********************************************************************************************\
  * PWM, WS2812, Sonoff B1, AiLight, Sonoff Led and BN-SZ01, H801, MagicHome and Arilux
  *
@@ -942,7 +943,13 @@ public:
   // Channels are: R G B CW WW
   // Brightness is automatically recalculated to adjust channels to the desired values
   void changeChannels(uint8_t *channels) {
-    _state->setChannels(channels);
+    if (LST_COLDWARM == light_subtype) {
+      // remap channels 0-1 to 3-4 if cold/warm
+      uint8_t remapped_channels[5] = {0,0,0,channels[0],channels[1]};
+      _state->setChannels(remapped_channels);
+    } else {
+      _state->setChannels(channels);
+    }
     saveSettings();
     calcLevels();
   }
@@ -1326,6 +1333,12 @@ void LightInit(void)
   light_device = devices_present;
   light_subtype = (light_type & 7) > LST_MAX ? LST_MAX : (light_type & 7); // Always 0 - LST_MAX (5)
 
+#if defined(USE_WS2812) && (USE_WS2812_CTYPE > NEO_3LED)
+  if (LT_WS2812 == light_type) {
+    light_subtype++;  // from RGB to RGBW
+  }
+#endif
+
   light_controller.setSubType(light_subtype);
   light_controller.loadSettings();
 
@@ -1362,9 +1375,6 @@ void LightInit(void)
   }
 #ifdef USE_WS2812  // ************************************************************************
   else if (LT_WS2812 == light_type) {
-#if (USE_WS2812_CTYPE > NEO_3LED)
-    light_subtype++;  // from RGB to RGBW
-#endif
     Ws2812Init();
     max_scheme = LS_MAX + WS2812_SCHEMES;
   }
@@ -2323,3 +2333,5 @@ bool Xdrv04(uint8_t function)
   }
   return result;
 }
+
+#endif  // USE_LIGHT

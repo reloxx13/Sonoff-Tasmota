@@ -56,9 +56,28 @@ const char HTTP_HEAD[] PROGMEM =
 
   "<script>"
   "var x=null,lt,to,tp,pc='';"            // x=null allow for abortion
+
+#ifdef USE_JAVASCRIPT_ES6
+// Following bytes saving ES6 syntax fails on old browsers like IE 11 - https://kangax.github.io/compat-table/es6/
+  "eb=s=>document.getElementById(s);"     // Alias to save code space
+  "qs=s=>document.querySelector(s);"      // Alias to save code space
+  "sp=i=>eb(i).type=(eb(i).type==='text'?'password':'text');"  // Toggle password visibility
+  "wl=f=>window.addEventListener('load',f);" // Execute multiple window.onload
+  ;
+#else
   "function eb(s){"
-    "return document.getElementById(s);"  // Save code space
+    "return document.getElementById(s);"  // Alias to save code space
+  "}"
+  "function qs(s){"                       // Alias to save code space
+    "return document.querySelector(s);"
+  "}"
+  "function sp(i){"                       // Toggle password visibility
+    "eb(i).type=(eb(i).type==='text'?'password':'text');"
+  "}"
+  "function wl(f){"                       // Execute multiple window.onload
+    "window.addEventListener('load',f);"
   "}";
+#endif
 
 const char HTTP_SCRIPT_COUNTER[] PROGMEM =
   "var cn=180;"                           // seconds
@@ -69,7 +88,7 @@ const char HTTP_SCRIPT_COUNTER[] PROGMEM =
       "setTimeout(u,1000);"
     "}"
   "}"
-  "window.onload=u;";
+  "wl(u);";
 
 const char HTTP_SCRIPT_ROOT[] PROGMEM =
   "function la(p){"
@@ -91,13 +110,20 @@ const char HTTP_SCRIPT_ROOT[] PROGMEM =
     "x.send();"
     "lt=setTimeout(la,%d);"               // Settings.web_refresh
   "}"
+
+#ifdef USE_JAVASCRIPT_ES6
+  "lb=p=>la('&d='+p);"                    // Dark - Bright &d related to lb(value) and WebGetArg("d", tmp, sizeof(tmp));
+  "lc=p=>la('&t='+p);"                    // Cold - Warm &t related to lc(value) and WebGetArg("t", tmp, sizeof(tmp));
+#else
   "function lb(p){"
     "la('&d='+p);"                        // &d related to WebGetArg("d", tmp, sizeof(tmp));
   "}"
   "function lc(p){"
     "la('&t='+p);"                        // &t related to WebGetArg("t", tmp, sizeof(tmp));
   "}"
-  "window.onload=la();";
+#endif
+
+  "wl(la);";
 
 const char HTTP_SCRIPT_WIFI[] PROGMEM =
   "function c(l){"
@@ -113,12 +139,10 @@ const char HTTP_SCRIPT_RELOAD_OTA[] PROGMEM =
   "setTimeout(function(){location.href='.';}," STR(HTTP_OTA_RESTART_RECONNECT_TIME) ");";
 
 const char HTTP_SCRIPT_CONSOL[] PROGMEM =
-  "var sn=0;"                             // Scroll position
-  "var id=0;"                             // Get most of weblog initially
+  "var sn=0,id=0;"                        // Scroll position, Get most of weblog initially
   "function l(p){"                        // Console log and command service
-    "var c,o,t;"
+    "var c,o='',t;"
     "clearTimeout(lt);"
-    "o='';"
     "t=eb('t1');"
     "if(p==1){"
       "c=eb('c1');"
@@ -147,7 +171,7 @@ const char HTTP_SCRIPT_CONSOL[] PROGMEM =
     "lt=setTimeout(l,%d);"
     "return false;"
   "}"
-  "window.onload=l;";
+  "wl(l);";
 
 const char HTTP_MODULE_TEMPLATE_REPLACE[] PROGMEM =
   "}2%d'>%s (%d}3";                       // }2 and }3 are used in below os.replace
@@ -213,7 +237,16 @@ const char HTTP_SCRIPT_TEMPLATE[] PROGMEM =
     "sk(17,99);"                          // 17 = WEMOS
     "st(" STR(USER_MODULE) ");"
   "}"
-  "window.onload=ld('tp?m=1',x2);";       // ?m related to WebServer->hasArg("m")
+
+#ifdef USE_JAVASCRIPT_ES6
+  "sl=()=>ld('tp?m=1',x2);"               // ?m related to WebServer->hasArg("m")
+#else
+  "function sl(){"
+    "ld('tp?m=1',x2);"                    // ?m related to WebServer->hasArg("m")
+  "}"
+#endif
+
+  "wl(sl);";
 
 const char HTTP_SCRIPT_MODULE1[] PROGMEM =
   "function x1(a){"                       // Module Type
@@ -235,7 +268,7 @@ const char HTTP_SCRIPT_MODULE2[] PROGMEM =
       "ld('md?a=1',x3);"                  // ?a related to WebServer->hasArg("a")
     "}"
   "}"
-  "window.onload=sl;";
+  "wl(sl);";
 
 const char HTTP_SCRIPT_INFO_BEGIN[] PROGMEM =
   "function i(){"
@@ -245,11 +278,22 @@ const char HTTP_SCRIPT_INFO_END[] PROGMEM =
     "s=o.replace(/}1/g,\"</td></tr><tr><th>\").replace(/}2/g,\"</th><td>\");"
     "eb('i').innerHTML=s;"
   "}"
-  "window.onload=i;";
+  "wl(i);";
+
+const char HTTP_HEAD_LAST_SCRIPT[] PROGMEM =
+  "function jd(){"                        // Add label name='' based on provided id=''
+    "var t=0,i=document.querySelectorAll('input,button,textarea,select');"
+    "while(i.length>=t){"
+      "if(i[t]){"
+        "i[t]['name']=(i[t].hasAttribute('id')&&(!i[t].hasAttribute('name')))?i[t]['id']:i[t]['name'];"
+      "}"
+      "t++;"
+    "}"
+  "}"
+  "wl(jd);"                               // Add name='' to any id='' in input,button,textarea,select
+  "</script>";
 
 const char HTTP_HEAD_STYLE1[] PROGMEM =
-  "</script>"
-
   "<style>"
   "div,fieldset,input,select{padding:5px;font-size:1em;}"
   "fieldset{background:#%06x;}"  // COLOR_FORM, Also update HTTP_TIMER_STYLE
@@ -279,7 +323,7 @@ const char HTTP_HEAD_STYLE3[] PROGMEM =
 #ifdef FIRMWARE_MINIMAL
   "<div style='text-align:center;color:#%06x;'><h3>" D_MINIMAL_FIRMWARE_PLEASE_UPGRADE "</h3></div>"  // COLOR_TEXT_WARNING
 #endif
-  "<div style='text-align:center;'><noscript>" D_NOSCRIPT "<br/></noscript>"
+  "<div style='text-align:center;'><noscript>" D_NOSCRIPT "<br></noscript>"
 #ifdef LANGUAGE_MODULE_NAME
   "<h3>" D_MODULE " %s</h3>"
 #else
@@ -294,14 +338,14 @@ const char HTTP_MSG_SLIDER2[] PROGMEM =
   "<div><span class='p'>" D_DARKLIGHT "</span><span class='q'>" D_BRIGHTLIGHT "</span></div>"
   "<div><input type='range' min='1' max='100' value='%d' onchange='lb(value)'></div>";
 const char HTTP_MSG_RSTRT[] PROGMEM =
-  "<br/><div style='text-align:center;'>" D_DEVICE_WILL_RESTART "</div><br/>";
+  "<br><div style='text-align:center;'>" D_DEVICE_WILL_RESTART "</div><br>";
 
 const char HTTP_FORM_LOGIN[] PROGMEM =
   "<fieldset>"
   "<form method='post' action='/'>"
-  "<p><b>" D_USER "</b><br/><input name='USER1' placeholder='" D_USER "'></p>"
-  "<p><b>" D_PASSWORD "</b><br/><input name='PASS1' type='password' placeholder='" D_PASSWORD "'></p>"
-  "<br/>"
+  "<p><b>" D_USER "</b><br><input name='USER1' placeholder='" D_USER "'></p>"
+  "<p><b>" D_PASSWORD "</b><br><input name='PASS1' type='password' placeholder='" D_PASSWORD "'></p>"
+  "<br>"
   "<button>" D_OK "</button>"
   "</form></fieldset>";
 
@@ -309,84 +353,84 @@ const char HTTP_FORM_TEMPLATE[] PROGMEM =
   "<fieldset><legend><b>&nbsp;" D_TEMPLATE_PARAMETERS "&nbsp;</b></legend>"
   "<form method='get' action='tp'>";
 const char HTTP_FORM_TEMPLATE_FLAG[] PROGMEM =
-  "<p></p>"  // Keep close so do not use <br/>
+  "<p></p>"  // Keep close so do not use <br>
   "<fieldset><legend><b>&nbsp;" D_TEMPLATE_FLAGS "&nbsp;</b></legend><p>"
-//  "<input id='c0' name='c0' type='checkbox'><b>" D_OPTION_TEXT "</b><br/>"
+//  "<input id='c0' name='c0' type='checkbox'><b>" D_OPTION_TEXT "</b><br>"
   "</p></fieldset>";
 
 const char HTTP_FORM_MODULE[] PROGMEM =
   "<fieldset><legend><b>&nbsp;" D_MODULE_PARAMETERS "&nbsp;</b></legend>"
   "<form method='get' action='md'>"
-  "<p></p><b>" D_MODULE_TYPE "</b> (%s)<br/><select id='g99' name='g99'></select><br/>"
-  "<br/><table>";
+  "<p></p><b>" D_MODULE_TYPE "</b> (%s)<br><select id='g99'></select><br>"
+  "<br><table>";
 
 const char HTTP_FORM_WIFI[] PROGMEM =
   "<fieldset><legend><b>&nbsp;" D_WIFI_PARAMETERS "&nbsp;</b></legend>"
   "<form method='get' action='wi'>"
-  "<p><b>" D_AP1_SSID "</b> (" STA_SSID1 ")<br/><input id='s1' name='s1' placeholder='" STA_SSID1 "' value='%s'></p>"
-  "<p><b>" D_AP1_PASSWORD "</b><br/><input id='p1' name='p1' type='password' placeholder='" D_AP1_PASSWORD "' value='" D_ASTERISK_PWD "'></p>"
-  "<p><b>" D_AP2_SSID "</b> (" STA_SSID2 ")<br/><input id='s2' name='s2' placeholder='" STA_SSID2 "' value='%s'></p>"
-  "<p><b>" D_AP2_PASSWORD "</b><br/><input id='p2' name='p2' type='password' placeholder='" D_AP2_PASSWORD "' value='" D_ASTERISK_PWD "'></p>"
-  "<p><b>" D_HOSTNAME "</b> (%s)<br/><input id='h' name='h' placeholder='%s' value='%s'></p>";
+  "<p><b>" D_AP1_SSID "</b> (" STA_SSID1 ")<br><input id='s1' placeholder='" STA_SSID1 "' value='%s'></p>"
+  "<p><b>" D_AP1_PASSWORD "</b><input type='checkbox' onclick='sp(\"p1\")'><br><input id='p1' type='password' placeholder='" D_AP1_PASSWORD "' value='" D_ASTERISK_PWD "'></p>"
+  "<p><b>" D_AP2_SSID "</b> (" STA_SSID2 ")<br><input id='s2' placeholder='" STA_SSID2 "' value='%s'></p>"
+  "<p><b>" D_AP2_PASSWORD "</b><input type='checkbox' onclick='sp(\"p2\")'><br><input id='p2' type='password' placeholder='" D_AP2_PASSWORD "' value='" D_ASTERISK_PWD "'></p>"
+  "<p><b>" D_HOSTNAME "</b> (%s)<br><input id='h' placeholder='%s' value='%s'></p>";
 
 const char HTTP_FORM_LOG1[] PROGMEM =
   "<fieldset><legend><b>&nbsp;" D_LOGGING_PARAMETERS "&nbsp;</b>"
   "</legend><form method='get' action='lg'>";
 const char HTTP_FORM_LOG2[] PROGMEM =
-  "<p><b>" D_SYSLOG_HOST "</b> (" SYS_LOG_HOST ")<br/><input id='lh' name='lh' placeholder='" SYS_LOG_HOST "' value='%s'></p>"
-  "<p><b>" D_SYSLOG_PORT "</b> (" STR(SYS_LOG_PORT) ")<br/><input id='lp' name='lp' placeholder='" STR(SYS_LOG_PORT) "' value='%d'></p>"
-  "<p><b>" D_TELEMETRY_PERIOD "</b> (" STR(TELE_PERIOD) ")<br/><input id='lt' name='lt' placeholder='" STR(TELE_PERIOD) "' value='%d'></p>";
+  "<p><b>" D_SYSLOG_HOST "</b> (" SYS_LOG_HOST ")<br><input id='lh' placeholder='" SYS_LOG_HOST "' value='%s'></p>"
+  "<p><b>" D_SYSLOG_PORT "</b> (" STR(SYS_LOG_PORT) ")<br><input id='lp' placeholder='" STR(SYS_LOG_PORT) "' value='%d'></p>"
+  "<p><b>" D_TELEMETRY_PERIOD "</b> (" STR(TELE_PERIOD) ")<br><input id='lt' placeholder='" STR(TELE_PERIOD) "' value='%d'></p>";
 
 const char HTTP_FORM_OTHER[] PROGMEM =
   "<fieldset><legend><b>&nbsp;" D_OTHER_PARAMETERS "&nbsp;</b></legend>"
   "<form method='get' action='co'>"
   "<p></p>"
   "<fieldset><legend><b>&nbsp;" D_TEMPLATE "&nbsp;</b></legend>"
-  "<p><input id='t1' name='t1' placeholder='" D_TEMPLATE "' value='%s'></p>"
-  "<p><input id='t2' name='t2' type='checkbox'%s><b>" D_ACTIVATE "</b></p>"
+  "<p><input id='t1' placeholder='" D_TEMPLATE "' value='%s'></p>"
+  "<p><input id='t2' type='checkbox'%s><b>" D_ACTIVATE "</b></p>"
   "</fieldset>"
-  "<br/>"
-  "<b>" D_WEB_ADMIN_PASSWORD "</b><br/><input id='wp' name='wp' type='password' placeholder='" D_WEB_ADMIN_PASSWORD "' value='" D_ASTERIX "'><br/>"
   "<br>"
-  "<input id='b1' name='b1' type='checkbox'%s><b>" D_MQTT_ENABLE "</b><br/>"
-  "<br/>";
+  "<b>" D_WEB_ADMIN_PASSWORD "</b><input type='checkbox' onclick='sp(\"wp\")'><br><input id='wp' type='password' placeholder='" D_WEB_ADMIN_PASSWORD "' value='" D_ASTERISK_PWD "'><br>"
+  "<br>"
+  "<input id='b1' type='checkbox'%s><b>" D_MQTT_ENABLE "</b><br>"
+  "<br>";
 
 const char HTTP_FORM_END[] PROGMEM =
-  "<br/>"
+  "<br>"
   "<button name='save' type='submit' class='button bgrn'>" D_SAVE "</button>"
   "</form></fieldset>";
 
 const char HTTP_FORM_RST[] PROGMEM =
-  "<div id='f1' name='f1' style='display:block;'>"
+  "<div id='f1' style='display:block;'>"
   "<fieldset><legend><b>&nbsp;" D_RESTORE_CONFIGURATION "&nbsp;</b></legend>";
 const char HTTP_FORM_UPG[] PROGMEM =
-  "<div id='f1' name='f1' style='display:block;'>"
+  "<div id='f1' style='display:block;'>"
   "<fieldset><legend><b>&nbsp;" D_UPGRADE_BY_WEBSERVER "&nbsp;</b></legend>"
   "<form method='get' action='u1'>"
-  "<br/><b>" D_OTA_URL "</b><br/><input id='o' name='o' placeholder='OTA_URL' value='%s'><br/>"
-  "<br/><button type='submit'>" D_START_UPGRADE "</button></form>"
-  "</fieldset><br/><br/>"
+  "<br><b>" D_OTA_URL "</b><br><input id='o' placeholder='OTA_URL' value='%s'><br>"
+  "<br><button type='submit'>" D_START_UPGRADE "</button></form>"
+  "</fieldset><br><br>"
   "<fieldset><legend><b>&nbsp;" D_UPGRADE_BY_FILE_UPLOAD "&nbsp;</b></legend>";
 const char HTTP_FORM_RST_UPG[] PROGMEM =
   "<form method='post' action='u2' enctype='multipart/form-data'>"
-  "<br/><input type='file' name='u2'><br/>"
-  "<br/><button type='submit' onclick='eb(\"f1\").style.display=\"none\";eb(\"f2\").style.display=\"block\";this.form.submit();'>" D_START " %s</button></form>"
+  "<br><input type='file' name='u2'><br>"
+  "<br><button type='submit' onclick='eb(\"f1\").style.display=\"none\";eb(\"f2\").style.display=\"block\";this.form.submit();'>" D_START " %s</button></form>"
   "</fieldset>"
   "</div>"
-  "<div id='f2' name='f2' style='display:none;text-align:center;'><b>" D_UPLOAD_STARTED " ...</b></div>";
+  "<div id='f2' style='display:none;text-align:center;'><b>" D_UPLOAD_STARTED " ...</b></div>";
 
 const char HTTP_FORM_CMND[] PROGMEM =
-  "<br/><textarea readonly id='t1' name='t1' cols='340' wrap='off'></textarea><br/><br/>"
+  "<br><textarea readonly id='t1' cols='340' wrap='off'></textarea><br><br>"
   "<form method='get' onsubmit='return l(1);'>"
-  "<input id='c1' name='c1' placeholder='" D_ENTER_COMMAND "' autofocus><br/>"
-  //  "<br/><button type='submit'>Send command</button>"
+  "<input id='c1' placeholder='" D_ENTER_COMMAND "' autofocus><br>"
+  //  "<br><button type='submit'>Send command</button>"
   "</form>";
 
 const char HTTP_TABLE100[] PROGMEM =
   "<table style='width:100%%'>";
 
 const char HTTP_COUNTER[] PROGMEM =
-  "<br/><div id='t' name='t' style='text-align:center;'></div>";
+  "<br><div id='t' style='text-align:center;'></div>";
 
 const char HTTP_END[] PROGMEM =
   "<div style='text-align:right;font-size:11px;'><hr/><a href='https://bit.ly/tasmota' target='_blank' style='color:#aaa;'>Sonoff-Tasmota %s " D_BY " Theo Arends</a> <a href='" D_MODIFIED_WEBLINK "' target='_blank' style='color:#aaa;'>" D_MODIFIED " " D_BY " " D_MODIFY_AUTHOR "</a></div>"
@@ -483,7 +527,8 @@ void StartWebserver(int type, IPAddress ipweb)
       WebServer->on("/u1", HandleUpgradeFirmwareStart);  // OTA
       WebServer->on("/u2", HTTP_POST, HandleUploadDone, HandleUploadLoop);
       WebServer->on("/u2", HTTP_OPTIONS, HandlePreflightRequest);
-      WebServer->on("/cs", HandleConsole);
+      WebServer->on("/cs", HTTP_GET, HandleConsole);
+      WebServer->on("/cs", HTTP_OPTIONS, HandlePreflightRequest);
       WebServer->on("/cm", HandleHttpCommand);
 #ifndef FIRMWARE_MINIMAL
       WebServer->on("/cn", HandleConfiguration);
@@ -720,6 +765,8 @@ void WSContentSendStyle_P(const char* formatP, ...)
       WSContentSend_P(HTTP_SCRIPT_COUNTER);
     }
   }
+  WSContentSend_P(HTTP_HEAD_LAST_SCRIPT);
+
   WSContentSend_P(HTTP_HEAD_STYLE1, WebColor(COL_FORM), WebColor(COL_INPUT), WebColor(COL_INPUT_TEXT), WebColor(COL_INPUT), WebColor(COL_INPUT_TEXT), WebColor(COL_CONSOLE), WebColor(COL_CONSOLE_TEXT), WebColor(COL_BACKGROUND));
   WSContentSend_P(HTTP_HEAD_STYLE2, WebColor(COL_BUTTON), WebColor(COL_BUTTON_TEXT), WebColor(COL_BUTTON_HOVER), WebColor(COL_BUTTON_RESET), WebColor(COL_BUTTON_RESET_HOVER), WebColor(COL_BUTTON_SAVE), WebColor(COL_BUTTON_SAVE_HOVER));
   if (formatP != nullptr) {
@@ -756,7 +803,7 @@ void WSContentSendStyle(void)
 void WSContentButton(uint8_t title_index)
 {
   char action[4];
-  char title[32];
+  char title[64];
 
   if (title_index <= BUTTON_RESET_CONFIGURATION) {
     char confirm[64];
@@ -811,9 +858,9 @@ void WebRestart(uint8_t type)
   WSContentSend_P(HTTP_SCRIPT_RELOAD);
   WSContentSendStyle();
   if (type) {
-    WSContentSend_P(PSTR("<div style='text-align:center;'><b>" D_CONFIGURATION_SAVED "</b><br/>"));
+    WSContentSend_P(PSTR("<div style='text-align:center;'><b>" D_CONFIGURATION_SAVED "</b><br>"));
     if (2 == type) {
-      WSContentSend_P(PSTR("<br/>" D_TRYING_TO_CONNECT "<br/>"));
+      WSContentSend_P(PSTR("<br>" D_TRYING_TO_CONNECT "<br>"));
     }
     WSContentSend_P(PSTR("</div>"));
   }
@@ -886,12 +933,16 @@ void HandleRoot(void)
 
   WSContentSend_P(PSTR("<div id='l1' name='l1'></div>"));
   if (devices_present) {
+#ifdef USE_LIGHT
     if (light_type) {
       if ((LST_COLDWARM == (light_type &7)) || (LST_RGBWC == (light_type &7))) {
         WSContentSend_P(HTTP_MSG_SLIDER1, LightGetColorTemp());
       }
-      WSContentSend_P(HTTP_MSG_SLIDER2, Settings.light_dimmer);
+      if (!Settings.flag3.tuya_show_dimmer) {
+        WSContentSend_P(HTTP_MSG_SLIDER2, Settings.light_dimmer);
+      }
     }
+#endif
     WSContentSend_P(HTTP_TABLE100);
     WSContentSend_P(PSTR("<tr>"));
     if (SONOFF_IFAN02 == my_module_type) {
@@ -1114,18 +1165,18 @@ void HandleTemplateConfiguration(void)
   WSContentSendStyle();
   WSContentSend_P(HTTP_FORM_TEMPLATE);
   WSContentSend_P(HTTP_TABLE100);
-  WSContentSend_P(PSTR("<tr><td><b>" D_TEMPLATE_NAME "</b></td><td style='width:200px'><input id='s1' name='s1' placeholder='" D_TEMPLATE_NAME "'></td></tr>"
-                       "<tr><td><b>" D_BASE_TYPE "</b></td><td><select id='g99' name='g99' onchange='st(this.value)'></select></td></tr>"
+  WSContentSend_P(PSTR("<tr><td><b>" D_TEMPLATE_NAME "</b></td><td style='width:200px'><input id='s1' placeholder='" D_TEMPLATE_NAME "'></td></tr>"
+                       "<tr><td><b>" D_BASE_TYPE "</b></td><td><select id='g99' onchange='st(this.value)'></select></td></tr>"
                        "</table>"
                        "<hr/>"));
   WSContentSend_P(HTTP_TABLE100);
   for (uint8_t i = 0; i < 17; i++) {
     if ((i < 6) || ((i > 8) && (i != 11))) {                // Ignore flash pins GPIO06, 7, 8 and 11
-      WSContentSend_P(PSTR("<tr><td><b><font color='#%06x'>" D_GPIO "%d</font></b></td><td%s><select id='g%d' name='g%d'></select></td></tr>"),
-        ((9==i)||(10==i)) ? WebColor(COL_TEXT_WARNING) : WebColor(COL_TEXT), i, (0==i) ? " style='width:200px'" : "", i, i);
+      WSContentSend_P(PSTR("<tr><td><b><font color='#%06x'>" D_GPIO "%d</font></b></td><td%s><select id='g%d'></select></td></tr>"),
+        ((9==i)||(10==i)) ? WebColor(COL_TEXT_WARNING) : WebColor(COL_TEXT), i, (0==i) ? " style='width:200px'" : "", i);
     }
   }
-  WSContentSend_P(PSTR("<tr><td><b><font color='#%06x'>" D_ADC "0</font></b></td><td><select id='g17' name='g17'></select></td></tr>"), WebColor(COL_TEXT));
+  WSContentSend_P(PSTR("<tr><td><b><font color='#%06x'>" D_ADC "0</font></b></td><td><select id='g17'></select></td></tr>"), WebColor(COL_TEXT));
   WSContentSend_P(PSTR("</table>"));
   gpio_flag flag = ModuleFlag();
   if (flag.data > ADC0_USER) {
@@ -1245,13 +1296,13 @@ void HandleModuleConfiguration(void)
       snprintf_P(stemp, 3, PINS_WEMOS +i*2);
       char sesp8285[40];
       snprintf_P(sesp8285, sizeof(sesp8285), PSTR("<font color='#%06x'>ESP8285</font>"), WebColor(COL_TEXT_WARNING));
-      WSContentSend_P(PSTR("<tr><td style='width:190px'>%s <b>" D_GPIO "%d</b> %s</td><td style='width:176px'><select id='g%d' name='g%d'></select></td></tr>"),
-        (WEMOS==my_module_type)?stemp:"", i, (0==i)? D_SENSOR_BUTTON "1":(1==i)? D_SERIAL_OUT :(3==i)? D_SERIAL_IN :((9==i)||(10==i))? sesp8285 :(12==i)? D_SENSOR_RELAY "1":(13==i)? D_SENSOR_LED "1i":(14==i)? D_SENSOR :"", i, i);
+      WSContentSend_P(PSTR("<tr><td style='width:190px'>%s <b>" D_GPIO "%d</b> %s</td><td style='width:176px'><select id='g%d'></select></td></tr>"),
+        (WEMOS==my_module_type)?stemp:"", i, (0==i)? D_SENSOR_BUTTON "1":(1==i)? D_SERIAL_OUT :(3==i)? D_SERIAL_IN :((9==i)||(10==i))? sesp8285 :(12==i)? D_SENSOR_RELAY "1":(13==i)? D_SENSOR_LED "1i":(14==i)? D_SENSOR :"", i);
     }
   }
 #ifndef USE_ADC_VCC
   if (ValidAdc()) {
-    WSContentSend_P(PSTR("<tr><td>%s <b>" D_ADC "0</b></td><td style='width:176px'><select id='g17' name='g17'></select></td></tr>"), (WEMOS==my_module_type)?"A0":"");
+    WSContentSend_P(PSTR("<tr><td>%s <b>" D_ADC "0</b></td><td style='width:176px'><select id='g17'></select></td></tr>"), (WEMOS==my_module_type)?"A0":"");
   }
 #endif  // USE_ADC_VCC
   WSContentSend_P(PSTR("</table>"));
@@ -1296,16 +1347,27 @@ void ModuleSaveSettings(void)
 
 /*-------------------------------------------------------------------------------------------*/
 
-String htmlEscape(String s)
-{
-  s.replace("&", "&amp;");
-  s.replace("<", "&lt;");
-  s.replace(">", "&gt;");
-  s.replace("\"", "&quot;");
-  s.replace("'", "&#x27;");
-  s.replace("/", "&#x2F;");
-  return s;
+const char kUnescapeCode[] = "&><\"\'";
+const char kEscapeCode[] PROGMEM = "&amp;|&gt;|&lt;|&quot;|&apos;";
+
+String HtmlEscape(const String unescaped) {
+  char escaped[10];
+  uint16_t ulen = unescaped.length();
+  String result = "";
+  for (size_t i = 0; i < ulen; i++) {
+    char c = unescaped[i];
+    char *p = strchr(kUnescapeCode, c);
+    if (p != nullptr) {
+      result += GetTextIndexed(escaped, sizeof(escaped), p - kUnescapeCode, kEscapeCode);
+    } else {
+      result += c;
+    }
+  }
+  return result;
 }
+
+// Indexed by enum wl_enc_type in file wl_definitions.h starting from -1
+const char kEncryptionType[] PROGMEM = "|||" D_WPA_PSK "||" D_WPA2_PSK "|" D_WEP "||" D_NONE "|" D_AUTO;
 
 void HandleWifiConfiguration(void)
 {
@@ -1373,11 +1435,12 @@ void HandleWifiConfiguration(void)
           int quality = WifiGetRssiAsQuality(WiFi.RSSI(indices[i]));
 
           if (minimum_signal_quality == -1 || minimum_signal_quality < quality) {
-            uint8_t auth = WiFi.encryptionType(indices[i]);
+            int auth = WiFi.encryptionType(indices[i]);
+            char encryption[20];
             WSContentSend_P(PSTR("<div><a href='#p' onclick='c(this)'>%s</a>&nbsp;(%d)&nbsp<span class='q'>%s %d%%</span></div>"),
-              htmlEscape(WiFi.SSID(indices[i])).c_str(),
+              HtmlEscape(WiFi.SSID(indices[i])).c_str(),
               WiFi.channel(indices[i]),
-              (ENC_TYPE_WEP == auth) ? D_WEP : (ENC_TYPE_TKIP == auth) ? D_WPA_PSK : (ENC_TYPE_CCMP == auth) ? D_WPA2_PSK : (ENC_TYPE_AUTO == auth) ? D_AUTO : "",
+              GetTextIndexed(encryption, sizeof(encryption), auth +1, kEncryptionType),
               quality
             );
             delay(0);
@@ -1386,10 +1449,10 @@ void HandleWifiConfiguration(void)
           }
 
         }
-        WSContentSend_P(PSTR("<br/>"));
+        WSContentSend_P(PSTR("<br>"));
       }
     } else {
-      WSContentSend_P(PSTR("<div><a href='/wi?scan='>" D_SCAN_FOR_WIFI_NETWORKS "</a></div><br/>"));
+      WSContentSend_P(PSTR("<div><a href='/wi?scan='>" D_SCAN_FOR_WIFI_NETWORKS "</a></div><br>"));
     }
 
     // As WIFI_HOSTNAME may contain %s-%04d it cannot be part of HTTP_FORM_WIFI where it will exception
@@ -1445,15 +1508,15 @@ void HandleLoggingConfiguration(void)
   WSContentStart_P(S_CONFIGURE_LOGGING);
   WSContentSendStyle();
   WSContentSend_P(HTTP_FORM_LOG1);
-  char stemp1[32];
+  char stemp1[45];
   char stemp2[32];
   uint8_t dlevel[3] = { LOG_LEVEL_INFO, LOG_LEVEL_INFO, LOG_LEVEL_NONE };
   for (uint8_t idx = 0; idx < 3; idx++) {
     uint8_t llevel = (0==idx)?Settings.seriallog_level:(1==idx)?Settings.weblog_level:Settings.syslog_level;
-    WSContentSend_P(PSTR("<p><b>%s</b> (%s)<br/><select id='l%d' name='l%d'>"),
+    WSContentSend_P(PSTR("<p><b>%s</b> (%s)<br><select id='l%d'>"),
       GetTextIndexed(stemp1, sizeof(stemp1), idx, kLoggingOptions),
       GetTextIndexed(stemp2, sizeof(stemp2), dlevel[idx], kLoggingLevels),
-      idx, idx);
+      idx);
     for (uint8_t i = LOG_LEVEL_NONE; i < LOG_LEVEL_ALL; i++) {
       WSContentSend_P(PSTR("<option%s value='%d'>%d %s</option>"),
         (i == llevel) ? " selected" : "", i, i,
@@ -1472,13 +1535,11 @@ void LoggingSaveSettings(void)
   char tmp[sizeof(Settings.syslog_host)];  // Max length is currently 33
 
   WebGetArg("l0", tmp, sizeof(tmp));
-  Settings.seriallog_level = (!strlen(tmp)) ? SERIAL_LOG_LEVEL : atoi(tmp);
+  SetSeriallog((!strlen(tmp)) ? SERIAL_LOG_LEVEL : atoi(tmp));
   WebGetArg("l1", tmp, sizeof(tmp));
   Settings.weblog_level = (!strlen(tmp)) ? WEB_LOG_LEVEL : atoi(tmp);
   WebGetArg("l2", tmp, sizeof(tmp));
-  Settings.syslog_level = (!strlen(tmp)) ? SYS_LOG_LEVEL : atoi(tmp);
-  syslog_level = Settings.syslog_level;
-  syslog_timer = 0;
+  SetSyslog((!strlen(tmp)) ? SYS_LOG_LEVEL : atoi(tmp));
   WebGetArg("lh", tmp, sizeof(tmp));
   strlcpy(Settings.syslog_host, (!strlen(tmp)) ? SYS_LOG_HOST : tmp, sizeof(Settings.syslog_host));
   WebGetArg("lp", tmp, sizeof(tmp));
@@ -1518,16 +1579,16 @@ void HandleOtherConfiguration(void)
   if (SONOFF_IFAN02 == my_module_type) { maxfn = 1; }
   for (uint8_t i = 0; i < maxfn; i++) {
     snprintf_P(stemp, sizeof(stemp), PSTR("%d"), i +1);
-    WSContentSend_P(PSTR("<b>" D_FRIENDLY_NAME " %d</b> (" FRIENDLY_NAME "%s)<br/><input id='a%d' name='a%d' placeholder='" FRIENDLY_NAME "%s' value='%s'><p></p>"),
+    WSContentSend_P(PSTR("<b>" D_FRIENDLY_NAME " %d</b> (" FRIENDLY_NAME "%s)<br><input id='a%d' placeholder='" FRIENDLY_NAME "%s' value='%s'><p></p>"),
       i +1,
       (i) ? stemp : "",
-      i, i,
+      i,
       (i) ? stemp : "",
       Settings.friendlyname[i]);
   }
 
 #ifdef USE_EMULATION
-  WSContentSend_P(PSTR("<p></p><fieldset><legend><b>&nbsp;" D_EMULATION "&nbsp;</b></legend><p>"));  // Keep close to Friendlynames so do not use <br/>
+  WSContentSend_P(PSTR("<p></p><fieldset><legend><b>&nbsp;" D_EMULATION "&nbsp;</b></legend><p>"));  // Keep close to Friendlynames so do not use <br>
   for (uint8_t i = 0; i < EMUL_MAX; i++) {
 #ifndef USE_EMULATION_WEMO
     if (i == EMUL_WEMO) { i++; }
@@ -1536,7 +1597,7 @@ void HandleOtherConfiguration(void)
     if (i == EMUL_HUE) { i++; }
 #endif
     if (i < EMUL_MAX) {
-      WSContentSend_P(PSTR("<input id='r%d' name='b2' type='radio' value='%d'%s><b>%s</b> %s<br/>"),  // Different id only used for labels
+      WSContentSend_P(PSTR("<input id='r%d' name='b2' type='radio' value='%d'%s><b>%s</b> %s<br>"),  // Different id only used for labels
         i, i,
         (i == Settings.flag2.emulation) ? " checked" : "",
         GetTextIndexed(stemp, sizeof(stemp), i, kEmulationOptions),
@@ -1715,9 +1776,14 @@ void HandleInformation(void)
   }
   WSContentSend_P(PSTR("}1}2&nbsp;"));  // Empty line
   if (Settings.flag.mqtt_enabled) {
+#ifdef USE_MQTT_AWS_IOT
+    WSContentSend_P(PSTR("}1" D_MQTT_HOST "}2%s%s"), Settings.mqtt_user, Settings.mqtt_host);
+    WSContentSend_P(PSTR("}1" D_MQTT_PORT "}2%d"), Settings.mqtt_port);
+#else
     WSContentSend_P(PSTR("}1" D_MQTT_HOST "}2%s"), Settings.mqtt_host);
     WSContentSend_P(PSTR("}1" D_MQTT_PORT "}2%d"), Settings.mqtt_port);
     WSContentSend_P(PSTR("}1" D_MQTT_USER "}2%s"), Settings.mqtt_user);
+#endif
     WSContentSend_P(PSTR("}1" D_MQTT_CLIENT "}2%s"), mqtt_client);
     WSContentSend_P(PSTR("}1" D_MQTT_TOPIC "}2%s"), Settings.mqtt_topic);
     WSContentSend_P(PSTR("}1" D_MQTT_GROUP_TOPIC "}2%s"), Settings.mqtt_grptopic);
@@ -1834,8 +1900,8 @@ void HandleUploadDone(void)
   WSContentSendStyle();
   WSContentSend_P(PSTR("<div style='text-align:center;'><b>" D_UPLOAD " <font color='#"));
   if (upload_error) {
-//    WSContentSend_P(PSTR(COLOR_TEXT_WARNING "'>" D_FAILED "</font></b><br/><br/>"));
-    WSContentSend_P(PSTR("%06x'>" D_FAILED "</font></b><br/><br/>"), WebColor(COL_TEXT_WARNING));
+//    WSContentSend_P(PSTR(COLOR_TEXT_WARNING "'>" D_FAILED "</font></b><br><br>"));
+    WSContentSend_P(PSTR("%06x'>" D_FAILED "</font></b><br><br>"), WebColor(COL_TEXT_WARNING));
 #ifdef USE_RF_FLASH
     if (upload_error < 14) {
 #else
@@ -1849,13 +1915,13 @@ void HandleUploadDone(void)
     AddLog_P2(LOG_LEVEL_DEBUG, PSTR(D_UPLOAD ": %s"), error);
     stop_flash_rotate = Settings.flag.stop_flash_rotate;
   } else {
-    WSContentSend_P(PSTR("%06x'>" D_SUCCESSFUL "</font></b><br/>"), WebColor(COL_TEXT_SUCCESS));
+    WSContentSend_P(PSTR("%06x'>" D_SUCCESSFUL "</font></b><br>"), WebColor(COL_TEXT_SUCCESS));
     WSContentSend_P(HTTP_MSG_RSTRT);
     ShowWebSource(SRC_WEBGUI);
     restart_flag = 2;  // Always restart to re-enable disabled features during update
   }
   SettingsBufferFree();
-  WSContentSend_P(PSTR("</div><br/>"));
+  WSContentSend_P(PSTR("</div><br>"));
   WSContentSpaceButton(BUTTON_MAIN);
   WSContentStop();
 }
@@ -2396,7 +2462,7 @@ bool WebCommand(void)
       strlcpy(Settings.web_password, (SC_CLEAR == Shortcut(XdrvMailbox.data)) ? "" : (SC_DEFAULT == Shortcut(XdrvMailbox.data)) ? WEB_PASSWORD : XdrvMailbox.data, sizeof(Settings.web_password));
       Response_P(S_JSON_COMMAND_SVALUE, command, Settings.web_password);
     } else {
-      Response_P(S_JSON_COMMAND_ASTERIX, command);
+      Response_P(S_JSON_COMMAND_ASTERISK, command);
     }
   }
   else if (CMND_WEBLOG == command_code) {

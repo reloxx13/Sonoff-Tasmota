@@ -745,19 +745,19 @@ const char HTTP_FORM_KNX[] PROGMEM =
   "<fieldset style='min-width:530px;'>"
   "<legend style='text-align:left;'><b>&nbsp;" D_KNX_PARAMETERS "&nbsp;</b></legend>"
   "<form method='post' action='kn'>"
-  "<br/><center>"
+  "<br><center>"
   "<b>" D_KNX_PHYSICAL_ADDRESS " </b>"
   "<input style='width:12%%;' type='number' name='area' min='0' max='15' value='%d'> . "
   "<input style='width:12%%;' type='number' name='line' min='0' max='15' value='%d'> . "
   "<input style='width:12%%;' type='number' name='member' min='0' max='255' value='%d'>"
-  "<br/><br/>" D_KNX_PHYSICAL_ADDRESS_NOTE "<br/><br/>"
-  "<input id='b1' name='b1' type='checkbox'";
+  "<br><br>" D_KNX_PHYSICAL_ADDRESS_NOTE "<br><br>"
+  "<input id='b1' type='checkbox'";
 
 const char HTTP_FORM_KNX1[] PROGMEM =
-  "><b>" D_KNX_ENABLE "</b>&emsp;<input id='b2' name='b2' type='checkbox'";
+  "><b>" D_KNX_ENABLE "</b>&emsp;<input id='b2' type='checkbox'";
 
 const char HTTP_FORM_KNX2[] PROGMEM =
-  "><b>" D_KNX_ENHANCEMENT "</b><br/></center><br/>"
+  "><b>" D_KNX_ENHANCEMENT "</b><br></center><br>"
 
   "<fieldset><center>"
   "<b>" D_KNX_GROUP_ADDRESS_TO_WRITE "</b><hr>"
@@ -768,12 +768,12 @@ const char HTTP_FORM_KNX_OPT[] PROGMEM =
   "<option value='%d'>%s</option>";
 
 const char HTTP_FORM_KNX_GA[] PROGMEM =
-  "<input style='width:12%%;' type='number' id='%s' name='%s' min='0' max='31' value='0'> / "
-  "<input style='width:12%%;' type='number' id='%s' name='%s' min='0' max='7' value='0'> / "
-  "<input style='width:12%%;' type='number' id='%s' name='%s' min='0' max='255' value='0'> ";
+  "<input style='width:12%%;' type='number' id='%s' min='0' max='31' value='0'> / "
+  "<input style='width:12%%;' type='number' id='%s' min='0' max='7' value='0'> / "
+  "<input style='width:12%%;' type='number' id='%s' min='0' max='255' value='0'> ";
 
 const char HTTP_FORM_KNX_ADD_BTN[] PROGMEM =
-  "<button type='submit' onclick='%s()' %s name='btn_add' value='%d' style='width:18%%;'>" D_ADD "</button><br/><br/>"
+  "<button type='submit' onclick='%s()' %s name='btn_add' value='%d' style='width:18%%;'>" D_ADD "</button><br><br>"
   "<table style='width:80%%; font-size: 14px;'><col width='250'><col width='30'>";
 
 const char HTTP_FORM_KNX_ADD_TABLE_ROW[] PROGMEM =
@@ -781,7 +781,7 @@ const char HTTP_FORM_KNX_ADD_TABLE_ROW[] PROGMEM =
   "<td><button type='submit' name='btn_del_ga' value='%d' class='button bred'> " D_DELETE " </button></td></tr>";
 
 const char HTTP_FORM_KNX3[] PROGMEM =
-  "</table></center></fieldset><br/>"
+  "</table></center></fieldset><br>"
   "<fieldset><form method='post' action='kn'><center>"
   "<b>" D_KNX_GROUP_ADDRESS_TO_READ "</b><hr>";
 
@@ -895,7 +895,7 @@ void HandleKNXConfiguration(void)
       }
     }
     WSContentSend_P(PSTR("</select> -> "));
-    WSContentSend_P(HTTP_FORM_KNX_GA, "GA_FNUM", "GA_FNUM", "GA_AREA", "GA_AREA", "GA_FDEF", "GA_FDEF");
+    WSContentSend_P(HTTP_FORM_KNX_GA, "GA_FNUM", "GA_AREA", "GA_FDEF");
     WSContentSend_P(HTTP_FORM_KNX_ADD_BTN, "GAwarning", (Settings.knx_GA_registered < MAX_KNX_GA) ? "" : "disabled", 1);
     for (uint8_t i = 0; i < Settings.knx_GA_registered ; ++i)
     {
@@ -907,7 +907,7 @@ void HandleKNXConfiguration(void)
     }
 
     WSContentSend_P(HTTP_FORM_KNX3);
-    WSContentSend_P(HTTP_FORM_KNX_GA, "CB_FNUM", "CB_FNUM", "CB_AREA", "CB_AREA", "CB_FDEF", "CB_FDEF");
+    WSContentSend_P(HTTP_FORM_KNX_GA, "CB_FNUM", "CB_AREA", "CB_FDEF");
     WSContentSend_P(HTTP_FORM_KNX4);
 
     uint8_t j;

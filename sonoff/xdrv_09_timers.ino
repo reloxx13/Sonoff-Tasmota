@@ -523,9 +523,6 @@ const char HTTP_BTN_MENU_TIMER[] PROGMEM =
 
 const char HTTP_TIMER_SCRIPT1[] PROGMEM =
   "var pt=[],ct=99;"
-  "function qs(s){"                                               // Alias to save code space
-    "return document.querySelector(s);"
-  "}"
   "function ce(i,q){"                                             // Create select option
     "var o=document.createElement('option');"
     "o.textContent=i;"
@@ -630,7 +627,7 @@ const char HTTP_TIMER_SCRIPT5[] PROGMEM =
     "}"
     "eb('bt').innerHTML=s;"                                       // Create tabs
     "if(%d>0){"                                                   // Create Output and Action drop down boxes
-      "eb('oa').innerHTML=\"<b>" D_TIMER_OUTPUT "</b>&nbsp;<span><select style='width:60px;' id='d1' name='d1'></select></span>&emsp;<b>" D_TIMER_ACTION "</b>&nbsp;<select style='width:99px;' id='p1' name='p1'></select>\";"
+      "eb('oa').innerHTML=\"<b>" D_TIMER_OUTPUT "</b>&nbsp;<span><select style='width:60px;' id='d1'></select></span>&emsp;<b>" D_TIMER_ACTION "</b>&nbsp;<select style='width:99px;' id='p1'></select>\";"
       "o=qs('#p1');ce('" D_OFF "',o);ce('" D_ON "',o);ce('" D_TOGGLE "',o);"  // Create offset direction select options
 #if defined(USE_RULES) || defined(USE_SCRIPT)
       "ce('" D_RULE "',o);"
@@ -649,48 +646,48 @@ const char HTTP_TIMER_SCRIPT6[] PROGMEM =
     "o=qs('#mw');for(i=0;i<=15;i++){ce((i<10)?('0'+i):i,o);}"     // Create window minutes select options
     "o=qs('#d1');for(i=0;i<%d;i++){ce(i+1,o);}"                   // Create outputs
     "var a='" D_DAY3LIST "';"
-    "s='';for(i=0;i<7;i++){s+=\"<input id='w\"+i+\"' name='w\"+i+\"' type='checkbox'><b>\"+a.substring(i*3,(i*3)+3)+\"</b> \"}"
+    "s='';for(i=0;i<7;i++){s+=\"<input id='w\"+i+\"' type='checkbox'><b>\"+a.substring(i*3,(i*3)+3)+\"</b> \"}"
     "eb('ds').innerHTML=s;"                                       // Create weekdays
     "eb('dP').click();"                                           // Get the element with id='dP' and click on it
   "}"
-  "window.onload=it;";
+  "wl(it);";
 const char HTTP_TIMER_STYLE[] PROGMEM =
   ".tl{float:left;border-radius:0;border:1px solid #%06x;padding:1px;width:6.25%%;}";  // COLOR_FORM, Border color needs to be the same as Fieldset background color from HTTP_HEAD_STYLE1 (transparent won't work)
 const char HTTP_FORM_TIMER1[] PROGMEM =
   "<fieldset style='min-width:470px;text-align:center;'>"
   "<legend style='text-align:left;'><b>&nbsp;" D_TIMER_PARAMETERS "&nbsp;</b></legend>"
   "<form method='post' action='" WEB_HANDLE_TIMER "' onsubmit='return st();'>"
-  "<br/><input id='e0' name='e0' type='checkbox'%s><b>" D_TIMER_ENABLE "</b><br/><br/><hr/>"
-  "<input id='t0' name='t0' value='";
+  "<br><input id='e0' type='checkbox'%s><b>" D_TIMER_ENABLE "</b><br><br><hr>"
+  "<input id='t0' value='";
 const char HTTP_FORM_TIMER2[] PROGMEM =
-  "' hidden><div id='bt' name='bt'></div><br/><br/><br/>"
-  "<div id='oa' name='oa'></div><br/>"
+  "' hidden><div id='bt'></div><br><br><br>"
+  "<div id='oa' name='oa'></div><br>"
   "<div>"
-  "<input id='a0' name='a0' type='checkbox'><b>" D_TIMER_ARM "</b>&emsp;"
-  "<input id='r0' name='r0' type='checkbox'><b>" D_TIMER_REPEAT "</b>"
-  "</div><br/>"
+  "<input id='a0' type='checkbox'><b>" D_TIMER_ARM "</b>&emsp;"
+  "<input id='r0' type='checkbox'><b>" D_TIMER_REPEAT "</b>"
+  "</div><br>"
   "<div>";
 #ifdef USE_SUNRISE
 const char HTTP_FORM_TIMER3[] PROGMEM =
   "<fieldset style='width:%dpx;margin:auto;text-align:left;border:0;'>"
-  "<input id='b0' name='rd' type='radio' value='0' onclick='gt();'><b>" D_TIMER_TIME "</b><br/>"
-  "<input id='b1' name='rd' type='radio' value='1' onclick='gt();'><b>" D_SUNRISE "</b> (%s)<br/>"
-  "<input id='b2' name='rd' type='radio' value='2' onclick='gt();'><b>" D_SUNSET "</b> (%s)<br/>"
+  "<input id='b0' name='rd' type='radio' value='0' onclick='gt();'><b>" D_TIMER_TIME "</b><br>"
+  "<input id='b1' name='rd' type='radio' value='1' onclick='gt();'><b>" D_SUNRISE "</b> (%s)<br>"
+  "<input id='b2' name='rd' type='radio' value='2' onclick='gt();'><b>" D_SUNSET "</b> (%s)<br>"
   "</fieldset>"
   "<p></p>"
-  "<span><select style='width:46px;' id='dr' name='dr'></select></span>"
+  "<span><select style='width:46px;' id='dr'></select></span>"
   "&nbsp;";
 #else
 const char HTTP_FORM_TIMER3[] PROGMEM =
   "<b>" D_TIMER_TIME "</b>&nbsp;";
 #endif  // USE_SUNRISE
 const char HTTP_FORM_TIMER4[] PROGMEM =
-  "<span><select style='width:60px;' id='ho' name='ho'></select></span>"
+  "<span><select style='width:60px;' id='ho'></select></span>"
   "&nbsp;" D_HOUR_MINUTE_SEPARATOR "&nbsp;"
-  "<span><select style='width:60px;' id='mi' name='mi'></select></span>"
+  "<span><select style='width:60px;' id='mi'></select></span>"
   "&emsp;<b>+/-</b>&nbsp;"
-  "<span><select style='width:60px;' id='mw' name='mw'></select></span>"
-  "</div><br/>"
+  "<span><select style='width:60px;' id='mw'></select></span>"
+  "</div><br>"
   "<div id='ds' name='ds'></div>";
 
 void HandleTimerConfiguration(void)

@@ -116,11 +116,17 @@ IRrecv *irrecv = nullptr;
 
 unsigned long ir_lasttime = 0;
 
+void IrReceiveUpdateThreshold()
+{
+  if (Settings.param[P_IR_UNKNOW_THRESHOLD] < 6) { Settings.param[P_IR_UNKNOW_THRESHOLD] = 6; }
+  irrecv->setUnknownThreshold(Settings.param[P_IR_UNKNOW_THRESHOLD]);
+}
+
 void IrReceiveInit(void)
 {
   // an IR led is at GPIO_IRRECV
   irrecv = new IRrecv(pin[GPIO_IRRECV], IR_RCV_BUFFER_SIZE, IR_RCV_TIMEOUT, IR_RCV_SAVE_BUFFER);
-  irrecv->setUnknownThreshold(IR_RCV_MIN_UNKNOWN_SIZE);
+  irrecv->setUnknownThreshold(Settings.param[P_IR_UNKNOW_THRESHOLD]);
   irrecv->enableIRIn();                  // Start the receiver
 
   //  AddLog_P(LOG_LEVEL_DEBUG, PSTR("IrReceive initialized"));
@@ -633,12 +639,32 @@ bool IrSendCommand(void)
             } else {  // At least two raw data values
               // IRsend 0,896,876,900,888,894,876,1790,874,872,1810,1736,948,872,880,872,936,872,1792,900,888,1734
               count++;
-              uint16_t raw_array[count];  // It's safe to use stack for up to 240 packets (limited by mqtt_data length)
-              for (uint16_t i = 0; i < count; i++) {
-                raw_array[i] = strtol(strtok_r(nullptr, ", ", &p), nullptr, 0);  // Allow decimal (20496) and hexadecimal (0x5010) input
+              if (count < 200) {
+                uint16_t raw_array[count];  // It's safe to use stack for up to 200 packets (limited by mqtt_data length)
+                for (uint16_t i = 0; i < count; i++) {
+                  raw_array[i] = strtol(strtok_r(nullptr, ", ", &p), nullptr, 0);  // Allow decimal (20496) and hexadecimal (0x5010) input
+                }
+
+//              AddLog_P2(LOG_LEVEL_DEBUG, PSTR("DBG: stack count %d"), count);
+
+                irsend_active = true;
+                irsend->sendRaw(raw_array, count, freq);
+              } else {
+                uint16_t *raw_array = reinterpret_cast<uint16_t*>(malloc(count * sizeof(uint16_t)));
+                if (raw_array == nullptr) {
+                  error = IE_INVALID_RAWDATA;
+                } else {
+                  for (uint16_t i = 0; i < count; i++) {
+                    raw_array[i] = strtol(strtok_r(nullptr, ", ", &p), nullptr, 0);  // Allow decimal (20496) and hexadecimal (0x5010) input
+                  }
+
+//              AddLog_P2(LOG_LEVEL_DEBUG, PSTR("DBG: heap count %d"), count);
+
+                  irsend_active = true;
+                  irsend->sendRaw(raw_array, count, freq);
+                  free(raw_array);
+                }
               }
-              irsend_active = true;
-              irsend->sendRaw(raw_array, count, freq);
             }
           }
         }

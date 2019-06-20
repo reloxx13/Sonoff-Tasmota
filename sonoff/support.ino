@@ -1455,6 +1455,13 @@ void SetSeriallog(uint8_t loglevel)
   seriallog_timer = 0;
 }
 
+void SetSyslog(uint8_t loglevel)
+{
+  Settings.syslog_level = loglevel;
+  syslog_level = loglevel;
+  syslog_timer = 0;
+}
+
 #ifdef USE_WEBSERVER
 void GetLog(uint8_t idx, char** entry_pp, size_t* len_p)
 {
@@ -1496,7 +1503,7 @@ void Syslog(void)
     memmove(log_data + strlen(syslog_preamble), log_data, sizeof(log_data) - strlen(syslog_preamble));
     log_data[sizeof(log_data) -1] = '\0';
     memcpy(log_data, syslog_preamble, strlen(syslog_preamble));
-    PortUdp.write(log_data);
+    PortUdp.write(log_data, strlen(log_data));
     PortUdp.endPacket();
     delay(1);  // Add time for UDP handling (#5512)
   } else {
