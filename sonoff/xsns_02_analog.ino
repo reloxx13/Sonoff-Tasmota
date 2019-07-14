@@ -78,7 +78,7 @@ uint16_t AdcRead(uint8_t factor)
   // factor 5 = 32 samples
   uint8_t samples = 1 << factor;
   uint16_t analog = 0;
-  for (uint8_t i = 0; i < samples; i++) {
+  for (uint32_t i = 0; i < samples; i++) {
     analog += analogRead(A0);
     delay(1);
   }
@@ -151,7 +151,7 @@ bool AdcCommand(void)
 //          Settings.adc_param_type = my_adc0;
           Settings.adc_param1 = strtol(subStr(sub_string, XdrvMailbox.data, ",", 2), nullptr, 10);
           Settings.adc_param2 = strtol(subStr(sub_string, XdrvMailbox.data, ",", 3), nullptr, 10);
-          Settings.adc_param3 = (int)(CharToDouble(subStr(sub_string, XdrvMailbox.data, ",", 4)) * 10000);
+          Settings.adc_param3 = (int)(CharToFloat(subStr(sub_string, XdrvMailbox.data, ",", 4)) * 10000);
         } else {                                         // Set default values based on current adc type
           // AdcParam 2
           // AdcParam 3

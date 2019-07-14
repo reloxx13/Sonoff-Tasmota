@@ -153,11 +153,11 @@ void HlwEvery200ms(void)
       // Debugging for calculating mean and median
       char stemp[100];
       stemp[0] = '\0';
-      for (uint8_t i = 0; i < hlw_cf1_pulse_counter; i++) {
+      for (uint32_t i = 0; i < hlw_cf1_pulse_counter; i++) {
         snprintf_P(stemp, sizeof(stemp), PSTR("%s %d"), stemp, hlw_debug[i]);
       }
-      for (uint8_t i = 0; i < hlw_cf1_pulse_counter; i++) {
-        for (uint8_t j = i + 1; j < hlw_cf1_pulse_counter; j++) {
+      for (uint32_t i = 0; i < hlw_cf1_pulse_counter; i++) {
+        for (uint32_t j = i + 1; j < hlw_cf1_pulse_counter; j++) {
           if (hlw_debug[i] > hlw_debug[j]) {  // Sort ascending
             std::swap(hlw_debug[i], hlw_debug[j]);
           }
@@ -287,17 +287,17 @@ bool HlwCommand(void)
   }
   else if (CMND_POWERSET == energy_command_code) {
     if (XdrvMailbox.data_len && hlw_cf_power_pulse_length) {
-      Settings.energy_power_calibration = ((unsigned long)(CharToDouble(XdrvMailbox.data) * 10) * hlw_cf_power_pulse_length) / hlw_power_ratio;
+      Settings.energy_power_calibration = ((unsigned long)(CharToFloat(XdrvMailbox.data) * 10) * hlw_cf_power_pulse_length) / hlw_power_ratio;
     }
   }
   else if (CMND_VOLTAGESET == energy_command_code) {
     if (XdrvMailbox.data_len && hlw_cf1_voltage_pulse_length) {
-      Settings.energy_voltage_calibration = ((unsigned long)(CharToDouble(XdrvMailbox.data) * 10) * hlw_cf1_voltage_pulse_length) / hlw_voltage_ratio;
+      Settings.energy_voltage_calibration = ((unsigned long)(CharToFloat(XdrvMailbox.data) * 10) * hlw_cf1_voltage_pulse_length) / hlw_voltage_ratio;
     }
   }
   else if (CMND_CURRENTSET == energy_command_code) {
     if (XdrvMailbox.data_len && hlw_cf1_current_pulse_length) {
-      Settings.energy_current_calibration = ((unsigned long)(CharToDouble(XdrvMailbox.data)) * hlw_cf1_current_pulse_length) / hlw_current_ratio;
+      Settings.energy_current_calibration = ((unsigned long)(CharToFloat(XdrvMailbox.data)) * hlw_cf1_current_pulse_length) / hlw_current_ratio;
     }
   }
   else serviced = false;  // Unknown command

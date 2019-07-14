@@ -27,7 +27,6 @@
 
 #define ENERGY_NONE          0
 
-#define ENERGY_OVERTEMP      73.0     // Industry standard lowest overtemp in Celsius
 #define ENERGY_WATCHDOG      4        // Allow up to 4 seconds before deciding no valid data present
 
 #define FEATURE_POWER_LIMIT  true
@@ -312,7 +311,7 @@ void EnergyMarginCheck(void)
 void EnergyMqttShow(void)
 {
 // {"Time":"2017-12-16T11:48:55","ENERGY":{"Total":0.212,"Yesterday":0.000,"Today":0.014,"Period":2.0,"Power":22.0,"Factor":1.00,"Voltage":213.6,"Current":0.100}}
-  Response_P(PSTR("{\"" D_JSON_TIME "\":\"%s\""), GetDateAndTime(DT_LOCAL).c_str());
+  ResponseBeginTime();
   int tele_period_save = tele_period;
   tele_period = 2;
   EnergyShow(true);
@@ -325,7 +324,7 @@ void EnergyMqttShow(void)
 void EnergyOverTempCheck()
 {
   if (global_update) {
-    if (power && (global_temperature != 9999) && (global_temperature > ENERGY_OVERTEMP)) {  // Device overtemp, turn off relays
+    if (power && (global_temperature != 9999) && (global_temperature > Settings.param[P_OVER_TEMP])) {  // Device overtemp, turn off relays
       SetAllPower(POWER_ALL_OFF, SRC_OVERTEMP);
     }
   }

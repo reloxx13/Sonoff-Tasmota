@@ -58,9 +58,9 @@ struct SPS30 {
 
 uint8_t sps30_calc_CRC(uint8_t *data) {
     uint8_t crc = 0xFF;
-    for (uint8_t i = 0; i < 2; i++) {
+    for (uint32_t i = 0; i < 2; i++) {
         crc ^= data[i];
-        for(uint8_t bit = 8; bit > 0; --bit) {
+        for (uint32_t bit = 8; bit > 0; --bit) {
             if(crc & 0x80) {
                 crc = (crc << 1) ^ 0x31u;
             } else {
@@ -172,8 +172,8 @@ void SPS30_Every_Second() {
 
     ByteToFloat conv;
 
-    for (uint8_t count=0; count<10; count++) {
-      for (uint8_t i = 0; i < 4; i++){
+    for (uint32_t count=0; count<10; count++) {
+      for (uint32_t i = 0; i < 4; i++){
         conv.array[3-i] = vars[count*sizeof(float)+i];
       }
       *fp++=conv.value;
@@ -253,7 +253,7 @@ void SPS30_Show(bool json) {
 
 void CmdClean(void) {
   sps30_cmd(SPS_CMD_CLEAN);
-  Response_P(PSTR("{\"" D_JSON_TIME "\":\"%s\""), GetDateAndTime(DT_LOCAL).c_str());
+  ResponseBeginTime();
   ResponseAppend_P(PSTR(",\"SPS30\":{\"CFAN\":\"true\"}}"));
   MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_SENSOR), Settings.flag.mqtt_sensor_retain);
 }

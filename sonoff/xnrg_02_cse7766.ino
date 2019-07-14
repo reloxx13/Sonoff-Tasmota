@@ -138,7 +138,7 @@ bool CseSerialInput(void)
       AddLogSerial(LOG_LEVEL_DEBUG_MORE);
 
       uint8_t checksum = 0;
-      for (uint8_t i = 2; i < 23; i++) { checksum += serial_in_buffer[i]; }
+      for (uint32_t i = 2; i < 23; i++) { checksum += serial_in_buffer[i]; }
       if (checksum == serial_in_buffer[23]) {
         energy_data_valid = 0;
         CseReceived();
@@ -225,17 +225,17 @@ bool CseCommand(void)
 
   if (CMND_POWERSET == energy_command_code) {
     if (XdrvMailbox.data_len && power_cycle) {
-      Settings.energy_power_calibration = (unsigned long)(CharToDouble(XdrvMailbox.data) * power_cycle) / CSE_PREF;
+      Settings.energy_power_calibration = (unsigned long)(CharToFloat(XdrvMailbox.data) * power_cycle) / CSE_PREF;
     }
   }
   else if (CMND_VOLTAGESET == energy_command_code) {
     if (XdrvMailbox.data_len && voltage_cycle) {
-      Settings.energy_voltage_calibration = (unsigned long)(CharToDouble(XdrvMailbox.data) * voltage_cycle) / CSE_UREF;
+      Settings.energy_voltage_calibration = (unsigned long)(CharToFloat(XdrvMailbox.data) * voltage_cycle) / CSE_UREF;
     }
   }
   else if (CMND_CURRENTSET == energy_command_code) {
     if (XdrvMailbox.data_len && current_cycle) {
-      Settings.energy_current_calibration = (unsigned long)(CharToDouble(XdrvMailbox.data) * current_cycle) / 1000;
+      Settings.energy_current_calibration = (unsigned long)(CharToFloat(XdrvMailbox.data) * current_cycle) / 1000;
     }
   }
   else serviced = false;  // Unknown command

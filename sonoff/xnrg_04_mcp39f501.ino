@@ -121,7 +121,7 @@ uint8_t McpChecksum(uint8_t *data)
   uint8_t offset = 0;
   uint8_t len = data[1] -1;
 
-  for (uint8_t i = offset; i < len; i++) { checksum += data[i];	}
+  for (uint32_t i = offset; i < len; i++) { checksum += data[i];	}
   return checksum;
 }
 
@@ -130,7 +130,7 @@ unsigned long McpExtractInt(char *data, uint8_t offset, uint8_t size)
 	unsigned long result = 0;
 	unsigned long pow = 1;
 
-	for (uint8_t i = 0; i < size; i++) {
+	for (uint32_t i = 0; i < size; i++) {
 		result = result + (uint8_t)data[offset + i] * pow;
 		pow = pow * 256;
 	}
@@ -139,7 +139,7 @@ unsigned long McpExtractInt(char *data, uint8_t offset, uint8_t size)
 
 void McpSetInt(unsigned long value, uint8_t *data, uint8_t offset, size_t size)
 {
-	for (uint8_t i = 0; i < size; i++) {
+	for (uint32_t i = 0; i < size; i++) {
 		data[offset + i] = ((value >> (i * 8)) & 0xFF);
 	}
 }
@@ -154,7 +154,7 @@ void McpSend(uint8_t *data)
 
 //  AddLogBuffer(LOG_LEVEL_DEBUG_MORE, data, data[1]);
 
-  for (uint8_t i = 0; i < data[1]; i++) {
+  for (uint32_t i = 0; i < data[1]; i++) {
     McpSerial->write(data[i]);
   }
 }
@@ -604,7 +604,7 @@ bool McpCommand(void)
 
   if (CMND_POWERSET == energy_command_code) {
     if (XdrvMailbox.data_len && mcp_active_power) {
-      value = (unsigned long)(CharToDouble(XdrvMailbox.data) * 100);
+      value = (unsigned long)(CharToFloat(XdrvMailbox.data) * 100);
       if ((value > 100) && (value < 200000)) {  // Between 1W and 2000W
         Settings.energy_power_calibration = value;
         mcp_calibrate |= MCP_CALIBRATE_POWER;
@@ -614,7 +614,7 @@ bool McpCommand(void)
   }
   else if (CMND_VOLTAGESET == energy_command_code) {
     if (XdrvMailbox.data_len && mcp_voltage_rms) {
-      value = (unsigned long)(CharToDouble(XdrvMailbox.data) * 10);
+      value = (unsigned long)(CharToFloat(XdrvMailbox.data) * 10);
       if ((value > 1000) && (value < 2600)) {  // Between 100V and 260V
         Settings.energy_voltage_calibration = value;
         mcp_calibrate |= MCP_CALIBRATE_VOLTAGE;
@@ -624,7 +624,7 @@ bool McpCommand(void)
   }
   else if (CMND_CURRENTSET == energy_command_code) {
     if (XdrvMailbox.data_len && mcp_current_rms) {
-      value = (unsigned long)(CharToDouble(XdrvMailbox.data) * 10);
+      value = (unsigned long)(CharToFloat(XdrvMailbox.data) * 10);
       if ((value > 100) && (value < 80000)) {  // Between 10mA and 8A
         Settings.energy_current_calibration = value;
         mcp_calibrate |= MCP_CALIBRATE_CURRENT;
@@ -634,7 +634,7 @@ bool McpCommand(void)
   }
   else if (CMND_FREQUENCYSET == energy_command_code) {
     if (XdrvMailbox.data_len && mcp_line_frequency) {
-      value = (unsigned long)(CharToDouble(XdrvMailbox.data) * 1000);
+      value = (unsigned long)(CharToFloat(XdrvMailbox.data) * 1000);
       if ((value > 45000) && (value < 65000)) {  // Between 45Hz and 65Hz
         Settings.energy_frequency_calibration = value;
         mcp_calibrate |= MCP_CALIBRATE_FREQUENCY;

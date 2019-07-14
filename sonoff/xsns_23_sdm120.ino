@@ -128,9 +128,9 @@ uint16_t SDM120_calculateCRC(uint8_t *frame, uint8_t num)
 {
   uint16_t crc, flag;
   crc = 0xFFFF;
-  for (uint8_t i = 0; i < num; i++) {
+  for (uint32_t i = 0; i < num; i++) {
     crc ^= frame[i];
-    for (uint8_t j = 8; j; j--) {
+    for (uint32_t j = 8; j; j--) {
       if ((crc & 0x0001) != 0) {        // If the LSB is set
         crc >>= 1;                      // Shift right and XOR 0xA001
         crc ^= 0xA001;
@@ -347,9 +347,11 @@ void SDM120Show(bool json)
 #endif // USE_SDM220
 #ifdef USE_DOMOTICZ
     if (0 == tele_period) {
+      char energy_total_chr[33];
+      dtostrfd(sdm120_energy_total * 1000, 1, energy_total_chr);
       DomoticzSensor(DZ_VOLTAGE, voltage);
       DomoticzSensor(DZ_CURRENT, current);
-      DomoticzSensorPowerEnergy((int)sdm120_active_power, energy_total);
+      DomoticzSensorPowerEnergy((int)sdm120_active_power, energy_total_chr);
     }
 #endif  // USE_DOMOTICZ
 #ifdef USE_WEBSERVER

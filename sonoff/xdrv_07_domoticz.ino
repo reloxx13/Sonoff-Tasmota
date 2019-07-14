@@ -52,8 +52,9 @@ int DomoticzBatteryQuality(void)
   // Battery 100%: ESP 3.6V (maximum operating voltage is 3.6)
   // Battery 101% to 200%: ESP over 3.6V (means over maximum operating voltage)
 
-  int quality = 0;	// Voltage range from 2,6V > 0%  to 3,6V > 100%
+  int quality = 100;	// Voltage range from 2,6V > 0%  to 3,6V > 100%
 
+#ifdef USE_ADC_VCC
   uint16_t voltage = ESP.getVcc();
   if (voltage <= 2600) {
     quality = 0;
@@ -62,6 +63,7 @@ int DomoticzBatteryQuality(void)
   } else {
     quality = (voltage - 2600) / 10;
   }
+#endif
   return quality;
 }
 
@@ -99,7 +101,7 @@ void MqttPublishDomoticzPowerState(uint8_t device)
   if (Settings.flag.mqtt_enabled) {
     if ((device < 1) || (device > devices_present)) { device = 1; }
     if (Settings.domoticz_relay_idx[device -1]) {
-      if ((SONOFF_IFAN02 == my_module_type) && (device > 1)) {
+      if (IsModuleIfan() && (device > 1)) {
         // Fan handled by MqttPublishDomoticzFanState
       } else {
         char svalue[8];  // Dimmer value
@@ -126,8 +128,8 @@ void DomoticzMqttUpdate(void)
     domoticz_update_timer--;
     if (domoticz_update_timer <= 0) {
       domoticz_update_timer = Settings.domoticz_update_timer;
-      for (uint8_t i = 1; i <= devices_present; i++) {
-        if ((SONOFF_IFAN02 == my_module_type) && (i > 1)) {
+      for (uint32_t i = 1; i <= devices_present; i++) {
+        if (IsModuleIfan() && (i > 1)) {
           MqttPublishDomoticzFanState();
           break;
         } else {
@@ -141,7 +143,7 @@ void DomoticzMqttUpdate(void)
 void DomoticzMqttSubscribe(void)
 {
   uint8_t maxdev = (devices_present > MAX_DOMOTICZ_IDX) ? MAX_DOMOTICZ_IDX : devices_present;
-  for (uint8_t i = 0; i < maxdev; i++) {
+  for (uint32_t i = 0; i < maxdev; i++) {
     if (Settings.domoticz_relay_idx[i]) {
       domoticz_subscribe = true;
     }
@@ -208,11 +210,11 @@ bool DomoticzMqttData(void)
 
     if ((idx > 0) && (nvalue >= 0) && (nvalue <= 15)) {
       uint8_t maxdev = (devices_present > MAX_DOMOTICZ_IDX) ? MAX_DOMOTICZ_IDX : devices_present;
-      for (uint8_t i = 0; i < maxdev; i++) {
+      for (uint32_t i = 0; i < maxdev; i++) {
         if (idx == Settings.domoticz_relay_idx[i]) {
           bool iscolordimmer = strcmp_P(domoticz["dtype"],PSTR("Color Switch")) == 0;
           snprintf_P(stemp1, sizeof(stemp1), PSTR("%d"), i +1);
-          if ((SONOFF_IFAN02 == my_module_type) && (1 == i)) {  // Idx 2 is fanspeed
+          if (IsModuleIfan() && (1 == i)) {  // Idx 2 is fanspeed
             uint8_t svalue = 0;
             if (domoticz.containsKey("svalue1")) {
               svalue = domoticz["svalue1"];
@@ -460,7 +462,7 @@ void HandleDomoticzConfiguration(void)
   WSContentStart_P(S_CONFIGURE_DOMOTICZ);
   WSContentSendStyle();
   WSContentSend_P(HTTP_FORM_DOMOTICZ);
-  for (int i = 0; i < MAX_DOMOTICZ_IDX; i++) {
+  for (uint32_t i = 0; i < MAX_DOMOTICZ_IDX; i++) {
     if (i < devices_present) {
       WSContentSend_P(HTTP_FORM_DOMOTICZ_RELAY,
         i +1, i, Settings.domoticz_relay_idx[i],
@@ -470,9 +472,9 @@ void HandleDomoticzConfiguration(void)
       WSContentSend_P(HTTP_FORM_DOMOTICZ_SWITCH,
         i +1, i, Settings.domoticz_switch_idx[i]);
     }
-    if ((SONOFF_IFAN02 == my_module_type) && (1 == i)) { break; }
+    if (IsModuleIfan() && (1 == i)) { break; }
   }
-  for (int i = 0; i < DZ_MAX_SENSORS; i++) {
+  for (uint32_t i = 0; i < DZ_MAX_SENSORS; i++) {
     WSContentSend_P(HTTP_FORM_DOMOTICZ_SENSOR,
       i +1, GetTextIndexed(stemp, sizeof(stemp), i, kDomoticzSensors), i, Settings.domoticz_sensor_idx[i]);
   }
@@ -489,7 +491,7 @@ void DomoticzSaveSettings(void)
   char ssensor_indices[6 * MAX_DOMOTICZ_SNS_IDX];
   char tmp[100];
 
-  for (uint8_t i = 0; i < MAX_DOMOTICZ_IDX; i++) {
+  for (uint32_t i = 0; i < MAX_DOMOTICZ_IDX; i++) {
     snprintf_P(stemp, sizeof(stemp), PSTR("r%d"), i);
     WebGetArg(stemp, tmp, sizeof(tmp));
     Settings.domoticz_relay_idx[i] = (!strlen(tmp)) ? 0 : atoi(tmp);
@@ -501,7 +503,7 @@ void DomoticzSaveSettings(void)
     Settings.domoticz_switch_idx[i] = (!strlen(tmp)) ? 0 : atoi(tmp);
   }
   ssensor_indices[0] = '\0';
-  for (uint8_t i = 0; i < DZ_MAX_SENSORS; i++) {
+  for (uint32_t i = 0; i < DZ_MAX_SENSORS; i++) {
     snprintf_P(stemp, sizeof(stemp), PSTR("l%d"), i);
     WebGetArg(stemp, tmp, sizeof(tmp));
     Settings.domoticz_sensor_idx[i] = (!strlen(tmp)) ? 0 : atoi(tmp);
