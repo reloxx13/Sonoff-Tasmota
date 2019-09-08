@@ -24,6 +24,6 @@ const uint32_t VERSION = 0x0606000B;
 
 #define D_MODIFY_AUTHOR "reloxx13"
 #define D_MODIFIED_WEBLINK "https://bit.ly/Tasmota-Mod"
-#define MOD_VERSION_STRING "mod-1.52.2" // Would be great to have a macro that fills this from VERSION ...
+#define MOD_VERSION_STRING "mod-1.52.11" // Would be great to have a macro that fills this from VERSION ...
 
 #endif  // _SONOFF_VERSION_H_
