@@ -17,6 +17,7 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifdef USE_SONOFF_IFAN
 /*********************************************************************************************\
   Sonoff iFan02 and iFan03
 \*********************************************************************************************/
@@ -29,9 +30,16 @@ const uint8_t kIFan02Speed[MAX_FAN_SPEED] = { 0x00, 0x01, 0x03, 0x05 };
 const uint8_t kIFan03Speed[MAX_FAN_SPEED +2] = { 0x00, 0x01, 0x03, 0x04, 0x05, 0x06 };
 const uint8_t kIFan03Sequence[MAX_FAN_SPEED][MAX_FAN_SPEED] = {{0, 2, 2, 2}, {0, 1, 2, 4}, {1, 1, 2, 5}, {4, 4, 5, 3}};
 
+const char kSonoffIfanCommands[] PROGMEM = "|"  // No prefix
+  D_CMND_FANSPEED;
+
+void (* const SonoffIfanCommand[])(void) PROGMEM =
+  { &CmndFanspeed };
+
 uint8_t ifan_fanspeed_timer = 0;
 uint8_t ifan_fanspeed_goal = 0;
 bool ifan_receive_flag = false;
+bool ifan_restart_flag = true;
 
 /*********************************************************************************************/
 
@@ -48,20 +56,16 @@ uint8_t MaxFanspeed(void)
 uint8_t GetFanspeed(void)
 {
   if (ifan_fanspeed_timer) {
-    return ifan_fanspeed_goal;
+    return ifan_fanspeed_goal;                     // Do not show sequence fanspeed
   } else {
-    uint8_t fanspeed = 0;
-
-//    if (SONOFF_IFAN02 == my_module_type) {
-      /* Fanspeed is controlled by relay 2, 3 and 4 as in Sonoff 4CH.
-        000x = 0
-        001x = 1
-        011x = 2
-        101x = 3 (ifan02) or 100x = 3 (ifan03)
-      */
-      fanspeed = (uint8_t)(power &0xF) >> 1;
-      if (fanspeed) { fanspeed = (fanspeed >> 1) +1; }  // 0, 1, 2, 3
-//    }
+    /* Fanspeed is controlled by relay 2, 3 and 4 as in Sonoff 4CH.
+      000x = 0
+      001x = 1
+      011x = 2
+      101x = 3 (ifan02) or 100x = 3 (ifan03)
+    */
+    uint8_t fanspeed = (uint8_t)(power &0xF) >> 1;
+    if (fanspeed) { fanspeed = (fanspeed >> 1) +1; }  // 0, 1, 2, 3
     return fanspeed;
   }
 }
@@ -92,8 +96,8 @@ void SonoffIFanSetFanspeed(uint8_t fanspeed, bool sequence)
     fans = kIFan03Speed[fanspeed];
   }
   for (uint32_t i = 2; i < 5; i++) {
-    uint8_t state = (fans &1) + 6;                 // Add no publishPowerState
-    ExecuteCommandPower(i, state, SRC_IGNORE);  // Use relay 2, 3 and 4
+    uint8_t state = (fans &1) + POWER_OFF_NO_STATE;  // Add no publishPowerState
+    ExecuteCommandPower(i, state, SRC_IGNORE);     // Use relay 2, 3 and 4
     fans >>= 1;
   }
 
@@ -103,20 +107,6 @@ void SonoffIFanSetFanspeed(uint8_t fanspeed, bool sequence)
 }
 
 /*********************************************************************************************/
-
-void SonoffIfanSendAck()
-{
-  // AA 55 01 04 00 00 05
-  serial_in_buffer[5] = 0;
-  uint8_t crc = 0;
-  for (uint32_t i = 2; i < 5; i++) {
-    crc += serial_in_buffer[i];
-  }
-  serial_in_buffer[6] = crc;
-  for (uint32_t i = 0; i < 7; i++) {
-    Serial.write(serial_in_buffer[i]);
-  }
-}
 
 void SonoffIfanReceived(void)
 {
@@ -134,7 +124,9 @@ void SonoffIfanReceived(void)
       if (action != GetFanspeed()) {
         snprintf_P(svalue, sizeof(svalue), PSTR(D_CMND_FANSPEED " %d"), action);
         ExecuteCommand(svalue, SRC_REMOTE);
-        buzzer_count = 2;                        // Beep once
+#ifdef USE_BUZZER
+        BuzzerEnabledBeep(1);                   // Beep once
+#endif
       }
     } else {
       // AA 55 01 04 00 01 04 0A - Light
@@ -147,9 +139,19 @@ void SonoffIfanReceived(void)
   }
   if (7 == mode) {
     // AA 55 01 07 00 01 01 0A - Rf long press - forget RF codes
-    buzzer_count = 6;                           // Beep three times
+#ifdef USE_BUZZER
+    BuzzerEnabledBeep(3);                       // Beep three times
+#endif
   }
-  SonoffIfanSendAck();
+
+  // Send Acknowledge - Copy first 5 bytes, reset byte 6 and store crc in byte 7
+  // AA 55 01 04 00 00 05
+  serial_in_buffer[5] = 0;                      // Ack
+  serial_in_buffer[6] = 0;                      // Crc
+  for (uint32_t i = 0; i < 7; i++) {
+    if ((i > 1) && (i < 6)) { serial_in_buffer[6] += serial_in_buffer[i]; }
+    Serial.write(serial_in_buffer[i]);
+  }
 }
 
 bool SonoffIfanSerialInput(void)
@@ -160,20 +162,18 @@ bool SonoffIfanSerialInput(void)
       ifan_receive_flag = true;
     }
     if (ifan_receive_flag) {
-      // AA 55 01 01 00 01 01 04 - Wifi long press - start wifi setup
-      // AA 55 01 01 00 01 02 05 - Rf and Wifi short press
-      // AA 55 01 04 00 01 00 06 - Fan 0
-      // AA 55 01 04 00 01 01 07 - Fan 1
-      // AA 55 01 04 00 01 02 08 - Fan 2
-      // AA 55 01 04 00 01 03 09 - Fan 3
-      // AA 55 01 04 00 01 04 0A - Light
-      // AA 55 01 06 00 01 01 09 - Buzzer
-      // AA 55 01 07 00 01 01 0A - Rf long press - forget RF codes
       serial_in_buffer[serial_in_byte_counter++] = serial_in_byte;
       if (serial_in_byte_counter == 8) {
-
+        // AA 55 01 01 00 01 01 04 - Wifi long press - start wifi setup
+        // AA 55 01 01 00 01 02 05 - Rf and Wifi short press
+        // AA 55 01 04 00 01 00 06 - Fan 0
+        // AA 55 01 04 00 01 01 07 - Fan 1
+        // AA 55 01 04 00 01 02 08 - Fan 2
+        // AA 55 01 04 00 01 03 09 - Fan 3
+        // AA 55 01 04 00 01 04 0A - Light
+        // AA 55 01 06 00 01 01 09 - Buzzer
+        // AA 55 01 07 00 01 01 0A - Rf long press - forget RF codes
         AddLogSerial(LOG_LEVEL_DEBUG);
-
         uint8_t crc = 0;
         for (uint32_t i = 2; i < 7; i++) {
           crc += serial_in_buffer[i];
@@ -194,36 +194,22 @@ bool SonoffIfanSerialInput(void)
  * Commands
 \*********************************************************************************************/
 
-enum SonoffIfanCommands { CMND_FANSPEED };
-const char kSonoffIfanCommands[] PROGMEM = D_CMND_FANSPEED;
-
-bool SonoffIfanCommand(void)
+void CmndFanspeed(void)
 {
-  char command [CMDSZ];
-  bool serviced = true;
-
-  int command_code = GetCommandCode(command, sizeof(command), XdrvMailbox.topic, kSonoffIfanCommands);
-  if (-1 == command_code) {
-    serviced = false;  // Unknown command
+  if (XdrvMailbox.data_len > 0) {
+    if ('-' == XdrvMailbox.data[0]) {
+      XdrvMailbox.payload = (int16_t)GetFanspeed() -1;
+      if (XdrvMailbox.payload < 0) { XdrvMailbox.payload = MAX_FAN_SPEED -1; }
+    }
+    else if ('+' == XdrvMailbox.data[0]) {
+      XdrvMailbox.payload = GetFanspeed() +1;
+      if (XdrvMailbox.payload > MAX_FAN_SPEED -1) { XdrvMailbox.payload = 0; }
+    }
   }
-  else if (CMND_FANSPEED == command_code) {
-    if (XdrvMailbox.data_len > 0) {
-      if ('-' == XdrvMailbox.data[0]) {
-        XdrvMailbox.payload = (int16_t)GetFanspeed() -1;
-        if (XdrvMailbox.payload < 0) { XdrvMailbox.payload = MAX_FAN_SPEED -1; }
-      }
-      else if ('+' == XdrvMailbox.data[0]) {
-        XdrvMailbox.payload = GetFanspeed() +1;
-        if (XdrvMailbox.payload > MAX_FAN_SPEED -1) { XdrvMailbox.payload = 0; }
-      }
-    }
-    if ((XdrvMailbox.payload >= 0) && (XdrvMailbox.payload < MAX_FAN_SPEED)) {
-      SonoffIFanSetFanspeed(XdrvMailbox.payload, true);
-    }
-    Response_P(S_JSON_COMMAND_NVALUE, command, GetFanspeed());
-  } else serviced = false;  // Unknown command
-
-  return serviced;
+  if ((XdrvMailbox.payload >= 0) && (XdrvMailbox.payload < MAX_FAN_SPEED)) {
+    SonoffIFanSetFanspeed(XdrvMailbox.payload, true);
+  }
+  ResponseCmndNumber(GetFanspeed());
 }
 
 /*********************************************************************************************/
@@ -248,6 +234,12 @@ void SonoffIfanUpdate(void)
       }
     }
   }
+
+  if (ifan_restart_flag && (4 == uptime) && (SONOFF_IFAN02 == my_module_type)) {  // Microcontroller needs 3 seconds before accepting commands
+    ifan_restart_flag = false;
+    SetDevicePower(1, SRC_RETRY);      // Sync with default power on state microcontroller being Light ON and Fan OFF
+    SetDevicePower(power, SRC_RETRY);  // Set required power on state
+  }
 }
 
 /*********************************************************************************************\
@@ -260,19 +252,21 @@ bool Xdrv22(uint8_t function)
 
   if (IsModuleIfan()) {
     switch (function) {
-      case FUNC_MODULE_INIT:
-        result = SonoffIfanInit();
-        break;
       case FUNC_EVERY_250_MSECOND:
         SonoffIfanUpdate();
         break;
-      case FUNC_COMMAND:
-        result = SonoffIfanCommand();
-        break;
       case FUNC_SERIAL:
         result = SonoffIfanSerialInput();
+        break;
+      case FUNC_COMMAND:
+        result = DecodeCommand(kSonoffIfanCommands, SonoffIfanCommand);
+        break;
+      case FUNC_MODULE_INIT:
+        result = SonoffIfanInit();
         break;
     }
   }
   return result;
 }
+
+#endif  // USE_SONOFF_IFAN

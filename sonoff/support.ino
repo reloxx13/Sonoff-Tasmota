@@ -43,8 +43,8 @@ bool knx_started = false;
 
 void OsWatchTicker(void)
 {
-  unsigned long t = millis();
-  unsigned long last_run = abs(t - oswatch_last_loop_time);
+  uint32_t t = millis();
+  uint32_t last_run = abs(t - oswatch_last_loop_time);
 
 #ifdef DEBUG_THEO
   AddLog_P2(LOG_LEVEL_DEBUG, PSTR(D_LOG_APPLICATION D_OSWATCH " FreeRam %d, rssi %d, last_run %d"), ESP.getFreeHeap(), WifiGetRssiAsQuality(WiFi.RSSI()), last_run);
@@ -292,6 +292,27 @@ char* ulltoa(unsigned long long value, char *str, int radix)
   return str;
 }
 
+// see https://stackoverflow.com/questions/6357031/how-do-you-convert-a-byte-array-to-a-hexadecimal-string-in-c
+// char* ToHex_P(unsigned char * in, size_t insz, char * out, size_t outsz, char inbetween = '\0'); in sonoff_post.h
+char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, char inbetween)
+{
+  // ToHex_P(in, insz, out, outz)      -> "12345667"
+  // ToHex_P(in, insz, out, outz, ' ') -> "12 34 56 67"
+  // ToHex_P(in, insz, out, outz, ':') -> "12:34:56:67"
+  static const char * hex = "0123456789ABCDEF";
+  int between = (inbetween) ? 3 : 2;
+  const unsigned char * pin = in;
+  char * pout = out;
+  for (; pin < in+insz; pout += between, pin++) {
+    pout[0] = hex[(pgm_read_byte(pin)>>4) & 0xF];
+    pout[1] = hex[ pgm_read_byte(pin)     & 0xF];
+    if (inbetween) { pout[2] = inbetween; }
+    if (pout + 3 - out > outsz) { break; }  // Better to truncate output string than overflow buffer
+  }
+  pout[(inbetween && insz) ? -1 : 0] = 0;   // Discard last inbetween if any input
+  return out;
+}
+
 char* dtostrfd(double number, unsigned char prec, char *s)
 {
   if ((isnan(number)) || (isinf(number))) {  // Fix for JSON output (https://stackoverflow.com/questions/1423081/json-left-out-infinity-and-nan-json-status-in-ecmascript)
@@ -302,12 +323,12 @@ char* dtostrfd(double number, unsigned char prec, char *s)
   }
 }
 
-char* Unescape(char* buffer, uint16_t* size)
+char* Unescape(char* buffer, uint32_t* size)
 {
   uint8_t* read = (uint8_t*)buffer;
   uint8_t* write = (uint8_t*)buffer;
-  int16_t start_size = *size;
-  int16_t end_size = *size;
+  int32_t start_size = *size;
+  int32_t end_size = *size;
   uint8_t che = 0;
 
 //  AddLogBuffer(LOG_LEVEL_DEBUG, (uint8_t*)buffer, *size);
@@ -452,23 +473,23 @@ char IndexSeparator()
   }
 }
 
-void SetShortcut(char* str, uint8_t action)
+void SetShortcutDefault(void)
 {
-  if ('\0' != str[0]) {     // There must be at least one character in the buffer
-    str[0] = '0' + action;  // SC_CLEAR, SC_DEFAULT, SC_USER
-    str[1] = '\0';
+  if ('\0' != XdrvMailbox.data[0]) {     // There must be at least one character in the buffer
+    XdrvMailbox.data[0] = '0' + SC_DEFAULT;  // SC_CLEAR, SC_DEFAULT, SC_USER
+    XdrvMailbox.data[1] = '\0';
   }
 }
 
-uint8_t Shortcut(const char* str)
+uint8_t Shortcut()
 {
   uint8_t result = 10;
 
-  if ('\0' == str[1]) {    // Only allow single character input for shortcut
-    if (('"' == str[0]) || ('0' == str[0])) {
+  if ('\0' == XdrvMailbox.data[1]) {    // Only allow single character input for shortcut
+    if (('"' == XdrvMailbox.data[0]) || ('0' == XdrvMailbox.data[0])) {
       result = SC_CLEAR;
     } else {
-      result = atoi(str);  // 1 = SC_DEFAULT, 2 = SC_USER
+      result = atoi(XdrvMailbox.data);  // 1 = SC_DEFAULT, 2 = SC_USER
       if (0 == result) {
         result = 10;
       }
@@ -502,34 +523,11 @@ bool ParseIp(uint32_t* addr, const char* str)
   return (3 == i);
 }
 
-void MakeValidMqtt(uint8_t option, char* str)
-{
-// option 0 = replace by underscore
-// option 1 = delete character
-  uint16_t i = 0;
-  while (str[i] > 0) {
-//        if ((str[i] == '/') || (str[i] == '+') || (str[i] == '#') || (str[i] == ' ')) {
-    if ((str[i] == '+') || (str[i] == '#') || (str[i] == ' ')) {
-      if (option) {
-        uint16_t j = i;
-        while (str[j] > 0) {
-          str[j] = str[j +1];
-          j++;
-        }
-        i--;
-      } else {
-        str[i] = '_';
-      }
-    }
-    i++;
-  }
-}
-
 // Function to parse & check if version_str is newer than our currently installed version.
 bool NewerVersion(char* version_str)
 {
   uint32_t version = 0;
-  uint8_t i = 0;
+  uint32_t i = 0;
   char *str_ptr;
   char* version_dup = strdup(version_str);  // Duplicate the version_str as strtok_r will modify it.
 
@@ -569,7 +567,7 @@ bool NewerVersion(char* version_str)
   return (version > VERSION);
 }
 
-char* GetPowerDevice(char* dest, uint8_t idx, size_t size, uint8_t option)
+char* GetPowerDevice(char* dest, uint32_t idx, size_t size, uint32_t option)
 {
   char sidx[8];
 
@@ -581,7 +579,7 @@ char* GetPowerDevice(char* dest, uint8_t idx, size_t size, uint8_t option)
   return dest;
 }
 
-char* GetPowerDevice(char* dest, uint8_t idx, size_t size)
+char* GetPowerDevice(char* dest, uint32_t idx, size_t size)
 {
   return GetPowerDevice(dest, idx, size, 0);
 }
@@ -676,7 +674,7 @@ uint32_t RoundSqrtInt(uint32_t num)
   return s / 2;
 }
 
-char* GetTextIndexed(char* destination, size_t destination_size, uint16_t index, const char* haystack)
+char* GetTextIndexed(char* destination, size_t destination_size, uint32_t index, const char* haystack)
 {
   // Returns empty string if not found
   // Returns text of found
@@ -738,6 +736,19 @@ int GetCommandCode(char* destination, size_t destination_size, const char* needl
   return result;
 }
 
+bool DecodeCommand(const char* haystack, void (* const MyCommand[])(void))
+{
+  GetTextIndexed(XdrvMailbox.command, CMDSZ, 0, haystack);  // Get prefix if available
+  int prefix_length = strlen(XdrvMailbox.command);
+  int command_code = GetCommandCode(XdrvMailbox.command + prefix_length, CMDSZ, XdrvMailbox.topic + prefix_length, haystack);
+  if (command_code > 0) {                                   // Skip prefix
+    XdrvMailbox.command_code = command_code -1;
+    MyCommand[XdrvMailbox.command_code]();
+    return true;
+  }
+  return false;
+}
+
 int GetStateNumber(char *state_text)
 {
   char command[CMDSZ];
@@ -763,7 +774,7 @@ int GetStateNumber(char *state_text)
 
 void SetSerialBaudrate(int baudrate)
 {
-  Settings.baudrate = baudrate / 1200;
+  Settings.baudrate = baudrate / 300;
   if (Serial.baudRate() != baudrate) {
     if (seriallog_level) {
       AddLog_P2(LOG_LEVEL_INFO, PSTR(D_LOG_APPLICATION D_SET_BAUDRATE_TO " %d"), baudrate);
@@ -782,7 +793,7 @@ void ClaimSerial(void)
   AddLog_P(LOG_LEVEL_INFO, PSTR("SNS: Hardware Serial"));
   SetSeriallog(LOG_LEVEL_NONE);
   baudrate = Serial.baudRate();
-  Settings.baudrate = baudrate / 1200;
+  Settings.baudrate = baudrate / 300;
 }
 
 void SerialSendRaw(char *codes)
@@ -811,7 +822,7 @@ uint32_t GetHash(const char *buffer, size_t size)
   return hash;
 }
 
-void ShowSource(int source)
+void ShowSource(uint32_t source)
 {
   if ((source > 0) && (source < SRC_MAX)) {
     char stemp1[20];
@@ -819,7 +830,7 @@ void ShowSource(int source)
   }
 }
 
-void WebHexCode(uint8_t i, const char* code)
+void WebHexCode(uint32_t i, const char* code)
 {
   char scolor[10];
 
@@ -849,7 +860,7 @@ void WebHexCode(uint8_t i, const char* code)
   Settings.web_color[i][2] = color & 0xFF;          // Blue
 }
 
-uint32_t WebColor(uint8_t i)
+uint32_t WebColor(uint32_t i)
 {
   uint32_t tcolor = (Settings.web_color[i][0] << 16) | (Settings.web_color[i][1] << 8) | Settings.web_color[i][2];
   return tcolor;
@@ -859,7 +870,24 @@ uint32_t WebColor(uint8_t i)
  * Response data handling
 \*********************************************************************************************/
 
-int Response_P(const char* format, ...)     // Content send snprintf_P char data
+const uint16_t TIMESZ = 100;                   // Max number of characters in time string
+
+char* ResponseGetTime(uint32_t format, char* time_str)
+{
+  switch (format) {
+  case 1:
+    snprintf_P(time_str, TIMESZ, PSTR("{\"" D_JSON_TIME "\":\"%s\",\"Epoch\":%u"), GetDateAndTime(DT_LOCAL).c_str(), UtcTime());
+    break;
+  case 2:
+    snprintf_P(time_str, TIMESZ, PSTR("{\"" D_JSON_TIME "\":%u"), UtcTime());
+    break;
+  default:
+    snprintf_P(time_str, TIMESZ, PSTR("{\"" D_JSON_TIME "\":\"%s\""), GetDateAndTime(DT_LOCAL).c_str());
+  }
+  return time_str;
+}
+
+int Response_P(const char* format, ...)        // Content send snprintf_P char data
 {
   // This uses char strings. Be aware of sending %% if % is needed
   va_list args;
@@ -867,6 +895,20 @@ int Response_P(const char* format, ...)     // Content send snprintf_P char data
   int len = vsnprintf_P(mqtt_data, sizeof(mqtt_data), format, args);
   va_end(args);
   return len;
+}
+
+int ResponseTime_P(const char* format, ...)    // Content send snprintf_P char data
+{
+  // This uses char strings. Be aware of sending %% if % is needed
+  va_list args;
+  va_start(args, format);
+
+  ResponseGetTime(Settings.flag2.time_format, mqtt_data);
+
+  int mlen = strlen(mqtt_data);
+  int len = vsnprintf_P(mqtt_data + mlen, sizeof(mqtt_data) - mlen, format, args);
+  va_end(args);
+  return len + mlen;
 }
 
 int ResponseAppend_P(const char* format, ...)  // Content send snprintf_P char data
@@ -880,15 +922,15 @@ int ResponseAppend_P(const char* format, ...)  // Content send snprintf_P char d
   return len + mlen;
 }
 
-int ResponseAppendTime(void)
+int ResponseAppendTimeFormat(uint32_t format)
 {
-  return ResponseAppend_P(PSTR("{\"" D_JSON_TIME "\":\"%s\",\"Epoch\":%u"), GetDateAndTime(DT_LOCAL).c_str(), UtcTime());
+  char time_str[TIMESZ];
+  return ResponseAppend_P(ResponseGetTime(format, time_str));
 }
 
-int ResponseBeginTime(void)
+int ResponseAppendTime(void)
 {
-  mqtt_data[0] = '\0';
-  return ResponseAppendTime();
+  return ResponseAppendTimeFormat(Settings.flag2.time_format);
 }
 
 int ResponseJsonEnd(void)
@@ -907,7 +949,7 @@ uint8_t ModuleNr()
   return (USER_MODULE == Settings.module) ? 0 : Settings.module +1;
 }
 
-bool ValidTemplateModule(uint8_t index)
+bool ValidTemplateModule(uint32_t index)
 {
   for (uint32_t i = 0; i < sizeof(kModuleNiceList); i++) {
     if (index == pgm_read_byte(kModuleNiceList + i)) {
@@ -917,13 +959,13 @@ bool ValidTemplateModule(uint8_t index)
   return false;
 }
 
-bool ValidModule(uint8_t index)
+bool ValidModule(uint32_t index)
 {
   if (index == USER_MODULE) { return true; }
   return ValidTemplateModule(index);
 }
 
-String AnyModuleName(uint8_t index)
+String AnyModuleName(uint32_t index)
 {
   if (USER_MODULE == index) {
     return String(Settings.user_template.name);
@@ -952,7 +994,7 @@ void ModuleGpios(myio *gp)
 
 //  AddLogBuffer(LOG_LEVEL_DEBUG, (uint8_t *)&src, sizeof(mycfgio));
 
-  uint8_t j = 0;
+  uint32_t j = 0;
   for (uint32_t i = 0; i < sizeof(mycfgio); i++) {
     if (6 == i) { j = 9; }
     if (8 == i) { j = 12; }
@@ -977,7 +1019,7 @@ gpio_flag ModuleFlag()
   return flag;
 }
 
-void ModuleDefault(uint8_t module)
+void ModuleDefault(uint32_t module)
 {
   if (USER_MODULE == module) { module = WEMOS; }  // Generic
   Settings.user_template_base = module;
@@ -989,7 +1031,7 @@ void SetModuleType()
   my_module_type = (USER_MODULE == Settings.module) ? Settings.user_template_base : Settings.module;
 }
 
-uint8_t ValidPin(uint8_t pin, uint8_t gpio)
+uint8_t ValidPin(uint32_t pin, uint32_t gpio)
 {
   uint8_t result = gpio;
 
@@ -1002,7 +1044,7 @@ uint8_t ValidPin(uint8_t pin, uint8_t gpio)
   return result;
 }
 
-bool ValidGPIO(uint8_t pin, uint8_t gpio)
+bool ValidGPIO(uint32_t pin, uint32_t gpio)
 {
   return (GPIO_USER == ValidPin(pin, gpio));  // Only allow GPIO_USER pins
 }
@@ -1010,11 +1052,11 @@ bool ValidGPIO(uint8_t pin, uint8_t gpio)
 bool ValidAdc()
 {
   gpio_flag flag = ModuleFlag();
-  uint8_t template_adc0 = flag.data &15;
+  uint32_t template_adc0 = flag.data &15;
   return (ADC0_USER == template_adc0);
 }
 
-bool GetUsedInModule(uint8_t val, uint8_t *arr)
+bool GetUsedInModule(uint32_t val, uint8_t *arr)
 {
   int offset = 0;
 
@@ -1399,14 +1441,14 @@ bool I2cDevice(uint8_t addr)
  *
 \*********************************************************************************************/
 
-void SetSeriallog(uint8_t loglevel)
+void SetSeriallog(uint32_t loglevel)
 {
   Settings.seriallog_level = loglevel;
   seriallog_level = loglevel;
   seriallog_timer = 0;
 }
 
-void SetSyslog(uint8_t loglevel)
+void SetSyslog(uint32_t loglevel)
 {
   Settings.syslog_level = loglevel;
   syslog_level = loglevel;
@@ -1414,7 +1456,7 @@ void SetSyslog(uint8_t loglevel)
 }
 
 #ifdef USE_WEBSERVER
-void GetLog(uint8_t idx, char** entry_pp, size_t* len_p)
+void GetLog(uint32_t idx, char** entry_pp, size_t* len_p)
 {
   char* entry_p = nullptr;
   size_t len = 0;
@@ -1422,7 +1464,7 @@ void GetLog(uint8_t idx, char** entry_pp, size_t* len_p)
   if (idx) {
     char* it = web_log;
     do {
-      uint8_t cur_idx = *it;
+      uint32_t cur_idx = *it;
       it++;
       size_t tmp = strchrspn(it, '\1');
       tmp++;                             // Skip terminating '\1'
@@ -1464,7 +1506,7 @@ void Syslog(void)
   }
 }
 
-void AddLog(uint8_t loglevel)
+void AddLog(uint32_t loglevel)
 {
   char mxtime[10];  // "13:45:21 "
 
@@ -1477,6 +1519,7 @@ void AddLog(uint8_t loglevel)
   if (Settings.webserver && (loglevel <= Settings.weblog_level)) {
     // Delimited, zero-terminated buffer of log lines.
     // Each entry has this format: [index][log data]['\1']
+    web_log_index &= 0xFF;
     if (!web_log_index) web_log_index++;   // Index 0 is not allowed as it is the end of char string
     while (web_log_index == web_log[0] ||  // If log already holds the next index, remove it
            strlen(web_log) + strlen(log_data) + 13 > WEB_LOG_SIZE)  // 13 = web_log_index + mxtime + '\1' + '\0'
@@ -1488,21 +1531,22 @@ void AddLog(uint8_t loglevel)
       memmove(web_log, it, WEB_LOG_SIZE -(it-web_log));  // Move buffer forward to remove oldest log line
     }
     snprintf_P(web_log, sizeof(web_log), PSTR("%s%c%s%s\1"), web_log, web_log_index++, mxtime, log_data);
+    web_log_index &= 0xFF;
     if (!web_log_index) web_log_index++;   // Index 0 is not allowed as it is the end of char string
   }
 #endif  // USE_WEBSERVER
   if (!global_state.wifi_down && (loglevel <= syslog_level)) { Syslog(); }
 }
 
-void AddLog_P(uint8_t loglevel, const char *formatP)
+void AddLog_P(uint32_t loglevel, const char *formatP)
 {
   snprintf_P(log_data, sizeof(log_data), formatP);
   AddLog(loglevel);
 }
 
-void AddLog_P(uint8_t loglevel, const char *formatP, const char *formatP2)
+void AddLog_P(uint32_t loglevel, const char *formatP, const char *formatP2)
 {
-  char message[100];
+  char message[sizeof(log_data)];
 
   snprintf_P(log_data, sizeof(log_data), formatP);
   snprintf_P(message, sizeof(message), formatP2);
@@ -1510,7 +1554,7 @@ void AddLog_P(uint8_t loglevel, const char *formatP, const char *formatP2)
   AddLog(loglevel);
 }
 
-void AddLog_P2(uint8_t loglevel, PGM_P formatP, ...)
+void AddLog_P2(uint32_t loglevel, PGM_P formatP, ...)
 {
   va_list arg;
   va_start(arg, formatP);
@@ -1520,21 +1564,40 @@ void AddLog_P2(uint8_t loglevel, PGM_P formatP, ...)
   AddLog(loglevel);
 }
 
-void AddLogBuffer(uint8_t loglevel, uint8_t *buffer, int count)
+void AddLog_Debug(PGM_P formatP, ...)
 {
+  va_list arg;
+  va_start(arg, formatP);
+  vsnprintf_P(log_data, sizeof(log_data), formatP, arg);
+  va_end(arg);
+
+  AddLog(LOG_LEVEL_DEBUG);
+}
+
+void AddLogBuffer(uint32_t loglevel, uint8_t *buffer, uint32_t count)
+{
+/*
   snprintf_P(log_data, sizeof(log_data), PSTR("DMP:"));
   for (uint32_t i = 0; i < count; i++) {
     snprintf_P(log_data, sizeof(log_data), PSTR("%s %02X"), log_data, *(buffer++));
   }
   AddLog(loglevel);
+*/
+/*
+  strcpy_P(log_data, PSTR("DMP: "));
+  ToHex_P(buffer, count, log_data + strlen(log_data), sizeof(log_data) - strlen(log_data), ' ');
+  AddLog(loglevel);
+*/
+  char hex_char[(count * 3) + 2];
+  AddLog_P2(loglevel, PSTR("DMP: %s"), ToHex_P(buffer, count, hex_char, sizeof(hex_char), ' '));
 }
 
-void AddLogSerial(uint8_t loglevel)
+void AddLogSerial(uint32_t loglevel)
 {
   AddLogBuffer(loglevel, (uint8_t*)serial_in_buffer, serial_in_byte_counter);
 }
 
-void AddLogMissed(char *sensor, uint8_t misses)
+void AddLogMissed(char *sensor, uint32_t misses)
 {
   AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SNS: %s missed %d"), sensor, SENSOR_MAX_MISS - misses);
 }
