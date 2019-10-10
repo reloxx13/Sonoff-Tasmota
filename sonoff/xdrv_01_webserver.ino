@@ -92,7 +92,48 @@ const char HTTP_SCRIPT_COUNTER[] PROGMEM =
   "}"
   "wl(u);";
 
+
 const char HTTP_SCRIPT_ROOT[] PROGMEM =
+#ifdef USE_SCRIPT_WEB_DISPLAY
+  "var rfsh=1;"
+  "function la(p){"
+    "var a='';"
+    "if(la.arguments.length==1){"
+      "a=p;"
+      "clearTimeout(lt);"
+    "}"
+    "if(x!=null){x.abort();}"             // Abort if no response within 2 seconds (happens on restart 1)
+    "x=new XMLHttpRequest();"
+    "x.onreadystatechange=function(){"
+      "if(x.readyState==4&&x.status==200){"
+        "var s=x.responseText.replace(/{t}/g,\"<table style='width:100%%'>\").replace(/{s}/g,\"<tr><th>\").replace(/{m}/g,\"</th><td>\").replace(/{e}/g,\"</td></tr>\").replace(/{c}/g,\"%%'><div style='text-align:center;font-weight:\");"
+        "eb('l1').innerHTML=s;"
+      "}"
+    "};"
+    "if (rfsh) {"
+      "x.open('GET','.?m=1'+a,true);"       // ?m related to WebServer->hasArg("m")
+      "x.send();"
+      "lt=setTimeout(la,%d);"               // Settings.web_refresh
+    "}"
+  "}"
+  "function seva(par,ivar){"
+    "la('&sv='+ivar+'_'+par);"
+  "}"
+  "function siva(par,ivar){"
+    "rfsh=1;"
+    "la('&sv='+ivar+'_'+par);"
+    "rfsh=0;"
+  "}"
+  "function pr(f){"
+    "if (f) {"
+      "lt=setTimeout(la,%d);"
+      "rfsh=1;"
+    "} else {"
+      "clearTimeout(lt);"
+      "rfsh=0;"
+    "}"
+  "}"
+#else  // USE_SCRIPT_WEB_DISPLAY
   "function la(p){"
     "var a='';"
     "if(la.arguments.length==1){"
@@ -112,6 +153,7 @@ const char HTTP_SCRIPT_ROOT[] PROGMEM =
     "x.send();"
     "lt=setTimeout(la,%d);"               // Settings.web_refresh
   "}"
+#endif  // USE_SCRIPT_WEB_DISPLAY
 
 #ifdef USE_JAVASCRIPT_ES6
   "lb=p=>la('&d='+p);"                    // Dark - Bright &d related to lb(value) and WebGetArg("d", tmp, sizeof(tmp));
@@ -123,7 +165,29 @@ const char HTTP_SCRIPT_ROOT[] PROGMEM =
   "function lc(p){"
     "la('&t='+p);"                        // &t related to WebGetArg("t", tmp, sizeof(tmp));
   "}"
-#endif
+#endif  // USE_JAVASCRIPT_ES6
+
+#ifdef USE_SHUTTER
+#ifdef USE_JAVASCRIPT_ES6
+  "ld1=p=>la('&u1='+p);"
+  "ld2=p=>la('&u2='+p);"
+  "ld3=p=>la('&u3='+p);"
+  "ld4=p=>la('&u4='+p);"
+#else
+  "function ld1(p){"
+    "la('&u1='+p);"
+  "}"
+  "function ld2(p){"
+    "la('&u2='+p);"
+  "}"
+  "function ld3(p){"
+    "la('&u3='+p);"
+  "}"
+  "function ld4(p){"
+    "la('&u4='+p);"
+  "}"
+#endif  // USE_JAVASCRIPT_ES6
+#endif  // USE_SHUTTER
 
   "wl(la);";
 
@@ -339,6 +403,11 @@ const char HTTP_MSG_SLIDER1[] PROGMEM =
 const char HTTP_MSG_SLIDER2[] PROGMEM =
   "<div><span class='p'>" D_DARKLIGHT "</span><span class='q'>" D_BRIGHTLIGHT "</span></div>"
   "<div><input type='range' min='1' max='100' value='%d' onchange='lb(value)'></div>";
+#ifdef USE_SHUTTER
+const char HTTP_MSG_SLIDER3[] PROGMEM =
+  "<div><span class='p'>" D_CLOSE "</span><span class='q'>" D_OPEN "</span></div>"
+  "<div><input type='range' min='0' max='100' value='%d' onchange='ld%d(value)'></div>";
+#endif  // USE_SHUTTER
 const char HTTP_MSG_RSTRT[] PROGMEM =
   "<br><div style='text-align:center;'>" D_DEVICE_WILL_RESTART "</div><br>";
 
@@ -461,7 +530,7 @@ const char kButtonConfirm[] PROGMEM = D_CONFIRM_RESTART "|" D_CONFIRM_RESET_CONF
 enum CTypes { CT_HTML, CT_PLAIN, CT_XML, CT_JSON, CT_STREAM };
 const char kContentTypes[] PROGMEM = "text/html|text/plain|text/xml|application/json|application/octet-stream";
 
-const char kLoggingOptions[] PROGMEM = D_SERIAL_LOG_LEVEL "|" D_WEB_LOG_LEVEL "|" D_SYS_LOG_LEVEL;
+const char kLoggingOptions[] PROGMEM = D_SERIAL_LOG_LEVEL "|" D_WEB_LOG_LEVEL "|" D_MQTT_LOG_LEVEL "|" D_SYS_LOG_LEVEL;
 const char kLoggingLevels[] PROGMEM = D_NONE "|" D_ERROR "|" D_INFO "|" D_DEBUG "|" D_MORE_DEBUG;
 
 const char kEmulationOptions[] PROGMEM = D_NONE "|" D_BELKIN_WEMO "|" D_HUE_BRIDGE;
@@ -514,6 +583,7 @@ void ShowWebSource(uint32_t source)
 void ExecuteWebCommand(char* svalue, uint32_t source)
 {
   ShowWebSource(source);
+  last_source = source;
   ExecuteCommand(svalue, SRC_IGNORE);
 }
 
@@ -935,7 +1005,11 @@ void HandleRoot(void)
   char stemp[5];
 
   WSContentStart_P(S_MAIN_MENU);
+#ifdef USE_SCRIPT_WEB_DISPLAY
+  WSContentSend_P(HTTP_SCRIPT_ROOT, Settings.web_refresh, Settings.web_refresh);
+#else
   WSContentSend_P(HTTP_SCRIPT_ROOT, Settings.web_refresh);
+#endif
   WSContentSendStyle();
 
   WSContentSend_P(PSTR("<div id='l1' name='l1'></div>"));
@@ -948,6 +1022,13 @@ void HandleRoot(void)
       WSContentSend_P(HTTP_MSG_SLIDER2, Settings.light_dimmer);
     }
 #endif
+#ifdef USE_SHUTTER
+    if (Settings.flag3.shutter_mode) {
+      for (uint32_t i = 0; i < shutters_present; i++) {
+        WSContentSend_P(HTTP_MSG_SLIDER3, Settings.shutter_position[i], i+1);
+      }
+    }
+#endif  // USE_SHUTTER
     WSContentSend_P(HTTP_TABLE100);
     WSContentSend_P(PSTR("<tr>"));
 #ifdef USE_SONOFF_IFAN
@@ -1012,6 +1093,10 @@ bool HandleRootStatusRefresh(void)
     return false;
   }
 
+  #ifdef USE_SCRIPT_WEB_DISPLAY
+    Script_Check_HTML_Setvars();
+  #endif
+
   char tmp[8];                       // WebGetArg numbers only
   char svalue[32];                   // Command and number parameter
 
@@ -1044,6 +1129,17 @@ bool HandleRootStatusRefresh(void)
     snprintf_P(svalue, sizeof(svalue), PSTR(D_CMND_COLORTEMPERATURE " %s"), tmp);
     ExecuteWebCommand(svalue, SRC_WEBGUI);
   }
+#ifdef USE_SHUTTER
+  char webindex[5];                 // WebGetArg name
+  for (uint32_t j = 1; j <= shutters_present; j++) {
+    snprintf_P(webindex, sizeof(webindex), PSTR("u%d"), j);
+    WebGetArg(webindex, tmp, sizeof(tmp));  // 0 - 100 percent
+    if (strlen(tmp)) {
+      snprintf_P(svalue, sizeof(svalue), PSTR("ShutterPosition%d %s"), j, tmp);
+      ExecuteWebCommand(svalue, SRC_WEBGUI);
+    }
+  }
+#endif  // USE_SHUTTER
   WebGetArg("k", tmp, sizeof(tmp));  // 1 - 16 Pre defined RF keys
   if (strlen(tmp)) {
     snprintf_P(svalue, sizeof(svalue), PSTR(D_CMND_RFKEY "%s"), tmp);
@@ -1525,9 +1621,10 @@ void HandleLoggingConfiguration(void)
   WSContentSend_P(HTTP_FORM_LOG1);
   char stemp1[45];
   char stemp2[32];
-  uint8_t dlevel[3] = { LOG_LEVEL_INFO, LOG_LEVEL_INFO, LOG_LEVEL_NONE };
-  for (uint32_t idx = 0; idx < 3; idx++) {
-    uint32_t llevel = (0==idx)?Settings.seriallog_level:(1==idx)?Settings.weblog_level:Settings.syslog_level;
+  uint8_t dlevel[4] = { LOG_LEVEL_INFO, LOG_LEVEL_INFO, LOG_LEVEL_NONE, LOG_LEVEL_NONE };
+  for (uint32_t idx = 0; idx < 4; idx++) {
+    if ((2==idx) && !Settings.flag.mqtt_enabled) { continue; }
+    uint32_t llevel = (0==idx)?Settings.seriallog_level:(1==idx)?Settings.weblog_level:(2==idx)?Settings.mqttlog_level:Settings.syslog_level;
     WSContentSend_P(PSTR("<p><b>%s</b> (%s)<br><select id='l%d'>"),
       GetTextIndexed(stemp1, sizeof(stemp1), idx, kLoggingOptions),
       GetTextIndexed(stemp2, sizeof(stemp2), dlevel[idx], kLoggingLevels),
@@ -1554,6 +1651,8 @@ void LoggingSaveSettings(void)
   WebGetArg("l1", tmp, sizeof(tmp));
   Settings.weblog_level = (!strlen(tmp)) ? WEB_LOG_LEVEL : atoi(tmp);
   WebGetArg("l2", tmp, sizeof(tmp));
+  Settings.mqttlog_level = (!strlen(tmp)) ? MQTT_LOG_LEVEL : atoi(tmp);
+  WebGetArg("l3", tmp, sizeof(tmp));
   SetSyslog((!strlen(tmp)) ? SYS_LOG_LEVEL : atoi(tmp));
   WebGetArg("lh", tmp, sizeof(tmp));
   strlcpy(Settings.syslog_host, (!strlen(tmp)) ? SYS_LOG_HOST : tmp, sizeof(Settings.syslog_host));
@@ -1564,8 +1663,8 @@ void LoggingSaveSettings(void)
   if ((Settings.tele_period > 0) && (Settings.tele_period < 10)) {
     Settings.tele_period = 10;   // Do not allow periods < 10 seconds
   }
-  AddLog_P2(LOG_LEVEL_INFO, PSTR(D_LOG_LOG D_CMND_SERIALLOG " %d, " D_CMND_WEBLOG " %d, " D_CMND_SYSLOG " %d, " D_CMND_LOGHOST " %s, " D_CMND_LOGPORT " %d, " D_CMND_TELEPERIOD " %d"),
-    Settings.seriallog_level, Settings.weblog_level, Settings.syslog_level, Settings.syslog_host, Settings.syslog_port, Settings.tele_period);
+  AddLog_P2(LOG_LEVEL_INFO, PSTR(D_LOG_LOG D_CMND_SERIALLOG " %d, " D_CMND_WEBLOG " %d, " D_CMND_MQTTLOG " %d, " D_CMND_SYSLOG " %d, " D_CMND_LOGHOST " %s, " D_CMND_LOGPORT " %d, " D_CMND_TELEPERIOD " %d"),
+    Settings.seriallog_level, Settings.weblog_level, Settings.mqttlog_level, Settings.syslog_level, Settings.syslog_host, Settings.syslog_port, Settings.tele_period);
 }
 
 /*-------------------------------------------------------------------------------------------*/

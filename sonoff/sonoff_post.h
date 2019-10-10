@@ -83,6 +83,8 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 #undef CODE_IMAGE
 #define CODE_IMAGE 3
 
+#undef USE_DISCOVERY                          // Disable mDNS (+8k code or +23.5k code with core 2_5_x, +0.3k mem)
+
 // -- Optional modules -------------------------
 #define USE_SONOFF_IFAN                       // Add support for Sonoff iFan02 and iFan03 (+2k code)
 #define USE_TUYA_MCU                          // Add support for Tuya Serial MCU
@@ -96,7 +98,6 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 #define USE_COUNTER                           // Enable counters
 #undef USE_ADC_VCC                            // Add Analog input on selected devices
 #define USE_DS18x20                           // For more than one DS18x20 sensors with id sort, single scan and read retry (+1k3 code)
-//#define USE_DS18x20_LEGACY                     // For more than one DS18x20 sensors with dynamic scan using library OneWire (+1k5 code)
 
 #define USE_I2C                               // I2C using library wire (+10k code, 0k2 mem, 124 iram)
 #define USE_SHT                               // Add I2C emulating code for SHT1X sensor (+1k4 code)
@@ -148,8 +149,8 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 #define USE_PMS5003                           // Add support for PMS5003 and PMS7003 particle concentration sensor (+1k3 code)
 #define USE_NOVA_SDS                          // Add support for SDS011 and SDS021 particle concentration sensor (+0k7 code)
 #define USE_SERIAL_BRIDGE                     // Add support for software Serial Bridge (+0k8 code)
-#define USE_SDM120                            // Add support for Eastron SDM120-Modbus energy meter (+1k7 code)
-#define USE_SDM630                            // Add support for Eastron SDM630-Modbus energy meter (+2k code)
+//#define USE_SDM120                            // Add support for Eastron SDM120-Modbus energy meter (+1k7 code)
+//#define USE_SDM630                            // Add support for Eastron SDM630-Modbus energy meter (+2k code)
 #define USE_MP3_PLAYER                        // Use of the DFPlayer Mini MP3 Player RB-DFR-562 commands: play, volume and stop
   #define MP3_VOLUME           10             // Set the startup volume on init, the range can be 0..30(max)
 //#define USE_AZ7798                            // Add support for AZ-Instrument 7798 CO2 datalogger
@@ -161,6 +162,11 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 #define USE_PZEM_AC                           // Add support for PZEM014,016 Energy monitor (+1k1 code)
 #define USE_PZEM_DC                           // Add support for PZEM003,017 Energy monitor (+1k1 code)
 #define USE_MCP39F501                         // Add support for MCP39F501 Energy monitor as used in Shelly 2 (+3k1 code)
+#define USE_SDM120_2                          // Add support for Eastron SDM120-Modbus energy monitor (+1k1 code)
+#define USE_SDM630_2                          // Add support for Eastron SDM630-Modbus energy monitor (+0k6 code)
+#define USE_DDS2382                           // Add support for Hiking DDS2382 Modbus energy monitor (+0k6 code)
+#define USE_DDSU666                           // Add support for Chint DDSU666 Modbus energy monitor (+0k6 code)
+
 #define USE_DHT                               // Add support for DHT11, AM2301 (DHT21, DHT22, AM2302, AM2321) and SI7021 Temperature and Humidity sensor
 #define USE_MAX31855                          // Add support for MAX31855 K-Type thermocouple sensor using softSPI
 #define USE_IR_REMOTE                         // Send IR remote commands using library IRremoteESP8266 and ArduinoJson (+4k code, 0k3 mem, 48 iram)
@@ -244,6 +250,10 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 #undef USE_PZEM_DC                            // Disable PZEM003,017 Energy monitor
 #undef USE_MCP39F501                          // Disable support for MCP39F501 Energy monitor as used in Shelly 2 (+3k1 code)
 #undef USE_SDM120_2                           // Disable support for Eastron SDM120-Modbus energy meter
+#undef USE_SDM630_2                           // Disable support for Eastron SDM630-Modbus energy monitor (+0k6 code)
+#undef USE_DDS2382                            // Disable support for Hiking DDS2382 Modbus energy monitor (+0k6 code)
+#undef USE_DDSU666                            // Disable support for Chint DDSU666 Modbus energy monitor (+0k6 code)
+
 #define USE_DHT                               // Add support for DHT11, AM2301 (DHT21, DHT22, AM2302, AM2321) and SI7021 Temperature and Humidity sensor
 #undef USE_MAX31855                           // Disable MAX31855 K-Type thermocouple sensor using softSPI
 #undef USE_IR_REMOTE                          // Disable IR remote commands using library IRremoteESP8266 and ArduinoJson
@@ -294,6 +304,10 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
   #undef USE_PZEM_AC                          // Disable PZEM014,016 Energy monitor
   #undef USE_PZEM_DC                          // Disable PZEM003,017 Energy monitor
   #undef USE_MCP39F501                        // Disable MCP39F501 Energy monitor as used in Shelly 2
+  #undef USE_SDM120_2                         // Disable support for Eastron SDM120-Modbus energy meter
+  #undef USE_SDM630_2                         // Disable support for Eastron SDM630-Modbus energy monitor (+0k6 code)
+  #undef USE_DDS2382                          // Disable support for Hiking DDS2382 Modbus energy monitor (+0k6 code)
+  #undef USE_DDSU666                          // Disable support for Chint DDSU666 Modbus energy monitor (+0k6 code)
 #undef USE_EMULATION                          // Disable Belkin WeMo and Hue Bridge emulation for Alexa (-16k code, -2k mem)
 #undef USE_DOMOTICZ                           // Disable Domoticz
 #undef USE_HOME_ASSISTANT                     // Disable Home Assistant
@@ -375,6 +389,10 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 #undef USE_PZEM_DC                            // Disable PZEM003,017 Energy monitor
 #undef USE_MCP39F501                          // Disable support for MCP39F501 Energy monitor as used in Shelly 2 (+3k1 code)
 #undef USE_SDM120_2                           // Disable support for Eastron SDM120-Modbus energy meter
+#undef USE_SDM630_2                           // Disable support for Eastron SDM630-Modbus energy monitor (+0k6 code)
+#undef USE_DDS2382                            // Disable support for Hiking DDS2382 Modbus energy monitor (+0k6 code)
+#undef USE_DDSU666                            // Disable support for Chint DDSU666 Modbus energy monitor (+0k6 code)
+
 //#define USE_DHT                               // Add support for DHT11, AM2301 (DHT21, DHT22, AM2302, AM2321) and SI7021 Temperature and Humidity sensor
 #undef USE_MAX31855                           // Disable MAX31855 K-Type thermocouple sensor using softSPI
 #undef USE_WS2812                             // Disable WS2812 Led string using library NeoPixelBus (+5k code, +1k mem, 232 iram) - Disable by //
@@ -400,7 +418,7 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
  * Mandatory define for DS18x20 if changed by above image selections
 \*********************************************************************************************/
 
-#if defined(USE_DS18x20) || defined(USE_DS18x20_LEGACY)
+#if defined(USE_DS18x20)
 #else
 #define USE_DS18B20                           // Default DS18B20 sensor needs no external library
 #endif
@@ -446,7 +464,6 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 
 #undef USE_COUNTER                            // Disable counters
 #undef USE_DS18x20                            // Disable DS18x20 sensor
-#undef USE_DS18x20_LEGACY                     // Disable DS18x20 sensor
 #undef USE_DS18B20                            // Disable internal DS18B20 sensor
 #undef USE_I2C                                // Disable all I2C sensors and devices
 #undef USE_SPI                                // Disable all SPI devices
@@ -468,9 +485,13 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 #undef USE_PZEM_AC                            // Disable PZEM014,016 Energy monitor
 #undef USE_PZEM_DC                            // Disable PZEM003,017 Energy monitor
 //#undef USE_MCP39F501                          // Disable MCP39F501 Energy monitor as used in Shelly 2
+#undef USE_SDM120_2                           // Disable support for Eastron SDM120-Modbus energy meter
+#undef USE_SDM630_2                           // Disable support for Eastron SDM630-Modbus energy monitor (+0k6 code)
+#undef USE_DDS2382                            // Disable support for Hiking DDS2382 Modbus energy monitor (+0k6 code)
+#undef USE_DDSU666                            // Disable support for Chint DDSU666 Modbus energy monitor (+0k6 code)
+
 #undef USE_DHT                                // Disable support for DHT11, AM2301 (DHT21, DHT22, AM2302, AM2321) and SI7021 Temperature and Humidity sensor
 #undef USE_MAX31855                           // Disable MAX31855 K-Type thermocouple sensor using softSPI
-#undef USE_SDM120_2                           // Disable support for Eastron SDM120-Modbus energy meter
 #undef USE_IR_REMOTE                          // Disable IR driver
 #undef USE_WS2812                             // Disable WS2812 Led string
 #undef USE_ARILUX_RF                          // Disable support for Arilux RF remote controller
@@ -528,7 +549,6 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 
 #undef USE_COUNTER                            // Disable counters
 #undef USE_DS18x20                            // Disable DS18x20 sensor
-#undef USE_DS18x20_LEGACY                     // Disable DS18x20 sensor
 #undef USE_DS18B20                            // Disable internal DS18B20 sensor
 #undef USE_I2C                                // Disable all I2C sensors and devices
 #undef USE_SPI                                // Disable all SPI devices
@@ -551,6 +571,10 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 #undef USE_PZEM_DC                            // Disable PZEM003,017 Energy monitor
 #undef USE_MCP39F501                          // Disable MCP39F501 Energy monitor as used in Shelly 2
 #undef USE_SDM120_2                           // Disable support for Eastron SDM120-Modbus energy meter
+#undef USE_SDM630_2                           // Disable support for Eastron SDM630-Modbus energy monitor (+0k6 code)
+#undef USE_DDS2382                            // Disable support for Hiking DDS2382 Modbus energy monitor (+0k6 code)
+#undef USE_DDSU666                            // Disable support for Chint DDSU666 Modbus energy monitor (+0k6 code)
+
 #undef USE_DHT                                // Disable support for DHT11, AM2301 (DHT21, DHT22, AM2302, AM2321) and SI7021 Temperature and Humidity sensor
 #undef USE_MAX31855                           // Disable MAX31855 K-Type thermocouple sensor using softSPI
 #undef USE_IR_REMOTE                          // Disable IR driver

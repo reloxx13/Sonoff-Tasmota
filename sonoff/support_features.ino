@@ -243,7 +243,7 @@ void GetFeatures(void)
   feature_sns1 |= 0x00000010;  // xsns_05_ds18b20.ino
 #endif
 #ifdef USE_DS18x20_LEGACY
-  feature_sns1 |= 0x00000020;  // xsns_05_ds18x20_legacy.ino
+  feature_sns1 |= 0x00000020;  // xsns_05_ds18x20_legacy.ino - no more supported since 6.6.0.14
 #endif
 #ifdef USE_DS18x20
   feature_sns1 |= 0x00000040;  // xsns_05_ds18x20.ino
@@ -447,12 +447,21 @@ void GetFeatures(void)
 #ifdef USE_A4988_Stepper
   feature5 |= 0x00000020;  // xdrv_25_A4988.ino
 #endif
-//  feature5 |= 0x00000040;
-//  feature5 |= 0x00000080;
-
-//  feature5 |= 0x00000100;
-//  feature5 |= 0x00000200;
-//  feature5 |= 0x00000400;
+#ifdef USE_DDS2382
+  feature5 |= 0x00000040;  // Xnrg_09_dds2382.ino
+#endif
+#ifdef USE_SM2135
+  feature5 |= 0x00000080;  // Xdrv_026_sm2135.ino
+#endif
+#ifdef USE_SHUTTER
+  feature5 |= 0x00000100;  // Xdrv_027_shutter.ino
+#endif
+#ifdef USE_PCF8574
+  feature5 |= 0x00000200;  // Xdrv_028_pcf8574.ino
+#endif
+#ifdef USE_DDSU666
+  feature5 |= 0x00000400;  // Xnrg_11_ddsu666.ino
+#endif
 //  feature5 |= 0x00000800;
 
 //  feature5 |= 0x00001000;

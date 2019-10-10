@@ -297,14 +297,14 @@ void LightSerialDuty(uint8_t duty)
     if (Settings.flag3.tuya_dimmer_min_limit) { // Enable dimming limit SetOption69: Enabled by default
       if (duty < 25) { duty = 25; }  // dimming acts odd below 25(10%) - this mirrors the threshold set on the faceplate itself
     }
-    duty = changeUIntScale(duty, 0, 255, 0, Settings.param[P_TUYA_DIMMER_MAX]);
+    duty = changeUIntScale(duty, 0, 255, 0, Settings.param[P_DIMMER_MAX]);
     if (Tuya.new_dim != duty) {
       AddLog_P2(LOG_LEVEL_DEBUG, PSTR("TYA: Send dim value=%d (id=%d)"), duty, dpid);
       TuyaSendValue(dpid, duty);
     }
   } else if (dpid > 0) {
     Tuya.ignore_dim = false;  // reset flag
-    duty = changeUIntScale(duty, 0, 255, 0, Settings.param[P_TUYA_DIMMER_MAX]);
+    duty = changeUIntScale(duty, 0, 255, 0, Settings.param[P_DIMMER_MAX]);
     AddLog_P2(LOG_LEVEL_DEBUG, PSTR("TYA: Send dim skipped value=%d"), duty);  // due to 0 or already set
   } else {
     AddLog_P(LOG_LEVEL_DEBUG, PSTR("TYA: Cannot set dimmer. Dimmer Id unknown"));  //
@@ -375,7 +375,7 @@ void TuyaPacketProcess(void)
           bool tuya_energy_enabled = (XNRG_16 == energy_flg);
           if (fnId == TUYA_MCU_FUNC_DIMMER) {
             AddLog_P2(LOG_LEVEL_DEBUG, PSTR("TYA: RX Dim State=%d"), Tuya.buffer[13]);
-            Tuya.new_dim = changeUIntScale((uint8_t) Tuya.buffer[13], 0, Settings.param[P_TUYA_DIMMER_MAX], 0, 100);
+            Tuya.new_dim = changeUIntScale((uint8_t) Tuya.buffer[13], 0, Settings.param[P_DIMMER_MAX], 0, 100);
             if ((power || Settings.flag3.tuya_apply_o20) && (Tuya.new_dim > 0) && (abs(Tuya.new_dim - Settings.light_dimmer) > 1)) {
               Tuya.ignore_dim = true;
 
@@ -386,17 +386,17 @@ void TuyaPacketProcess(void)
 
   #ifdef USE_ENERGY_SENSOR
           else if (tuya_energy_enabled && fnId == TUYA_MCU_FUNC_VOLTAGE) {
-            Energy.voltage = (float)(Tuya.buffer[12] << 8 | Tuya.buffer[13]) / 10;
+            Energy.voltage[0] = (float)(Tuya.buffer[12] << 8 | Tuya.buffer[13]) / 10;
             AddLog_P2(LOG_LEVEL_DEBUG, PSTR("TYA: Rx ID=%d Voltage=%d"), Tuya.buffer[6], (Tuya.buffer[12] << 8 | Tuya.buffer[13]));
           } else if (tuya_energy_enabled && fnId == TUYA_MCU_FUNC_CURRENT) {
-            Energy.current = (float)(Tuya.buffer[12] << 8 | Tuya.buffer[13]) / 1000;
+            Energy.current[0] = (float)(Tuya.buffer[12] << 8 | Tuya.buffer[13]) / 1000;
             AddLog_P2(LOG_LEVEL_DEBUG, PSTR("TYA: Rx ID=%d Current=%d"), Tuya.buffer[6], (Tuya.buffer[12] << 8 | Tuya.buffer[13]));
           } else if (tuya_energy_enabled && fnId == TUYA_MCU_FUNC_POWER) {
-            Energy.active_power = (float)(Tuya.buffer[12] << 8 | Tuya.buffer[13]) / 10;
+            Energy.active_power[0] = (float)(Tuya.buffer[12] << 8 | Tuya.buffer[13]) / 10;
             AddLog_P2(LOG_LEVEL_DEBUG, PSTR("TYA: Rx ID=%d Active_Power=%d"), Tuya.buffer[6], (Tuya.buffer[12] << 8 | Tuya.buffer[13]));
 
-            if (Tuya.lastPowerCheckTime != 0 && Energy.active_power > 0) {
-              Energy.kWhtoday += (float)Energy.active_power * (Rtc.utc_time - Tuya.lastPowerCheckTime) / 36;
+            if (Tuya.lastPowerCheckTime != 0 && Energy.active_power[0] > 0) {
+              Energy.kWhtoday += (float)Energy.active_power[0] * (Rtc.utc_time - Tuya.lastPowerCheckTime) / 36;
               EnergyUpdateToday();
             }
             Tuya.lastPowerCheckTime = Rtc.utc_time;
@@ -469,8 +469,6 @@ bool TuyaModuleSelected(void)
 
   bool relaySet = false;
 
-  devices_present--;
-
   for (uint8_t i = 0 ; i < MAX_TUYA_FUNCTIONS; i++) {
     if ((Settings.tuya_fnid_map[i].fnid >= TUYA_MCU_FUNC_REL1 && Settings.tuya_fnid_map[i].fnid <= TUYA_MCU_FUNC_REL8 ) ||
     (Settings.tuya_fnid_map[i].fnid >= TUYA_MCU_FUNC_REL1_INV && Settings.tuya_fnid_map[i].fnid <= TUYA_MCU_FUNC_REL8_INV )) {
@@ -486,6 +484,7 @@ bool TuyaModuleSelected(void)
   }
 
   if (TuyaGetDpId(TUYA_MCU_FUNC_DIMMER) != 0) {
+    devices_present++;
     light_type = LT_SERIAL1;
   } else {
     light_type = LT_BASIC;

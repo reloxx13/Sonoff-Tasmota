@@ -62,7 +62,6 @@ const uint16_t sdm120_start_addresses[] {
 struct SDM120 {
   float total_active = 0;
   float import_active = NAN;
-  float export_active = 0;
   float import_reactive = 0;
   float export_reactive = 0;
   float phase_angle = 0;
@@ -78,16 +77,15 @@ void SDM120Every250ms(void)
   bool data_ready = Sdm120Modbus->ReceiveReady();
 
   if (data_ready) {
-    uint8_t buffer[9];
+    uint8_t buffer[14];  // At least 5 + (2 * 2) = 9
 
     uint32_t error = Sdm120Modbus->ReceiveBuffer(buffer, 2);
-    AddLogBuffer(LOG_LEVEL_DEBUG_MORE, buffer, sizeof(buffer));
+    AddLogBuffer(LOG_LEVEL_DEBUG_MORE, buffer, Sdm120Modbus->ReceiveCount());
 
     if (error) {
-      AddLog_P2(LOG_LEVEL_DEBUG, PSTR(D_LOG_DEBUG "SDM120 response error %d"), error);
+      AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SDM: SDM120 error %d"), error);
     } else {
-      uint32_t max_table =
-      Energy.data_valid = 0;
+      Energy.data_valid[0] = 0;
 
       //  0  1  2  3  4  5  6  7  8
       // SA FC BC Fh Fl Sh Sl Cl Ch
@@ -100,31 +98,31 @@ void SDM120Every250ms(void)
 
       switch(Sdm120.read_state) {
         case 0:
-          Energy.voltage = value;          // 230.2 V
+          Energy.voltage[0] = value;          // 230.2 V
           break;
 
         case 1:
-          Energy.current  = value;         // 1.260 A
+          Energy.current[0]  = value;         // 1.260 A
           break;
 
         case 2:
-          Energy.active_power = value;     // -196.3 W
+          Energy.active_power[0] = value;     // -196.3 W
           break;
 
         case 3:
-          Energy.apparent_power = value;   // 223.4 VA
+          Energy.apparent_power[0] = value;   // 223.4 VA
           break;
 
         case 4:
-          Energy.reactive_power = value;   // 92.2
+          Energy.reactive_power[0] = value;   // 92.2
           break;
 
         case 5:
-          Energy.power_factor = value;     // -0.91
+          Energy.power_factor[0] = value;     // -0.91
           break;
 
         case 6:
-          Energy.frequency = value;        // 50.0 Hz
+          Energy.frequency[0] = value;        // 50.0 Hz
           break;
 
         case 7:
@@ -136,7 +134,7 @@ void SDM120Every250ms(void)
           break;
 
         case 9:
-          Sdm120.export_active = value;    // 6.216 kWh
+          Energy.export_active = value;    // 6.216 kWh
           break;
 
         case 10:
@@ -199,7 +197,6 @@ void Sdm220Reset(void)
   if (isnan(Sdm120.import_active)) { return; }
 
   Sdm120.import_active = 0;
-  Sdm120.export_active = 0;
   Sdm120.import_reactive = 0;
   Sdm120.export_reactive = 0;
   Sdm120.phase_angle = 0;
@@ -207,8 +204,6 @@ void Sdm220Reset(void)
 
 #ifdef USE_WEBSERVER
 const char HTTP_ENERGY_SDM220[] PROGMEM =
-  "{s}" D_IMPORT_ACTIVE "{m}%s " D_UNIT_KILOWATTHOUR "{e}"
-  "{s}" D_EXPORT_ACTIVE "{m}%s " D_UNIT_KILOWATTHOUR "{e}"
   "{s}" D_IMPORT_REACTIVE "{m}%s " D_UNIT_KWARH "{e}"
   "{s}" D_EXPORT_REACTIVE "{m}%s " D_UNIT_KWARH "{e}"
   "{s}" D_PHASE_ANGLE "{m}%s " D_UNIT_ANGLE "{e}";
@@ -220,8 +215,6 @@ void Sdm220Show(bool json)
 
   char import_active_chr[FLOATSZ];
   dtostrfd(Sdm120.import_active, Settings.flag2.energy_resolution, import_active_chr);
-  char export_active_chr[FLOATSZ];
-  dtostrfd(Sdm120.export_active, Settings.flag2.energy_resolution, export_active_chr);
   char import_reactive_chr[FLOATSZ];
   dtostrfd(Sdm120.import_reactive, Settings.flag2.energy_resolution, import_reactive_chr);
   char export_reactive_chr[FLOATSZ];
@@ -230,11 +223,11 @@ void Sdm220Show(bool json)
   dtostrfd(Sdm120.phase_angle, 2, phase_angle_chr);
 
   if (json) {
-    ResponseAppend_P(PSTR(",\"" D_JSON_IMPORT_ACTIVE "\":%s,\"" D_JSON_EXPORT_ACTIVE "\":%s,\"" D_JSON_IMPORT_REACTIVE "\":%s,\"" D_JSON_EXPORT_REACTIVE "\":%s,\"" D_JSON_PHASE_ANGLE "\":%s"),
-      import_active_chr, export_active_chr, import_reactive_chr, export_reactive_chr, phase_angle_chr);
+    ResponseAppend_P(PSTR(",\"" D_JSON_IMPORT_ACTIVE "\":%s,\"" D_JSON_IMPORT_REACTIVE "\":%s,\"" D_JSON_EXPORT_REACTIVE "\":%s,\"" D_JSON_PHASE_ANGLE "\":%s"),
+      import_active_chr, import_reactive_chr, export_reactive_chr, phase_angle_chr);
 #ifdef USE_WEBSERVER
   } else {
-    WSContentSend_PD(HTTP_ENERGY_SDM220, import_active_chr, export_active_chr, import_reactive_chr, export_reactive_chr, phase_angle_chr);
+    WSContentSend_PD(HTTP_ENERGY_SDM220, import_reactive_chr, export_reactive_chr, phase_angle_chr);
 #endif  // USE_WEBSERVER
   }
 }

@@ -125,17 +125,8 @@
 #ifndef ENERGY_OVERTEMP
 #define ENERGY_OVERTEMP             90         // Overtemp in Celsius
 #endif
-#ifndef TUYA_DIMMER_MAX
-#define TUYA_DIMMER_MAX             100
-#endif
-#ifndef ENERGY_TARIFF1_HOUR
-#define ENERGY_TARIFF1_HOUR         23         // Start hour "nighttime" or "off-peak" tariff
-#endif
-#ifndef ENERGY_TARIFF2_HOUR
-#define ENERGY_TARIFF2_HOUR         7          // Start hour "daytime" or "standard" tariff
-#endif
-#ifndef ENERGY_TARIFF_WEEKEND
-#define ENERGY_TARIFF_WEEKEND       1          // 0 = No difference in weekend, 1 = off-peak during weekend
+#ifndef DEFAULT_DIMMER_MAX
+#define DEFAULT_DIMMER_MAX             100
 #endif
 
 enum WebColors {
@@ -575,6 +566,7 @@ void SettingsDefaultSet2(void)
 //  Settings.flag.value_units = 0;
 //  Settings.flag.stop_flash_rotate = 0;
   Settings.save_data = SAVE_DATA;
+  Settings.param[P_BACKLOG_DELAY] = MIN_BACKLOG_DELAY;
   Settings.param[P_BOOT_LOOP_OFFSET] = BOOT_LOOP_OFFSET;
   Settings.param[P_RGB_REMAP] = RGB_REMAP_RGBW;
   Settings.sleep = APP_SLEEP;
@@ -687,6 +679,7 @@ void SettingsDefaultSet2(void)
     Settings.mqtt_fingerprint[1][i] = strtol(p, &p, 16);
   }
   Settings.tele_period = TELE_PERIOD;
+  Settings.mqttlog_level = MQTT_LOG_LEVEL;
 
   // Energy
   Settings.flag2.current_resolution = 3;
@@ -783,7 +776,7 @@ void SettingsDefaultSet2(void)
 //  Settings.light_rotation = 0;
   SettingsDefaultSet_5_8_1();    // Clock color
 
-  Settings.param[P_TUYA_DIMMER_MAX] = TUYA_DIMMER_MAX;
+  Settings.param[P_DIMMER_MAX] = DEFAULT_DIMMER_MAX;
 
   // Display
   SettingsDefaultSet_5_10_1();   // Display settings
@@ -1093,13 +1086,10 @@ void SettingsDelta(void)
     if (Settings.version < 0x06060008) {
       // Move current tuya dimmer range to the new param.
       if (Settings.flag3.tuya_dimmer_range_255) {
-        Settings.param[P_TUYA_DIMMER_MAX] = 100;
+        Settings.param[P_DIMMER_MAX] = 100;
       } else {
-        Settings.param[P_TUYA_DIMMER_MAX] = 255;
+        Settings.param[P_DIMMER_MAX] = 255;
       }
-      Settings.param[P_ENERGY_TARIFF1] = ENERGY_TARIFF1_HOUR;
-      Settings.param[P_ENERGY_TARIFF2] = ENERGY_TARIFF2_HOUR;
-      Settings.flag3.energy_weekend = ENERGY_TARIFF_WEEKEND;
     }
     if (Settings.version < 0x06060009) {
       Settings.baudrate = Settings.ex_baudrate * 4;
@@ -1108,9 +1098,9 @@ void SettingsDelta(void)
 
     if (Settings.version < 0x0606000A) {
       uint8_t tuyaindex = 0;
-      if (Settings.param[P_ex_TUYA_DIMMER_ID] > 0) {         // ex SetOption34
+      if (Settings.param[P_BACKLOG_DELAY] > 0) {         // ex SetOption34
         Settings.tuya_fnid_map[tuyaindex].fnid = 21;         // TUYA_MCU_FUNC_DIMMER - Move Tuya Dimmer Id to Map
-        Settings.tuya_fnid_map[tuyaindex].dpid = Settings.param[P_ex_TUYA_DIMMER_ID];
+        Settings.tuya_fnid_map[tuyaindex].dpid = Settings.param[P_BACKLOG_DELAY];
         tuyaindex++;
       } else if (Settings.flag3.ex_tuya_disable_dimmer == 1) {  // ex SetOption65
         Settings.tuya_fnid_map[tuyaindex].fnid = 11;         // TUYA_MCU_FUNC_REL1 - Create FnID for Switches
@@ -1139,8 +1129,18 @@ void SettingsDelta(void)
         Settings.tuya_fnid_map[tuyaindex].dpid = Settings.param[P_ex_TUYA_CURRENT_ID];
         tuyaindex++;
       }
-
     }
+    if (Settings.version < 0x0606000C) {
+      memset(&Settings.register8, 0x00, sizeof(Settings.register8));
+    }
+    if (Settings.version < 0x0606000F) {
+      Settings.shutter_accuracy = 0;
+      Settings.mqttlog_level = MQTT_LOG_LEVEL;
+    }
+    if (Settings.version < 0x06060011) {
+      Settings.param[P_BACKLOG_DELAY] = MIN_BACKLOG_DELAY;
+    }
+
     Settings.version = VERSION;
     SettingsSave(1);
   }

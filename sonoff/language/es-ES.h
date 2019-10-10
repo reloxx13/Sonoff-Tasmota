@@ -28,7 +28,7 @@
  * Use online command StateText to translate ON, OFF, HOLD and TOGGLE.
  * Use online command Prefix to translate cmnd, stat and tele.
  *
- * Updated until v6.6.0.4
+ * Updated until v6.6.0.15
 \*********************************************************************/
 
 #define LANGUAGE_MODULE_NAME         // Enable to display "Module Generic" (ie Spanish), Disable to display "Generic Module" (ie English)
@@ -283,9 +283,10 @@
 #define D_FULL_TOPIC "Full Topic"
 
 #define D_LOGGING_PARAMETERS "Parámetros Logging"
-#define D_SERIAL_LOG_LEVEL "Nivel de log Serial"
-#define D_WEB_LOG_LEVEL "Nivel de log Web"
-#define D_SYS_LOG_LEVEL "Nivel de Syslog"
+#define D_SERIAL_LOG_LEVEL "Nivel de log por Serial"
+#define D_MQTT_LOG_LEVEL "Nivel de log por Mqtt"
+#define D_WEB_LOG_LEVEL "Nivel de log por Web"
+#define D_SYS_LOG_LEVEL "Nivel de log por Syslog"
 #define D_MORE_DEBUG "Más Debug"
 #define D_SYSLOG_HOST "Host del Syslog"
 #define D_SYSLOG_PORT "Puerto del Syslog"
@@ -442,6 +443,19 @@
 #define D_ENERGY_YESTERDAY "Energía Ayer"
 #define D_ENERGY_TOTAL "Energía Total"
 
+// xdrv_27_shutter.ino
+#define D_OPEN "Abrir"
+#define D_CLOSE "Cerrar"
+#define D_DOMOTICZ_SHUTTER "Cortina"
+
+// xdrv_28_pcf8574.ino
+#define D_CONFIGURE_PCF8574 "Configurar PCF8574"
+#define D_PCF8574_PARAMETERS "Parámetros de PCF8574"
+#define D_INVERT_PORTS "Invertir Puertos"
+#define D_DEVICE "Dispositivo"
+#define D_DEVICE_INPUT "Entrada"
+#define D_DEVICE_OUTPUT "Salida"
+
 // xsns_05_ds18b20.ino
 #define D_SENSOR_BUSY "Sensor ocupado"
 #define D_SENSOR_CRC_ERROR "Error CRC del Sensor"
@@ -596,12 +610,18 @@
 #define D_SENSOR_IBEACON_RX    "iBeacon RX"
 #define D_SENSOR_RDM6300_RX    "RDM6300 RX"
 #define D_SENSOR_CC1101_CS     "CC1101 CS"
-#define D_SENSOR_A4988_DIR   "A4988 DIR"
-#define D_SENSOR_A4988_STP   "A4988 STP"
-#define D_SENSOR_A4988_ENA   "A4988 ENA"
-#define D_SENSOR_A4988_MS1   "A4988 MS1"
-#define D_SENSOR_A4988_MS2   "A4988 MS2"
-#define D_SENSOR_A4988_MS3   "A4988 MS3"
+#define D_SENSOR_A4988_DIR     "A4988 DIR"
+#define D_SENSOR_A4988_STP     "A4988 STP"
+#define D_SENSOR_A4988_ENA     "A4988 ENA"
+#define D_SENSOR_A4988_MS1     "A4988 MS1"
+#define D_SENSOR_A4988_MS2     "A4988 MS2"
+#define D_SENSOR_A4988_MS3     "A4988 MS3"
+#define D_SENSOR_DDS2382_TX    "DDS238-2 Tx"
+#define D_SENSOR_DDS2382_RX    "DDS238-2 Rx"
+#define D_SENSOR_DDSU666_TX    "DDSU666 Tx"
+#define D_SENSOR_DDSU666_RX    "DDSU666 Rx"
+#define D_SENSOR_SM2135_CLK    "SM2135 Clk"
+#define D_SENSOR_SM2135_DAT    "SM2135 Dat"
 
 // Units
 #define D_UNIT_AMPERE "A"

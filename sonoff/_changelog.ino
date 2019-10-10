@@ -1,9 +1,61 @@
 /*********************************************************************************************\
+ * 6.6.0.17 20191009
+ * Add command SetOption34 0..255 to set backlog delay. Default value is 200 (mSeconds) (#6562)
+ *
+ * 6.6.0.16 20191008
+ * Change PZEM004T default address mask from 0.0.0.x to 192.168.1.x for legacy reason (#6585)
+ * Fix PZEM004T, PZEMAC and PZEMDC autodetection (#6585)
+ * Change light drivers internals to ease management
+ *
+ * 6.6.0.15 20191003
+ * Change command PulseTime JSON message format and allow display of all pulsetimer information (#6519)
+ * Add support for Chint DDSU666 Modbus energy meter by Pablo Zerón
+ * Add support for SM2135 as used in Action LSC Smart Led E14 (#6495)
+ * Add command SetOption72 0/1 to switch between software (0) or hardware (1) energy total counter (#6561)
+ * Add Zigbee tracking of connected devices and auto-probing of Manuf/Model Ids
+ * Fix better handling of PWM White Temperature mode for Module 48 (#6534)
+ *
+ * 6.6.0.14 20190925
+ * Change command Tariffx to allow time entries like 23 (hours), 1320 (minutes) or 23:00. NOTE: As this is development branch previous tariffs are lost! (#6488)
+ * Remove support for define USE_DS18x20_LEGACY and legacy DS18x20 driver (#6486)
+ * Add initial support for MQTT logging using command MqttLog <loglevel> (#6498)
+ * Add Zigbee more support - collect endpoints and clusters, added ZigbeeDump command
+ * Add initial support for shutters by Stefan Bode (#288)
+ * Add command to MCP230xx: sensor29 pin,0/1/2 for OFF/ON/TOGGLE
+ * Add initial support for PCF8574 I2C I/O Expander (currently output only) by Stefan Bode
+ * Add command SetOption71 0/1 to switch between different Modbus Active Energy registers on DDS238-2 energy meters (#6531)
+ * Change command SetOption43 to make it more general. Now supports PS_16_DZ driver too (#6544)
+ * Change command handling by moving buffers up in chain solving MQTTlog support (#6529)
+ * Change detection of non-MQTT commands by allowing non-space characters as delimiter (#6540)
+ * Fix TasmotaSerial: move serial send to IRAM for high speed baud rates
+ *
+ * 6.6.0.13 20190922
+ * Add command EnergyReset4 x,x to initialize total usage for two tarrifs
+ * Add command EnergyReset5 x,x to initialize total export (or production) for two tarrifs
+ * Add command Sensor34 8,0 and Sensor34 8,1 to disable/enable JSON message on weight change over 4 gram
+ * Add JSON array index support to rules evaluation allowing trigger on ENERGY#POWER[2]>0.60 from JSON ..,"Power":[0.00,0.68],.. (#6160)
+ *
+ * 6.6.0.12 20190910
+ * Redesign command Tariff to now default to 0 (=disabled) and allowing to set both Standard Time (ST) and Daylight Savings Time (DST) start hour
+ *  Commands Tariff1 22,23 = Tariff1 (Off-Peak) ST,DST   Tariff2 (Standard) 6,7 = Tariff2 ST,DST   Tariff9 0/1 = Weekend toggle (1 = Off-Peak during weekend)
+ * Change rename "Data" to "Hash" and limit to 32 bits when receiving UNKNOWN IR protocol (see DECODE_HASH from IRremoteESP8266)
+ * Add command Gpios 255/All to show all available GPIO components (#6407)
+ * Change JSON output format for commands Adc, Adcs, Modules, Gpio and Gpios from list to dictionary (#6407)
+ * Add Zigbee support phase 3 - support for Xiaomi lumi.weather air quality sensor, Osram mini-switch
+ * Change energy sensors for three phase/channel support
+ * Add support for Shelly 2.5 dual energy (#6160)
+ * Add initial support for up to three PZEM-014/-016 on serial modbus connection with addresses 1 (default), 2 and 3 (#2315)
+ * Add initial support for up to three PZEM-004T on serial connection with addresses x.x.x.1 (default), 2 and 3 (#2315)
+ * Add initial support for up to three PZEM-003/-017 on serial modbus connection with addresses 1 (default), 2 and 3 (#2315)
+ * Add driver USE_SDM630_2 as future replacement for USE_SDM630 - Pls test and report
+ * Add command ModuleAddress 1/2/3 to set Pzem module address when a single module is connected (#2315)
+ *
  * 6.6.0.11 20190907
  * Change Settings crc calculation allowing short term backward compatibility
  * Add support for up to 4 INA226 Voltage and Current sensors by Steve Rogers (#6342)
  * Change Improve reliability of TasmotaSerial at 115200 bauds and reduce IRAM usage for Stage/pre-2.6
  * Add support for A4988 stepper-motor-driver-circuit by Tim Leuschner (#6370)
+ * Add support for Hiking DDS238-2 Modbus energy meter by Matteo Campanella (#6384)
  *
  * 6.6.0.10 20190905
  * Redesign Tuya support by Shantur Rathore (#6353)

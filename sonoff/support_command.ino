@@ -81,55 +81,61 @@ void ResponseCmndIdxChar(const char* value)
 
 /********************************************************************************************/
 
-void ExecuteCommand(char *cmnd, uint32_t source)
+void ExecuteCommand(const char *cmnd, uint32_t source)
 {
-  char *start;
-  char *token;
-
+  // cmnd: "status 0"  = stopic "status" and svalue " 0"
+  // cmnd: "var1 =1"   = stopic "var1" and svalue " =1"
+  // cmnd: "var1=1"    = stopic "var1" and svalue "=1"
 #ifdef USE_DEBUG_DRIVER
   ShowFreeMem(PSTR("ExecuteCommand"));
 #endif
   ShowSource(source);
 
-  token = strtok(cmnd, " ");
-  if (token != nullptr) {
-    start = strrchr(token, '/');   // Skip possible cmnd/sonoff/ preamble
-    if (start) { token = start +1; }
+  const char *pos = cmnd;
+  while (*pos && isspace(*pos)) {
+    pos++;                         // Skip all spaces
   }
-  uint32_t size = (token != nullptr) ? strlen(token) : 0;
-  char stopic[size +2];  // / + \0
-  snprintf_P(stopic, sizeof(stopic), PSTR("/%s"), (token == nullptr) ? "" : token);
 
-  token = strtok(nullptr, "");
-  size = (token != nullptr) ? strlen(token) : 0;
-  char svalue[size +1];
-  strlcpy(svalue, (token == nullptr) ? "" : token, sizeof(svalue));       // Fixed 5.8.0b
-  CommandHandler(stopic, (uint8_t*)svalue, strlen(svalue));
+  const char *start = pos;
+  // Get a command. Commands can only use letters, digits and underscores
+  while (*pos && (isalpha(*pos) || isdigit(*pos) || '_' == *pos || '/' == *pos)) {
+    if ('/' == *pos) {            // Skip possible cmnd/sonoff/ preamble
+      start = pos + 1;
+    }
+    pos++;
+  }
+  if ('\0' == *start || pos <= start) {
+    return;                      // Did not find any command to execute
+  }
+
+  uint32_t size = pos - start;
+  char stopic[size + 2];         // with leader '/' and end '\0'
+  stopic[0] = '/';
+  memcpy(stopic+1, start, size);
+  stopic[size+1] = '\0';
+
+  char svalue[strlen(pos) +1];   // pos point to the start of parameters
+  strlcpy(svalue, pos, sizeof(svalue));
+  CommandHandler(stopic, svalue, strlen(svalue));
 }
 
 /********************************************************************************************/
 
-// topic:                    /power1  data: toggle  = Console command
-// topic:         cmnd/sonoff/power1  data: toggle  = Mqtt command using topic
-// topic:        cmnd/sonoffs/power1  data: toggle  = Mqtt command using a group topic
-// topic: cmnd/DVES_83BB10_fb/power1  data: toggle  = Mqtt command using fallback topic
+// topicBuf:                    /power1  dataBuf: toggle  = Console command
+// topicBuf:         cmnd/sonoff/power1  dataBuf: toggle  = Mqtt command using topic
+// topicBuf:        cmnd/sonoffs/power1  dataBuf: toggle  = Mqtt command using a group topic
+// topicBuf: cmnd/DVES_83BB10_fb/power1  dataBuf: toggle  = Mqtt command using fallback topic
 
-void CommandHandler(char* topic, uint8_t* data, uint32_t data_len)
+void CommandHandler(char* topicBuf, char* dataBuf, uint32_t data_len)
 {
 #ifdef USE_DEBUG_DRIVER
   ShowFreeMem(PSTR("CommandHandler"));
 #endif
 
-  char topicBuf[TOPSZ];
-  strlcpy(topicBuf, topic, sizeof(topicBuf));
-
-  uint32_t i = 0;
-  for (i = 0; i < data_len; i++) {
-    if (!isspace(data[i])) { break; }  // Skip leading spaces in data
+  while (*dataBuf && isspace(*dataBuf)) {
+    dataBuf++;                           // Skip leading spaces in data
+    data_len--;
   }
-  data_len -= i;
-  char dataBuf[data_len+1];
-  memcpy(dataBuf, data +i, sizeof(dataBuf));
 
   bool grpflg = (strstr(topicBuf, Settings.mqtt_grptopic) != nullptr);
 
@@ -137,8 +143,9 @@ void CommandHandler(char* topic, uint8_t* data, uint32_t data_len)
   GetFallbackTopic_P(stemp1, CMND, "");  // Full Fallback topic = cmnd/DVES_xxxxxxxx_fb/
   fallback_topic_flag = (!strncmp(topicBuf, stemp1, strlen(stemp1)));
 
-  char *type = strrchr(topicBuf, '/');  // Last part of received topic is always the command (type)
+  char *type = strrchr(topicBuf, '/');   // Last part of received topic is always the command (type)
 
+  uint32_t i = 0;
   uint32_t index = 1;
   bool user_index = false;
   if (type != nullptr) {
@@ -156,7 +163,7 @@ void CommandHandler(char* topic, uint8_t* data, uint32_t data_len)
     type[i] = '\0';
   }
 
-  DEBUG_CORE_LOG(PSTR("CMD: " D_GROUP " %d, " D_INDEX " %d, " D_COMMAND " \"%s\", " D_DATA " \"%s\""), grpflg, index, type, dataBuf);
+  AddLog_P2(LOG_LEVEL_DEBUG, PSTR("CMD: " D_GROUP " %d, " D_INDEX " %d, " D_COMMAND " \"%s\", " D_DATA " \"%s\""), grpflg, index, type, dataBuf);
 
   if (type != nullptr) {
     Response_P(PSTR("{\"" D_JSON_COMMAND "\":\"" D_JSON_ERROR "\"}"));
@@ -173,7 +180,8 @@ void CommandHandler(char* topic, uint8_t* data, uint32_t data_len)
 
     DEBUG_CORE_LOG(PSTR("CMD: Payload %d"), payload);
 
-    backlog_delay = millis() + (100 * MIN_BACKLOG_DELAY);
+//    backlog_delay = millis() + (100 * MIN_BACKLOG_DELAY);
+    backlog_delay = millis() + Settings.param[P_BACKLOG_DELAY];
 
     char command[CMDSZ];
     XdrvMailbox.command = command;
@@ -185,6 +193,18 @@ void CommandHandler(char* topic, uint8_t* data, uint32_t data_len)
     XdrvMailbox.topic = type;
     XdrvMailbox.data = dataBuf;
 
+#ifdef USE_SCRIPT_SUB_COMMAND
+  // allow overwrite tasmota cmds
+    if (!Script_SubCmd()) {
+      if (!DecodeCommand(kTasmotaCommands, TasmotaCommand)) {
+        if (!XdrvCall(FUNC_COMMAND)) {
+          if (!XsnsCall(FUNC_COMMAND)) {
+            type = nullptr;  // Unknown command
+          }
+        }
+      }
+    }
+#else //USE_SCRIPT_SUB_COMMAND
     if (!DecodeCommand(kTasmotaCommands, TasmotaCommand)) {
       if (!XdrvCall(FUNC_COMMAND)) {
         if (!XsnsCall(FUNC_COMMAND)) {
@@ -192,6 +212,8 @@ void CommandHandler(char* topic, uint8_t* data, uint32_t data_len)
         }
       }
     }
+#endif //USE_SCRIPT_SUB_COMMAND
+
   }
 
   if (type == nullptr) {
@@ -215,10 +237,17 @@ void CommandHandler(char* topic, uint8_t* data, uint32_t data_len)
 void CmndBacklog(void)
 {
   if (XdrvMailbox.data_len) {
+
+#ifdef SUPPORT_IF_STATEMENT
+    char *blcommand = strtok(XdrvMailbox.data, ";");
+    while ((blcommand != nullptr) && (backlog.size() < MAX_BACKLOG))
+#else
     uint32_t bl_pointer = (!backlog_pointer) ? MAX_BACKLOG -1 : backlog_pointer;
     bl_pointer--;
     char *blcommand = strtok(XdrvMailbox.data, ";");
-    while ((blcommand != nullptr) && (backlog_index != bl_pointer)) {
+    while ((blcommand != nullptr) && (backlog_index != bl_pointer))
+#endif
+    {
       while(true) {
         blcommand = Trim(blcommand);
         if (!strncasecmp_P(blcommand, PSTR(D_CMND_BACKLOG), strlen(D_CMND_BACKLOG))) {
@@ -228,24 +257,34 @@ void CmndBacklog(void)
         }
       }
       if (*blcommand != '\0') {
+#ifdef SUPPORT_IF_STATEMENT
+        if (backlog.size() < MAX_BACKLOG) {
+          backlog.add(blcommand);
+        }
+#else
         backlog[backlog_index] = String(blcommand);
         backlog_index++;
         if (backlog_index >= MAX_BACKLOG) backlog_index = 0;
+#endif
       }
       blcommand = strtok(nullptr, ";");
     }
 //    ResponseCmndChar(D_JSON_APPENDED);
     mqtt_data[0] = '\0';
   } else {
-    bool blflag = (backlog_pointer == backlog_index);
+    bool blflag = BACKLOG_EMPTY;
+#ifdef SUPPORT_IF_STATEMENT
+    backlog.clear();
+#else
     backlog_pointer = backlog_index;
+#endif
     ResponseCmndChar(blflag ? D_JSON_EMPTY : D_JSON_ABORTED);
   }
 }
 
 void CmndDelay(void)
 {
-  if ((XdrvMailbox.payload >= MIN_BACKLOG_DELAY) && (XdrvMailbox.payload <= 3600)) {
+  if ((XdrvMailbox.payload >= (MIN_BACKLOG_DELAY / 100)) && (XdrvMailbox.payload <= 3600)) {
     backlog_delay = millis() + (100 * XdrvMailbox.payload);
   }
   uint32_t bl_delay = 0;
@@ -330,10 +369,10 @@ void CmndStatus(void)
   }
 
   if ((0 == payload) || (3 == payload)) {
-    Response_P(PSTR("{\"" D_CMND_STATUS D_STATUS3_LOGGING "\":{\"" D_CMND_SERIALLOG "\":%d,\"" D_CMND_WEBLOG "\":%d,\"" D_CMND_SYSLOG "\":%d,\""
+    Response_P(PSTR("{\"" D_CMND_STATUS D_STATUS3_LOGGING "\":{\"" D_CMND_SERIALLOG "\":%d,\"" D_CMND_WEBLOG "\":%d,\"" D_CMND_MQTTLOG "\":%d,\"" D_CMND_SYSLOG "\":%d,\""
                           D_CMND_LOGHOST "\":\"%s\",\"" D_CMND_LOGPORT "\":%d,\"" D_CMND_SSID "\":[\"%s\",\"%s\"],\"" D_CMND_TELEPERIOD "\":%d,\""
                           D_JSON_RESOLUTION "\":\"%08X\",\"" D_CMND_SETOPTION "\":[\"%08X\",\"%s\",\"%08X\"]}}"),
-                          Settings.seriallog_level, Settings.weblog_level, Settings.syslog_level,
+                          Settings.seriallog_level, Settings.weblog_level, Settings.mqttlog_level, Settings.syslog_level,
                           Settings.syslog_host, Settings.syslog_port, Settings.sta_ssid[0], Settings.sta_ssid[1], Settings.tele_period,
                           Settings.flag2.data, Settings.flag.data, ToHex_P((unsigned char*)Settings.param, PARAM8_SIZE, stemp2, sizeof(stemp2)), Settings.flag3.data);
     MqttPublishPrefixTopic_P(option, PSTR(D_CMND_STATUS "3"));
@@ -349,7 +388,7 @@ void CmndStatus(void)
     XsnsDriverState();
     ResponseAppend_P(PSTR(",\"Sensors\":"));
     XsnsSensorState();
-    ResponseAppend_P(PSTR("}}"));
+    ResponseJsonEndEnd();
     MqttPublishPrefixTopic_P(option, PSTR(D_CMND_STATUS "4"));
   }
 
@@ -527,11 +566,24 @@ void CmndPowerOnState(void)
 void CmndPulsetime(void)
 {
   if ((XdrvMailbox.index > 0) && (XdrvMailbox.index <= MAX_PULSETIMERS)) {
-    if ((XdrvMailbox.payload >= 0) && (XdrvMailbox.payload < 65536)) {
-      Settings.pulse_timer[XdrvMailbox.index -1] = XdrvMailbox.payload;  // 0 - 65535
-      SetPulseTimer(XdrvMailbox.index -1, XdrvMailbox.payload);
+    uint32_t items = 1;
+    if (!XdrvMailbox.usridx && !XdrvMailbox.data_len) {
+      items = MAX_PULSETIMERS;
+    } else {
+      if ((XdrvMailbox.payload >= 0) && (XdrvMailbox.payload < 65536)) {
+        Settings.pulse_timer[XdrvMailbox.index -1] = XdrvMailbox.payload;  // 0 - 65535
+        SetPulseTimer(XdrvMailbox.index -1, XdrvMailbox.payload);
+      }
     }
-    Response_P(S_JSON_COMMAND_INDEX_NVALUE_ACTIVE_NVALUE, XdrvMailbox.command, XdrvMailbox.index, Settings.pulse_timer[XdrvMailbox.index -1], GetPulseTimer(XdrvMailbox.index -1));
+    mqtt_data[0] = '\0';
+    for (uint32_t i = 0; i < items; i++) {
+      uint32_t index = (1 == items) ? XdrvMailbox.index : i +1;
+      ResponseAppend_P(PSTR("%c\"%s%d\":{\"" D_JSON_SET "\":%d,\"" D_JSON_REMAINING "\":%d}"),
+        (i) ? ',' : '{',
+        XdrvMailbox.command, index,
+        Settings.pulse_timer[index -1], GetPulseTimer(index -1));
+    }
+    ResponseJsonEnd();
   }
 }
 
@@ -655,11 +707,9 @@ void CmndSetoption(void)
               IrReceiveUpdateThreshold();
               break;
 #endif
-#ifdef USE_TUYA_MCU
-            case P_TUYA_DIMMER_MAX:
+            case P_DIMMER_MAX:
               restart_flag = 2;  // Need a restart to update GUI
               break;
-#endif
           }
         }
       }
@@ -778,14 +828,14 @@ void CmndModules(void)
   for (uint32_t i = 0; i <= sizeof(kModuleNiceList); i++) {
     if (i > 0) { midx = pgm_read_byte(kModuleNiceList + i -1); }
     if (!jsflg) {
-      Response_P(PSTR("{\"" D_CMND_MODULES "%d\":["), lines);
+      Response_P(PSTR("{\"" D_CMND_MODULES "%d\":{"), lines);
     } else {
       ResponseAppend_P(PSTR(","));
     }
     jsflg = true;
     uint32_t j = i ? midx +1 : 0;
-    if ((ResponseAppend_P(PSTR("\"%d (%s)\""), j, AnyModuleName(midx).c_str()) > (LOGSZ - TOPSZ)) || (i == sizeof(kModuleNiceList))) {
-      ResponseAppend_P(PSTR("]}"));
+    if ((ResponseAppend_P(PSTR("\"%d\":\"%s\""), j, AnyModuleName(midx).c_str()) > (LOGSZ - TOPSZ)) || (i == sizeof(kModuleNiceList))) {
+      ResponseJsonEndEnd();
       MqttPublishPrefixTopic_P(RESULT_OR_STAT, UpperCase(XdrvMailbox.command, XdrvMailbox.command));
       jsflg = false;
       lines++;
@@ -822,7 +872,7 @@ void CmndGpio(void)
         if (jsflg) { ResponseAppend_P(PSTR(",")); }
         jsflg = true;
         char stemp1[TOPSZ];
-        ResponseAppend_P(PSTR("\"" D_CMND_GPIO "%d\":\"%d (%s)\""), i, Settings.my_gp.io[i], GetTextIndexed(stemp1, sizeof(stemp1), Settings.my_gp.io[i], kSensorNames));
+        ResponseAppend_P(PSTR("\"" D_CMND_GPIO "%d\":{\"%d\":\"%s\"}"), i, Settings.my_gp.io[i], GetTextIndexed(stemp1, sizeof(stemp1), Settings.my_gp.io[i], kSensorNames));
       }
     }
     if (jsflg) {
@@ -842,20 +892,19 @@ void CmndGpios(void)
   bool jsflg = false;
   for (uint32_t i = 0; i < sizeof(kGpioNiceList); i++) {
     midx = pgm_read_byte(kGpioNiceList + i);
-    if (!GetUsedInModule(midx, cmodule.io)) {
-      if (!jsflg) {
-        Response_P(PSTR("{\"" D_CMND_GPIOS "%d\":["), lines);
-      } else {
-        ResponseAppend_P(PSTR(","));
-      }
-      jsflg = true;
-      char stemp1[TOPSZ];
-      if ((ResponseAppend_P(PSTR("\"%d (%s)\""), midx, GetTextIndexed(stemp1, sizeof(stemp1), midx, kSensorNames)) > (LOGSZ - TOPSZ)) || (i == sizeof(kGpioNiceList) -1)) {
-        ResponseAppend_P(PSTR("]}"));
-        MqttPublishPrefixTopic_P(RESULT_OR_STAT, UpperCase(XdrvMailbox.command, XdrvMailbox.command));
-        jsflg = false;
-        lines++;
-      }
+    if ((XdrvMailbox.payload != 255) && GetUsedInModule(midx, cmodule.io)) { continue; }
+    if (!jsflg) {
+      Response_P(PSTR("{\"" D_CMND_GPIOS "%d\":{"), lines);
+    } else {
+      ResponseAppend_P(PSTR(","));
+    }
+    jsflg = true;
+    char stemp1[TOPSZ];
+    if ((ResponseAppend_P(PSTR("\"%d\":\"%s\""), midx, GetTextIndexed(stemp1, sizeof(stemp1), midx, kSensorNames)) > (LOGSZ - TOPSZ)) || (i == sizeof(kGpioNiceList) -1)) {
+      ResponseJsonEndEnd();
+      MqttPublishPrefixTopic_P(RESULT_OR_STAT, UpperCase(XdrvMailbox.command, XdrvMailbox.command));
+      jsflg = false;
+      lines++;
     }
   }
   mqtt_data[0] = '\0';

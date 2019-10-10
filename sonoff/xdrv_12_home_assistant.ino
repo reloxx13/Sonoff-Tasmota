@@ -88,7 +88,8 @@ const char HASS_DISCOVER_SENSOR[] PROGMEM =
 
 const char HASS_DISCOVER_SENSOR_TEMP[] PROGMEM =
   ",\"unit_of_meas\":\"°%c\","                        // °C / °F
-  "\"val_tpl\":\"{{value_json['%s'].Temperature}}\""; // "SI7021-14":{"Temperature":null,"Humidity":null} -> {{ value_json['SI7021-14'].Temperature }}
+  "\"val_tpl\":\"{{value_json['%s'].Temperature}}\"," // "SI7021-14":{"Temperature":null,"Humidity":null} -> {{ value_json['SI7021-14'].Temperature }}
+  "\"dev_cla\":\"temperature\"";                      // temperature
 
 const char HASS_DISCOVER_SENSOR_HUM[] PROGMEM =
   ",\"unit_of_meas\":\"%%\","                         // %
@@ -103,19 +104,27 @@ const char HASS_DISCOVER_SENSOR_PRESS[] PROGMEM =
 //ENERGY
 const char HASS_DISCOVER_SENSOR_KWH[] PROGMEM =
   ",\"unit_of_meas\":\"kWh\","                        // kWh
-  "\"val_tpl\":\"{{value_json['%s'].%s}}\""; // "ENERGY":{"TotalStartTime":null,"Total":null,"Yesterday":null,"Today":null,"Power":null,"ApparentPower":null,"ReactivePower":null,"Factor":null,"Voltage":null,"Current":null} -> {{ value_json['ENERGY'].Total/Yesterday/Today }}
+  "\"val_tpl\":\"{{value_json['%s'].%s}}\","  // "ENERGY":{"TotalStartTime":null,"Total":null,"Yesterday":null,"Today":null,"Power":null,"ApparentPower":null,"ReactivePower":null,"Factor":null,"Voltage":null,"Current":null} -> {{ value_json['ENERGY'].Total/Yesterday/Today }}
+  "\"dev_cla\":\"power\"";                    // power
 
 const char HASS_DISCOVER_SENSOR_WATT[] PROGMEM =
   ",\"unit_of_meas\":\"W\","                          // W
-  "\"val_tpl\":\"{{value_json['%s'].%s}}\""; // "ENERGY":{"TotalStartTime":null,"Total":null,"Yesterday":null,"Today":null,"Power":null,"ApparentPower":null,"ReactivePower":null,"Factor":null,"Voltage":null,"Current":null} -> {{ value_json['ENERGY'].POWER }}
-
+  "\"val_tpl\":\"{{value_json['%s'].%s}}\"," // "ENERGY":{"TotalStartTime":null,"Total":null,"Yesterday":null,"Today":null,"Power":null,"ApparentPower":null,"ReactivePower":null,"Factor":null,"Voltage":null,"Current":null} -> {{ value_json['ENERGY'].POWER }}
+  "\"dev_cla\":\"power\"";
 const char HASS_DISCOVER_SENSOR_VOLTAGE[] PROGMEM =
   ",\"unit_of_meas\":\"V\","                          // V
-  "\"val_tpl\":\"{{value_json['%s'].%s}}\""; // "ENERGY":{"TotalStartTime":null,"Total":null,"Yesterday":null,"Today":null,"Power":null,"ApparentPower":null,"ReactivePower":null,"Factor":null,"Voltage":null,"Current":null} -> {{ value_json['ENERGY'].Voltage }}
-
+  "\"val_tpl\":\"{{value_json['%s'].%s}}\"," // "ENERGY":{"TotalStartTime":null,"Total":null,"Yesterday":null,"Today":null,"Power":null,"ApparentPower":null,"ReactivePower":null,"Factor":null,"Voltage":null,"Current":null} -> {{ value_json['ENERGY'].Voltage }}
+  "\"dev_cla\":\"power\"";
 const char HASS_DISCOVER_SENSOR_AMPERE[] PROGMEM =
   ",\"unit_of_meas\":\"A\","                          // A
-  "\"val_tpl\":\"{{value_json['%s'].%s}}\""; // "ENERGY":{"TotalStartTime":null,"Total":null,"Yesterday":null,"Today":null,"Power":null,"ApparentPower":null,"ReactivePower":null,"Factor":null,"Voltage":null,"Current":null} -> {{ value_json['ENERGY'].Current }}
+  "\"val_tpl\":\"{{value_json['%s'].%s}}\"," // "ENERGY":{"TotalStartTime":null,"Total":null,"Yesterday":null,"Today":null,"Power":null,"ApparentPower":null,"ReactivePower":null,"Factor":null,"Voltage":null,"Current":null} -> {{ value_json['ENERGY'].Current }}
+  "\"dev_cla\":\"power\"";
+
+//ILLUMINANCE
+const char HASS_DISCOVER_SENSOR_ILLUMINANCE[] PROGMEM =
+  ",\"unit_of_meas\":\"LX\","                          // LX by default
+  "\"val_tpl\":\"{{value_json['%s'].Illuminance}}\","   // "ANALOG":{"Illuminance":34}}
+  "\"dev_cla\":\"illuminance\"";                       // illuminance
 
 const char HASS_DISCOVER_SENSOR_ANY[] PROGMEM =
   ",\"unit_of_meas\":\" \","                          // " " As unit of measurement to get a value graph in Hass
@@ -124,7 +133,7 @@ const char HASS_DISCOVER_SENSOR_ANY[] PROGMEM =
 const char HASS_DISCOVER_SENSOR_HASS_STATUS[] PROGMEM =
   ",\"json_attributes_topic\":\"%s\","
   "\"unit_of_meas\":\" \","                          // " " As unit of measurement to get a value graph in Hass
-  "\"val_tpl\":\"{{value_json['" D_JSON_RSSI "']}}\"";// "COUNTER":{"C1":0} -> {{ value_json['COUNTER'].C1 }}
+  "\"val_tpl\":\"{{value_json['" D_JSON_RSSI "']}}\"";  // "COUNTER":{"C1":0} -> {{ value_json['COUNTER'].C1 }}
 
 const char HASS_DISCOVER_DEVICE_INFO[] PROGMEM =
   ",\"uniq_id\":\"%s\","
@@ -338,7 +347,7 @@ void HAssAnnounceSwitches(void)
   // Send info about buttons
   char *tmp = Settings.switch_topic;
   Format(sw_topic, tmp, sizeof(sw_topic));
-  if ((strlen(sw_topic) != 0) && strcmp(sw_topic, "0")) {
+  if (strlen(sw_topic) != 0) {
     for (uint32_t switch_index = 0; switch_index < MAX_SWITCHES; switch_index++) {
       uint8_t switch_present = 0;
       uint8_t toggle = 1;
@@ -367,7 +376,7 @@ void HAssAnnounceButtons(void)
   // Send info about buttons
   char *tmp = Settings.button_topic;
   Format(key_topic, tmp, sizeof(key_topic));
-  if ((strlen(key_topic) != 0) && strcmp(key_topic, "0")) {
+  if (strlen(key_topic) != 0) {
     for (uint32_t button_index = 0; button_index < MAX_KEYS; button_index++) {
       uint8_t button_present = 0;
       uint8_t toggle = 1;
@@ -438,6 +447,8 @@ void HAssAnnounceSensor(const char* sensorname, const char* subsensortype)
       TryResponseAppend_P(HASS_DISCOVER_SENSOR_VOLTAGE, sensorname, subsensortype);
     } else if (!strcmp_P(subsensortype, PSTR(D_JSON_CURRENT))){
       TryResponseAppend_P(HASS_DISCOVER_SENSOR_AMPERE, sensorname, subsensortype);
+    } else if (!strcmp_P(subsensortype, PSTR(D_JSON_ILLUMINANCE))){
+      TryResponseAppend_P(HASS_DISCOVER_SENSOR_ILLUMINANCE, sensorname, subsensortype);
     }
     else {
       TryResponseAppend_P(HASS_DISCOVER_SENSOR_ANY, sensorname, subsensortype);
