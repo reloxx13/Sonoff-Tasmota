@@ -27,7 +27,7 @@ typedef union {                            // Restricted by MISRA-C Rule 18.4 bu
   struct {                                 // SetOption0 .. SetOption31
     uint32_t save_state : 1;               // bit 0              - SetOption0  - Save power state and use after restart
     uint32_t button_restrict : 1;          // bit 1              - SetOption1  - Control button multipress
-    uint32_t value_units : 1;              // bit 2              - SetOption2  - Add units to JSON status messages
+    uint32_t ex_value_units : 1;           // bit 2              - SetOption2  - Add units to JSON status messages - removed 6.6.0.21
     uint32_t mqtt_enabled : 1;             // bit 3              - SetOption3  - Control MQTT
     uint32_t mqtt_response : 1;            // bit 4              - SetOption4  - Switch between MQTT RESULT or COMMAND
     uint32_t mqtt_power_retain : 1;        // bit 5              - CMND_POWERRETAIN
@@ -78,11 +78,11 @@ typedef union {                            // Restricted by MISRA-C Rule 18.4 bu
     uint32_t no_hold_retain : 1;           // bit 12 (v6.4.1.19) - SetOption62 - Don't use retain flag on HOLD messages
     uint32_t no_power_feedback : 1;        // bit 13 (v6.5.0.9)  - SetOption63 - Don't scan relay power state at restart
     uint32_t use_underscore : 1;           // bit 14 (v6.5.0.12) - SetOption64 - Enable "_" instead of "-" as sensor index separator
-    uint32_t ex_tuya_disable_dimmer : 1;   // bit 15 (v6.5.0.15) - SetOption65 - (Enable or Disable Tuya Serial Dimmer control) - free since 6.6.0.10
-    uint32_t tuya_dimmer_range_255 : 1;    // bit 16 (v6.6.0.1)  - SetOption66 - Enable or Disable Dimmer range 255 slider control
+    uint32_t fast_power_cycle_disable : 1; // bit 15 (v6.6.0.20) - SetOption65 - Disable fast power cycle detection for device reset
+    uint32_t ex_tuya_dimmer_range_255 : 1;    // bit 16 (v6.6.0.1)  - SetOption66 - Enable or Disable Dimmer range 255 slider control
     uint32_t buzzer_enable : 1;            // bit 17 (v6.6.0.1)  - SetOption67 - Enable buzzer when available
     uint32_t pwm_multi_channels : 1;       // bit 18 (v6.6.0.3)  - SetOption68 - Enable multi-channels PWM instead of Color PWM
-    uint32_t tuya_dimmer_min_limit : 1;    // bit 19 (v6.6.0.5)  - SetOption69 - Limits Tuya dimmers to minimum of 10% (25) when enabled.
+    uint32_t ex_tuya_dimmer_min_limit : 1;    // bit 19 (v6.6.0.5)  - SetOption69 - Limits Tuya dimmers to minimum of 10% (25) when enabled.
     uint32_t energy_weekend : 1;           // bit 20 (v6.6.0.8)  - CMND_TARIFF
     uint32_t dds2382_model : 1;            // bit 21 (v6.6.0.14) - SetOption71 - Select different Modbus registers for Active Energy (#6531)
     uint32_t hardware_energy_total : 1;    // bit 22 (v6.6.0.15) - SetOption72 - Enable / Disable hardware energy total counter as reference (#6561)
@@ -259,7 +259,7 @@ struct SYSCFG {
   int16_t       toffset[2];                // 30E
   uint8_t       display_font;              // 312
   char          state_text[4][11];         // 313
-  uint8_t       energy_power_delta;        // 33F
+  uint8_t       ex_energy_power_delta;     // 33F - Free since 6.6.0.20
   uint16_t      domoticz_update_timer;     // 340
   uint16_t      pwm_range;                 // 342
   unsigned long domoticz_relay_idx[MAX_DOMOTICZ_IDX];  // 344
@@ -348,7 +348,7 @@ struct SYSCFG {
   uint8_t       rgbwwTable[5];             // 71A
   uint8_t       user_template_base;        // 71F
   mytmplt       user_template;             // 720  29 bytes
-  uint8_t       novasds_period;            // 73D
+  uint8_t       novasds_startingoffset;    // 73D
   uint8_t       web_color[18][3];          // 73E
   uint16_t      display_width;             // 774
   uint16_t      display_height;            // 776
@@ -384,8 +384,12 @@ struct SYSCFG {
   uint8_t       shutter_position[MAX_SHUTTERS];      // E80
   uint8_t       shutter_startrelay[MAX_SHUTTERS];    // E84
   uint8_t       pcf8574_config[MAX_PCF8574];         // E88
+  uint16_t      dimmer_hw_min;             // E90
+  uint16_t      dimmer_hw_max;             // E92
+  uint32_t      deepsleep;                 // E94
+  uint16_t      energy_power_delta;        // E98
 
-  uint8_t       free_e90[360];             // E90
+  uint8_t       free_e9a[350];             // E9A
 
   uint32_t      cfg_timestamp;             // FF8
   uint32_t      cfg_crc32;                 // FFC
@@ -406,7 +410,12 @@ struct RTCMEM {
   unsigned long pulse_counter[MAX_COUNTERS];  // 29C
   power_t       power;                     // 2AC
   EnergyUsage   energy_usage;              // 2B0
-  uint8_t       free_038[36];              // 2C8
+  unsigned long nextwakeup;                // 2C8
+  uint8_t       free_004[4];               // 2CC
+  uint32_t      ultradeepsleep;            // 2D0
+  uint16_t      deepsleep_slip;            // 2D4
+
+  uint8_t       free_022[22];              // 2D6
                                            // 2EC - 2FF free locations
 } RtcSettings;
 

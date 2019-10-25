@@ -3,10 +3,12 @@
 
 //#define DEBUG_EMAIL_PORT
 
-#include <WiFiClient.h>
-#include <WiFiClientSecure.h>
+//#include <WiFiClient.h>
+//#include <WiFiClientSecure.h>
 #include <base64.h>
-#include <core_version.h>
+//#include <core_version.h>
+
+#include "WiFiClientSecureLightBearSSL.h"
 
 class SendEmail
 {
@@ -22,17 +24,14 @@ class SendEmail
     WiFiClient* client;
 #else
     // use bear ssl
-  //  #include "WiFiClientSecureLightBearSSL.h"
-  //  BearSSL::WiFiClientSecure_light *client;
-    BearSSL::WiFiClientSecure* client;
-    //WiFiClientSecure* client;
+    BearSSL::WiFiClientSecure_light *client;
 #endif
     String readClient();
     void a3_to_a4(unsigned char * a4, unsigned char * a3);
     int base64_encode(char *output, const char *input, int inputLen);
   public:
    SendEmail(const String& host, const int port, const String& user, const String& passwd, const int timeout, const int auth_used);
-   bool send(const String& from, const String& to, const String& subject, const String& msg);
+   bool send(const String& from, const String& to, const String& subject, const char *msg);
    ~SendEmail() {client->stop(); delete client;}
 };
 

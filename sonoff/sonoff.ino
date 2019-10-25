@@ -70,6 +70,8 @@
 #include "settings.h"
 
 const char kSleepMode[] PROGMEM = "Dynamic|Normal";
+const char kPrefixes[] PROGMEM = D_CMND "|" D_STAT "|" D_TELE;
+const char kCodeImage[] PROGMEM = "sonoff|minimal|sensors|knx|basic|display|ir";
 
 // Global variables
 SerialConfig serial_config = SERIAL_8N1;    // Serial interface configuration 8 data bits, No parity, 1 stop bit
@@ -107,8 +109,8 @@ int blinks = 201;                           // Number of LED blinks
 uint32_t uptime = 0;                        // Counting every second until 4294967295 = 130 year
 uint32_t loop_load_avg = 0;                 // Indicative loop load average
 uint32_t global_update = 0;                 // Timestamp of last global temperature and humidity update
-uint32_t web_log_index = 1;                  // Index in Web log buffer (should never be 0)
-float global_temperature = 9999;               // Provide a global temperature to be used by some sensors
+uint32_t web_log_index = 1;                 // Index in Web log buffer (should never be 0)
+float global_temperature = 9999;            // Provide a global temperature to be used by some sensors
 float global_humidity = 0;                  // Provide a global humidity to be used by some sensors
 float global_pressure = 0;                  // Provide a global pressure to be used by some sensors
 char *ota_url;                              // OTA url string pointer
@@ -155,6 +157,7 @@ bool spi_flg = false;                       // SPI configured
 bool soft_spi_flg = false;                  // Software SPI configured
 bool ntp_force_sync = false;                // Force NTP sync
 bool ntp_synced_message = false;            // NTP synced message flag
+bool prep_called = false;                   // Deep sleep flag to detect a proper start of initialize sensors
 myio my_module;                             // Active copy of Module GPIOs (17 x 8 bits)
 gpio_flag my_module_flag;                   // Active copy of Template GPIO flags
 StateBitfield global_state;                 // Global states (currently Wifi and Mqtt) (8 bits)
@@ -169,12 +172,12 @@ char log_data[LOGSZ];                       // Logging
 char web_log[WEB_LOG_SIZE] = {'\0'};        // Web log buffer
 #ifdef SUPPORT_IF_STATEMENT
   #include <LinkedList.h>
-  LinkedList<String> backlog;                // Command backlog implemented with LinkedList
+  LinkedList<String> backlog;               // Command backlog implemented with LinkedList
   #define BACKLOG_EMPTY (backlog.size() == 0)
 #else
-  uint8_t backlog_index = 0;                  // Command backlog index
-  uint8_t backlog_pointer = 0;                // Command backlog pointer
-  String backlog[MAX_BACKLOG];                // Command backlog buffer
+  uint8_t backlog_index = 0;                // Command backlog index
+  uint8_t backlog_pointer = 0;              // Command backlog pointer
+  String backlog[MAX_BACKLOG];              // Command backlog buffer
   #define BACKLOG_EMPTY (backlog_pointer == backlog_index)
 #endif
 
@@ -247,7 +250,8 @@ char* GetTopic_P(char *stopic, uint32_t prefix, char *topic, const char* subtopi
   snprintf_P(romram, sizeof(romram), subtopic);
   if (fallback_topic_flag || (prefix > 3)) {
     prefix &= 3;
-    fulltopic = FPSTR(kPrefixes[prefix]);
+    char stemp[11];
+    fulltopic = GetTextIndexed(stemp, sizeof(stemp), prefix, kPrefixes);
     fulltopic += F("/");
     fulltopic += mqtt_client;
     fulltopic += F("_fb");                    // cmnd/<mqttclient>_fb
@@ -259,7 +263,7 @@ char* GetTopic_P(char *stopic, uint32_t prefix, char *topic, const char* subtopi
     }
     for (uint32_t i = 0; i < 3; i++) {
       if ('\0' == Settings.mqtt_prefix[i][0]) {
-        snprintf_P(Settings.mqtt_prefix[i], sizeof(Settings.mqtt_prefix[i]), kPrefixes[i]);
+        GetTextIndexed(Settings.mqtt_prefix[i], sizeof(Settings.mqtt_prefix[i]), i, kPrefixes);
       }
     }
     fulltopic.replace(FPSTR(MQTT_TOKEN_PREFIX), Settings.mqtt_prefix[prefix]);
@@ -533,9 +537,10 @@ bool SendKey(uint32_t key, uint32_t device, uint32_t state)
     Response_P(PSTR("{\"%s%d\":{\"State\":%d}}"), (key) ? "Switch" : "Button", device, state);
     result = XdrvRulesProcess();
   }
-#ifdef USE_KNX
-  KnxSendButtonPower(key, device, state);
-#endif  // USE_KNX
+  int32_t payload_save = XdrvMailbox.payload;
+  XdrvMailbox.payload = key << 16 | state << 8 | device;
+  XdrvCall(FUNC_ANY_KEY);
+  XdrvMailbox.payload = payload_save;
   return result;
 }
 
@@ -777,6 +782,10 @@ void PerformEverySecond(void)
     ntp_synced_message = false;
   }
 
+  if (POWER_CYCLE_TIME == uptime) {
+    UpdateQuickPowerCycle(false);
+  }
+
   if (BOOT_LOOP_TIME == uptime) {
     RtcReboot.fast_reboot_count = 0;
     RtcRebootSave();
@@ -809,10 +818,14 @@ void PerformEverySecond(void)
 
   if (Settings.tele_period) {
     tele_period++;
-    if (tele_period == Settings.tele_period -1) {
+    // increase time for prepare and document state to ensure TELEPERIOD deliver results
+    if (tele_period == Settings.tele_period -3 && !prep_called) {
+      // sensores must be called later if driver switch on e.g. power on deepsleep
+      XdrvCall(FUNC_PREP_BEFORE_TELEPERIOD);
       XsnsCall(FUNC_PREP_BEFORE_TELEPERIOD);
+      prep_called = true;
     }
-    if (tele_period >= Settings.tele_period) {
+   if (tele_period >= Settings.tele_period && prep_called) {
       tele_period = 0;
 
       MqttPublishTeleState();
@@ -824,11 +837,10 @@ void PerformEverySecond(void)
         RulesTeleperiod();  // Allow rule based HA messages
 #endif  // USE_RULES
       }
+      prep_called = true;
+      XdrvCall(FUNC_AFTER_TELEPERIOD);
     }
   }
-
-  XdrvCall(FUNC_EVERY_SECOND);
-  XsnsCall(FUNC_EVERY_SECOND);
 }
 
 /*********************************************************************************************\
@@ -926,8 +938,6 @@ void Every250mSeconds(void)
 
   switch (state_250mS) {
   case 0:                                                 // Every x.0 second
-    PerformEverySecond();
-
     if (ota_state_flag && BACKLOG_EMPTY) {
       ota_state_flag--;
       if (2 == ota_state_flag) {
@@ -1204,6 +1214,7 @@ void SerialInput(void)
       }
     }
 
+#ifdef USE_SONOFF_SC
 /*-------------------------------------------------------------------------------------------*\
  * Sonoff SC 19200 baud serial interface
 \*-------------------------------------------------------------------------------------------*/
@@ -1215,11 +1226,11 @@ void SerialInput(void)
         Serial.flush();
         return;
       }
-    }
-
+    } else
+#endif  // USE_SONOFF_SC
 /*-------------------------------------------------------------------------------------------*/
 
-    else if (!Settings.flag.mqtt_serial && (serial_in_byte == '\n')) {
+    if (!Settings.flag.mqtt_serial && (serial_in_byte == '\n')) {
       serial_in_buffer[serial_in_byte_counter] = 0;                              // Serial data completed
       seriallog_level = (Settings.seriallog_level < LOG_LEVEL_INFO) ? (uint8_t)LOG_LEVEL_INFO : Settings.seriallog_level;
       AddLog_P2(LOG_LEVEL_INFO, PSTR(D_LOG_COMMAND "%s"), serial_in_buffer);
@@ -1234,7 +1245,7 @@ void SerialInput(void)
   if (Settings.flag.mqtt_serial && serial_in_byte_counter && (millis() > (serial_polling_window + SERIAL_POLLING))) {
     serial_in_buffer[serial_in_byte_counter] = 0;                                // Serial data completed
     char hex_char[(serial_in_byte_counter * 2) + 2];
-    ResponseTime_P(PSTR(",\"" D_JSON_SERIALRECEIVED "\":\"%s\"}"),
+    Response_P(PSTR(",\"" D_JSON_SERIALRECEIVED "\":\"%s\"}"),
       (Settings.flag.mqtt_serial_raw) ? ToHex_P((unsigned char*)serial_in_buffer, serial_in_byte_counter, hex_char, sizeof(hex_char)) : serial_in_buffer);
     MqttPublishPrefixTopic_P(RESULT_OR_TELE, PSTR(D_JSON_SERIALRECEIVED));
     XdrvRulesProcess();
@@ -1393,11 +1404,13 @@ void GpioInit(void)
     devices_present = 4;
     baudrate = 19200;
   }
+#ifdef USE_SONOFF_SC
   else if (SONOFF_SC == my_module_type) {
     Settings.flag.mqtt_serial = 0;
     devices_present = 0;
     baudrate = 19200;
   }
+#endif  // USE_SONOFF_SC
 
   if (!light_type) {
     for (uint32_t i = 0; i < MAX_PWMS; i++) {     // Basic PWM control only
@@ -1461,7 +1474,9 @@ void setup(void)
   global_state.data = 3;  // Init global state (wifi_down, mqtt_down) to solve possible network issues
 
   RtcRebootLoad();
-  if (!RtcRebootValid()) { RtcReboot.fast_reboot_count = 0; }
+  if (!RtcRebootValid()) {
+    RtcReboot.fast_reboot_count = 0;
+  }
   RtcReboot.fast_reboot_count++;
   RtcRebootSave();
 
@@ -1489,6 +1504,7 @@ void setup(void)
   GetFeatures();
 
   if (1 == RtcReboot.fast_reboot_count) {  // Allow setting override only when all is well
+    UpdateQuickPowerCycle(true);
     XdrvCall(FUNC_SETTINGS_OVERRIDE);
   }
 
@@ -1667,6 +1683,12 @@ void loop(void)
     Every250mSeconds();
     XdrvCall(FUNC_EVERY_250_MSECOND);
     XsnsCall(FUNC_EVERY_250_MSECOND);
+  }
+  if (TimeReached(state_second)) {
+    SetNextTimeInterval(state_second, 1000);
+    PerformEverySecond();
+    XdrvCall(FUNC_EVERY_SECOND);
+    XsnsCall(FUNC_EVERY_SECOND);
   }
 
   if (!serial_local) { SerialInput(); }

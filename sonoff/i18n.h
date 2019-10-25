@@ -256,11 +256,8 @@
 #define D_CMND_PASSWORD "Password"
 #define D_CMND_HOSTNAME "Hostname"
 #define D_CMND_WIFICONFIG "WifiConfig"
-  #define WCFG_MAX_STRING_LENGTH 12
   #define D_WCFG_0_RESTART "Restart"
-  #define D_WCFG_1_SMARTCONFIG "SmartConfig"
   #define D_WCFG_2_WIFIMANAGER "WifiManager"
-  #define D_WCFG_3_WPSCONFIG "WPSConfig"
   #define D_WCFG_4_RETRY "Retry"
   #define D_WCFG_5_WAIT "Wait"
   #define D_WCFG_6_SERIAL "Serial"
@@ -305,7 +302,6 @@
 #define D_CMND_TLSKEY "TLSKey"
 #define D_CMND_FULLTOPIC "FullTopic"
 #define D_CMND_PREFIX "Prefix"
-  #define PRFX_MAX_STRING_LENGTH 5
   #define D_CMND "cmnd"
   #define D_STAT "stat"
   #define D_TELE "tele"
@@ -366,6 +362,7 @@
 #define D_CMND_COLOR "Color"
 #define D_CMND_COLORTEMPERATURE "CT"
 #define D_CMND_DIMMER "Dimmer"
+#define D_CMND_DIMMER_RANGE "DimmerRange"
 #define D_CMND_HSBCOLOR "HSBColor"
 #define D_CMND_LED "Led"
 #define D_CMND_LEDTABLE "LedTable"
@@ -455,20 +452,30 @@
 // Commands xdrv_16_tuyadimmer.ino
 
 #define D_CMND_TUYA_MCU "TuyaMCU"
+#define D_JSON_TUYA_MCU_RECEIVED "TuyaMcuReceived"
 
 // Commands xdrv_23_zigbee.ino
 #define D_CMND_ZIGBEE_PERMITJOIN "ZigbeePermitJoin"
 #define D_CMND_ZIGBEE_STATUS "ZigbeeStatus"
+#define D_CMND_ZIGBEE_RESET "ZigbeeReset"
+  #define D_JSON_ZIGBEE_CC2530 "CC2530"
 #define D_CMND_ZIGBEEZNPSEND "ZigbeeZNPSend"
   #define D_JSON_ZIGBEE_STATUS "ZigbeeStatus"
   #define D_JSON_ZIGBEEZNPRECEIVED "ZigbeeZNPReceived"
   #define D_JSON_ZIGBEEZNPSENT "ZigbeeZNPSent"
   #define D_JSON_ZIGBEEZCL_RECEIVED "ZigbeeZCLReceived"
   #define D_JSON_ZIGBEEZCL_RAW_RECEIVED "ZigbeeZCLRawReceived"
-  #define D_JSON_ZIGBEEZCLSENT "ZigbeeZCLSent"
+  #define D_JSON_ZIGBEE_DEVICE "Device"
+  #define D_JSON_ZIGBEE_NAME "Name"
+#define D_CMND_ZIGBEE_ZCL_SEND "ZigbeeZCLSend"
+  #define D_JSON_ZIGBEE_ZCL_SENT "ZigbeeZCLSent"
+#define D_CMND_ZIGBEE_PROBE "ZigbeeProbe"
+#define D_CMND_ZIGBEE_RECEIVED "ZigbeeReceived"
+  #define D_CMND_ZIGBEE_LINKQUALITY "LinkQuality"
+#define D_CMND_ZIGBEE_READ "ZigbeeRead"
 
   // Commands xdrv_25_A4988_Stepper.ino
-  #ifdef USE_A4988_Stepper
+  #ifdef USE_A4988_STEPPER
     #define D_CMND_MOTOR "MOTOR"
     #define D_JSON_MOTOR_MOVE "doMove"
     #define D_JSON_MOTOR_ROTATE "doRotate"
@@ -495,56 +502,9 @@
 #endif
 
 // Common
-enum UnitNames {
-  UNIT_AMPERE,
-  UNIT_HOUR,
-  UNIT_KILOOHM,
-  UNIT_KILOWATTHOUR,
-  UNIT_LUX,
-  UNIT_MICROSECOND,
-  UNIT_MILLIAMPERE,
-  UNIT_MILLIMETER_MERCURY,
-  UNIT_MILLISECOND,
-  UNIT_MINUTE,
-  UNIT_PPB,
-  UNIT_PPD,
-  UNIT_PPM,
-  UNIT_PERCENTAGE,
-  UNIT_PRESSURE,
-  UNIT_SECOND,
-  UNIT_SECTORS,
-  UNIT_VOLT,
-  UNIT_WATT,
-  UNIT_WATTHOUR,
-  UNIT_HERTZ };
-const char kUnitNames[] PROGMEM =
-  D_UNIT_AMPERE "|"
-  D_UNIT_HOUR "|"
-  D_UNIT_KILOOHM "|"
-  D_UNIT_KILOWATTHOUR "|"
-  D_UNIT_LUX "|"
-  D_UNIT_MICROSECOND "|"
-  D_UNIT_MILLIAMPERE "|"
-  D_UNIT_MILLIMETER_MERCURY "|"
-  D_UNIT_MILLISECOND "|"
-  D_UNIT_MINUTE "|"
-  D_UNIT_PARTS_PER_BILLION "|"
-  D_UNIT_PARTS_PER_DECILITER "|"
-  D_UNIT_PARTS_PER_MILLION "|"
-  "%|"
-  D_UNIT_PRESSURE "|"
-  D_UNIT_SECOND "|"
-  D_UNIT_SECTORS "|"
-  D_UNIT_VOLT "|"
-  D_UNIT_WATT "|"
-  D_UNIT_WATTHOUR "|"
-  D_UNIT_HERTZ ;
-
 const char S_JSON_COMMAND_NVALUE_SPACE_UNIT[] PROGMEM =       "{\"%s\":\"%d %s\"}";
 const char S_JSON_COMMAND_LVALUE_SPACE_UNIT[] PROGMEM =       "{\"%s\":\"%lu %s\"}";
 const char S_JSON_COMMAND_SVALUE_SPACE_UNIT[] PROGMEM =       "{\"%s\":\"%s %s\"}";
-const char S_JSON_COMMAND_NVALUE_UNIT[] PROGMEM =             "{\"%s\":\"%d%s\"}";
-const char S_JSON_COMMAND_NVALUE_UNIT_NVALUE_UNIT[] PROGMEM = "{\"%s\":\"%d%s (%d%s)\"}";
 
 const char S_JSON_COMMAND_NVALUE_SVALUE[] PROGMEM =           "{\"%s\":{\"%d\":\"%s\"}}";
 const char S_JSON_COMMAND_NVALUE_ACTIVE_NVALUE[] PROGMEM =    "{\"%s\":{\"%d\":{\"" D_JSON_ACTIVE "\":\"%d\"}}}";
@@ -584,30 +544,6 @@ const char S_RSLT_RESULT[] PROGMEM = D_RSLT_RESULT;
 const char S_RSLT_WARNING[] PROGMEM = D_RSLT_WARNING;
 const char S_LWT[] PROGMEM = D_LWT;
 const char S_OFFLINE[] PROGMEM = D_OFFLINE;
-
-// sonoff.ino
-#define MAX_BUTTON_COMMANDS  5  // Max number of button commands supported
-const char kCommands[MAX_BUTTON_COMMANDS][14] PROGMEM = {
-  D_CMND_WIFICONFIG " 1",   // Press button three times
-  D_CMND_WIFICONFIG " 2",   // Press button four times
-  D_CMND_WIFICONFIG " 3",   // Press button five times
-  D_CMND_RESTART " 1",      // Press button six times
-  D_CMND_UPGRADE " 1" };    // Press button seven times
-const char kWifiConfig[MAX_WIFI_OPTION][WCFG_MAX_STRING_LENGTH] PROGMEM = {
-  D_WCFG_0_RESTART,
-  D_WCFG_1_SMARTCONFIG,
-  D_WCFG_2_WIFIMANAGER,
-  D_WCFG_3_WPSCONFIG,
-  D_WCFG_4_RETRY,
-  D_WCFG_5_WAIT,
-  D_WCFG_6_SERIAL,
-  D_WCFG_7_WIFIMANAGER_RESET_ONLY };
-const char kPrefixes[3][PRFX_MAX_STRING_LENGTH] PROGMEM = {
-  D_CMND,
-  D_STAT,
-  D_TELE };
-
-const char kCodeImage[] PROGMEM = "sonoff|minimal|classic|sensors|knx|basic|display|ir";
 
 // support.ino
 static const char kMonthNames[] = D_MONTH3LIST;

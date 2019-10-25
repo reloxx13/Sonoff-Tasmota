@@ -28,7 +28,7 @@
 #define XDRV_01                               1
 
 #ifndef WIFI_SOFT_AP_CHANNEL
-#define WIFI_SOFT_AP_CHANNEL                  1          // Soft Access Point Channel number between 1 and 11 as used by SmartConfig web GUI
+#define WIFI_SOFT_AP_CHANNEL                  1          // Soft Access Point Channel number between 1 and 11 as used by WifiManager web GUI
 #endif
 
 const uint16_t CHUNKED_BUFFER_SIZE = 400;                // Chunk buffer size (should be smaller than half mqtt_date size)
@@ -44,7 +44,7 @@ const uint16_t HTTP_REFRESH_TIME = 2345;                 // milliseconds
 uint8_t *efm8bb1_update = nullptr;
 #endif  // USE_RF_FLASH
 
-enum UploadTypes { UPL_TASMOTA, UPL_SETTINGS, UPL_EFM8BB1 };
+enum UploadTypes { UPL_TASMOTA, UPL_SETTINGS, UPL_EFM8BB1, UPL_ARDUINOSLAVE };
 
 static const char * HEADER_KEYS[] = { "User-Agent", };
 
@@ -91,7 +91,6 @@ const char HTTP_SCRIPT_COUNTER[] PROGMEM =
     "}"
   "}"
   "wl(u);";
-
 
 const char HTTP_SCRIPT_ROOT[] PROGMEM =
 #ifdef USE_SCRIPT_WEB_DISPLAY
@@ -156,38 +155,16 @@ const char HTTP_SCRIPT_ROOT[] PROGMEM =
 #endif  // USE_SCRIPT_WEB_DISPLAY
 
 #ifdef USE_JAVASCRIPT_ES6
-  "lb=p=>la('&d='+p);"                    // Dark - Bright &d related to lb(value) and WebGetArg("d", tmp, sizeof(tmp));
-  "lc=p=>la('&t='+p);"                    // Cold - Warm &t related to lc(value) and WebGetArg("t", tmp, sizeof(tmp));
+  "lb=(v,p)=>la(`&${v}=${p}`);"
+  "lc=(v,i,p)=>la(`&${v}${i}=${p}`);"
 #else
-  "function lb(p){"
-    "la('&d='+p);"                        // &d related to WebGetArg("d", tmp, sizeof(tmp));
+  "function lb(v,p){"
+    "la('&'+v+'='+p);"
   "}"
-  "function lc(p){"
-    "la('&t='+p);"                        // &t related to WebGetArg("t", tmp, sizeof(tmp));
+  "function lc(v,i,p){"
+    "la('&'+v+i+'='+p);"
   "}"
 #endif  // USE_JAVASCRIPT_ES6
-
-#ifdef USE_SHUTTER
-#ifdef USE_JAVASCRIPT_ES6
-  "ld1=p=>la('&u1='+p);"
-  "ld2=p=>la('&u2='+p);"
-  "ld3=p=>la('&u3='+p);"
-  "ld4=p=>la('&u4='+p);"
-#else
-  "function ld1(p){"
-    "la('&u1='+p);"
-  "}"
-  "function ld2(p){"
-    "la('&u2='+p);"
-  "}"
-  "function ld3(p){"
-    "la('&u3='+p);"
-  "}"
-  "function ld4(p){"
-    "la('&u4='+p);"
-  "}"
-#endif  // USE_JAVASCRIPT_ES6
-#endif  // USE_SHUTTER
 
   "wl(la);";
 
@@ -398,16 +375,11 @@ const char HTTP_HEAD_STYLE3[] PROGMEM =
   "<h2>%s</h2>";
 
 const char HTTP_MSG_SLIDER1[] PROGMEM =
-  "<div><span class='p'>" D_COLDLIGHT "</span><span class='q'>" D_WARMLIGHT "</span></div>"
-  "<div><input type='range' min='153' max='500' value='%d' onchange='lc(value)'></div>";
+  "<div><span class='p'>%s</span><span class='q'>%s</span></div>"
+  "<div><input type='range' min='%d' max='%d' value='%d' onchange='lb(\"%c\", value)'></div>";
 const char HTTP_MSG_SLIDER2[] PROGMEM =
-  "<div><span class='p'>" D_DARKLIGHT "</span><span class='q'>" D_BRIGHTLIGHT "</span></div>"
-  "<div><input type='range' min='1' max='100' value='%d' onchange='lb(value)'></div>";
-#ifdef USE_SHUTTER
-const char HTTP_MSG_SLIDER3[] PROGMEM =
-  "<div><span class='p'>" D_CLOSE "</span><span class='q'>" D_OPEN "</span></div>"
-  "<div><input type='range' min='0' max='100' value='%d' onchange='ld%d(value)'></div>";
-#endif  // USE_SHUTTER
+  "<div><span class='p'>%s</span><span class='q'>%s</span></div>"
+  "<div><input type='range' min='%d' max='%d' value='%d' onchange='lc(\"%c\", %d, value)'></div>";
 const char HTTP_MSG_RSTRT[] PROGMEM =
   "<br><div style='text-align:center;'>" D_DEVICE_WILL_RESTART "</div><br>";
 
@@ -1016,16 +988,31 @@ void HandleRoot(void)
   if (devices_present) {
 #ifdef USE_LIGHT
     if (light_type) {
-      if ((LST_COLDWARM == (light_type &7)) || (LST_RGBWC == (light_type &7))) {
-        WSContentSend_P(HTTP_MSG_SLIDER1, LightGetColorTemp());
-      }
-      WSContentSend_P(HTTP_MSG_SLIDER2, Settings.light_dimmer);
+      if (!Settings.flag3.pwm_multi_channels) {
+        if ((LST_COLDWARM == (light_type &7)) || (LST_RGBWC == (light_type &7))) {
+          // Cold - Warm &t related to lb("t", value) and WebGetArg("t", tmp, sizeof(tmp));
+          WSContentSend_P(HTTP_MSG_SLIDER1, F(D_COLDLIGHT), F(D_WARMLIGHT),
+            153, 500, LightGetColorTemp(), 't');
+        }
+        // Dark - Bright &d related to lb("d", value) and WebGetArg("d", tmp, sizeof(tmp));
+        WSContentSend_P(HTTP_MSG_SLIDER1, F(D_DARKLIGHT), F(D_BRIGHTLIGHT),
+          1, 100, Settings.light_dimmer, 'd');
+      } else {  // Settings.flag3.pwm_multi_channels
+        uint32_t pwm_channels = (light_type & 7) > LST_MAX ? LST_MAX : (light_type & 7);
+        for (uint32_t i = 0; i < pwm_channels; i++) {
+          snprintf_P(stemp, sizeof(stemp), PSTR("c%d"), i);
+          WSContentSend_P(HTTP_MSG_SLIDER2, stemp, FPSTR("100%"),
+            1, 100,
+            changeUIntScale(Settings.light_color[i], 0, 255, 0, 100), 'd', i+1);
+        }
+      }  // Settings.flag3.pwm_multi_channels
     }
 #endif
 #ifdef USE_SHUTTER
     if (Settings.flag3.shutter_mode) {
       for (uint32_t i = 0; i < shutters_present; i++) {
-        WSContentSend_P(HTTP_MSG_SLIDER3, Settings.shutter_position[i], i+1);
+        WSContentSend_P(HTTP_MSG_SLIDER2, F(D_CLOSE), F(D_OPEN),
+          0, 100, Settings.shutter_position[i], 'u', i+1);
       }
     }
 #endif  // USE_SHUTTER
@@ -1049,6 +1036,7 @@ void HandleRoot(void)
 #endif  // USE_SONOFF_IFAN
     WSContentSend_P(PSTR("</tr></table>"));
   }
+#ifdef USE_SONOFF_RF
   if (SONOFF_BRIDGE == my_module_type) {
     WSContentSend_P(HTTP_TABLE100);
     WSContentSend_P(PSTR("<tr>"));
@@ -1062,6 +1050,7 @@ void HandleRoot(void)
     }
     WSContentSend_P(PSTR("</tr></table>"));
   }
+#endif  // USE_SONOFF_RF
 
 #ifndef FIRMWARE_MINIMAL
   XdrvCall(FUNC_WEB_ADD_MAIN_BUTTON);
@@ -1099,6 +1088,7 @@ bool HandleRootStatusRefresh(void)
 
   char tmp[8];                       // WebGetArg numbers only
   char svalue[32];                   // Command and number parameter
+  char webindex[5];                  // WebGetArg name
 
   WebGetArg("o", tmp, sizeof(tmp));  // 1 - 16 Device number for button Toggle or Fanspeed
   if (strlen(tmp)) {
@@ -1124,13 +1114,21 @@ bool HandleRootStatusRefresh(void)
     snprintf_P(svalue, sizeof(svalue), PSTR(D_CMND_DIMMER " %s"), tmp);
     ExecuteWebCommand(svalue, SRC_WEBGUI);
   }
+  uint32_t pwm_channels = (light_type & 7) > LST_MAX ? LST_MAX : (light_type & 7);
+  for (uint32_t j = 1; j <= pwm_channels; j++) {
+    snprintf_P(webindex, sizeof(webindex), PSTR("d%d"), j);
+    WebGetArg(webindex, tmp, sizeof(tmp));  // 0 - 100 percent
+    if (strlen(tmp)) {
+      snprintf_P(svalue, sizeof(svalue), PSTR(D_CMND_CHANNEL "%d %s"), j, tmp);
+      ExecuteWebCommand(svalue, SRC_WEBGUI);
+    }
+  }
   WebGetArg("t", tmp, sizeof(tmp));  // 153 - 500 Color temperature
   if (strlen(tmp)) {
     snprintf_P(svalue, sizeof(svalue), PSTR(D_CMND_COLORTEMPERATURE " %s"), tmp);
     ExecuteWebCommand(svalue, SRC_WEBGUI);
   }
 #ifdef USE_SHUTTER
-  char webindex[5];                 // WebGetArg name
   for (uint32_t j = 1; j <= shutters_present; j++) {
     snprintf_P(webindex, sizeof(webindex), PSTR("u%d"), j);
     WebGetArg(webindex, tmp, sizeof(tmp));  // 0 - 100 percent
@@ -1140,12 +1138,13 @@ bool HandleRootStatusRefresh(void)
     }
   }
 #endif  // USE_SHUTTER
+#ifdef USE_SONOFF_RF
   WebGetArg("k", tmp, sizeof(tmp));  // 1 - 16 Pre defined RF keys
   if (strlen(tmp)) {
     snprintf_P(svalue, sizeof(svalue), PSTR(D_CMND_RFKEY "%s"), tmp);
     ExecuteWebCommand(svalue, SRC_WEBGUI);
   }
-
+#endif  // USE_SONOFF_RF
   WSContentBegin(200, CT_HTML);
   WSContentSend_P(PSTR("{t}"));
   XsnsCall(FUNC_WEB_SENSOR);
@@ -1629,7 +1628,7 @@ void HandleLoggingConfiguration(void)
       GetTextIndexed(stemp1, sizeof(stemp1), idx, kLoggingOptions),
       GetTextIndexed(stemp2, sizeof(stemp2), dlevel[idx], kLoggingLevels),
       idx);
-    for (uint32_t i = LOG_LEVEL_NONE; i < LOG_LEVEL_ALL; i++) {
+    for (uint32_t i = LOG_LEVEL_NONE; i <= LOG_LEVEL_DEBUG_MORE; i++) {
       WSContentSend_P(PSTR("<option%s value='%d'>%d %s</option>"),
         (i == llevel) ? " selected" : "", i, i,
         GetTextIndexed(stemp1, sizeof(stemp1), i, kLoggingLevels));
@@ -2041,12 +2040,25 @@ void HandleUploadDone(void)
     WSContentSend_P(PSTR("%06x'>" D_SUCCESSFUL "</font></b><br>"), WebColor(COL_TEXT_SUCCESS));
     WSContentSend_P(HTTP_MSG_RSTRT);
     ShowWebSource(SRC_WEBGUI);
+#ifdef USE_ARDUINO_SLAVE
+    if (ArduinoSlave_GetFlagFlashing()) {
+      restart_flag = 0;
+    } else { // It was a normal firmware file, or we are ready to restart device
+      restart_flag = 2;
+    }
+#else
     restart_flag = 2;  // Always restart to re-enable disabled features during update
+#endif
   }
   SettingsBufferFree();
   WSContentSend_P(PSTR("</div><br>"));
   WSContentSpaceButton(BUTTON_MAIN);
   WSContentStop();
+#ifdef USE_ARDUINO_SLAVE
+  if (ArduinoSlave_GetFlagFlashing()) {
+    ArduinoSlave_Flash();
+  }
+#endif
 }
 
 void HandleUploadLoop(void)
@@ -2112,6 +2124,14 @@ void HandleUploadLoop(void)
           if (Web.upload_error != 0) { return; }
         } else
 #endif  // USE_RF_FLASH
+#ifdef USE_ARDUINO_SLAVE
+        if ((WEMOS == my_module_type) && (upload.buf[0] == ':')) {  // Check if this is a ARDUINO SLAVE hex file
+          Update.end();              // End esp8266 update session
+          Web.upload_file_type = UPL_ARDUINOSLAVE;
+          Web.upload_error = ArduinoSlave_UpdateInit();
+          if (Web.upload_error != 0) { return; }
+        } else
+#endif
         {
           if (upload.buf[0] != 0xE9) {
             Web.upload_error = 3;  // Magic byte is not 0xE9
@@ -2170,6 +2190,11 @@ void HandleUploadLoop(void)
       }
     }
 #endif  // USE_RF_FLASH
+#ifdef USE_ARDUINO_SLAVE
+    else if (UPL_ARDUINOSLAVE == Web.upload_file_type) {
+      ArduinoSlave_WriteBuffer(upload.buf, upload.currentSize);
+    }
+#endif
     else {  // firmware
       if (!Web.upload_error && (Update.write(upload.buf, upload.currentSize) != upload.currentSize)) {
         Web.upload_error = 5;  // Upload buffer miscompare
@@ -2221,6 +2246,13 @@ void HandleUploadLoop(void)
       Web.upload_file_type = UPL_TASMOTA;
     }
 #endif  // USE_RF_FLASH
+#ifdef USE_ARDUINO_SLAVE
+    else if (UPL_ARDUINOSLAVE == Web.upload_file_type) {
+      // Done writing the hex to SPI flash
+      ArduinoSlave_SetFlagFlashing(true); // So we know on upload success page if it needs to flash hex or do a normal restart
+      Web.upload_file_type = UPL_TASMOTA;
+    }
+#endif
     else {
       if (!Update.end(true)) { // true to set the size to the current progress
         if (_serialoutput) { Update.printError(Serial); }
@@ -2454,151 +2486,6 @@ String UrlEncode(const String& text)
 	return encoded;
 }
 
-#ifdef USE_SENDMAIL
-
-#include "sendemail.h"
-
-//SendEmail(const String& host, const int port, const String& user, const String& passwd, const int timeout, const bool ssl);
-//SendEmail::send(const String& from, const String& to, const String& subject, const String& msg)
-// sendmail [server:port:user:passwd:from:to:subject] data
-// sendmail [*:*:*:*:*:to:subject] data uses defines from user_config
-// sendmail currently only works with core 2.4.2
-
-#define SEND_MAIL_MINRAM 19*1024
-
-uint16_t SendMail(char *buffer) {
-  uint16_t count;
-  char *params,*oparams;
-  char *mserv;
-  uint16_t port;
-  char *user;
-  char *pstr;
-  char *passwd;
-  char *from;
-  char *to;
-  char *subject;
-  char *cmd;
-  char secure=0,auth=0;
-  uint16_t status=1;
-  SendEmail *mail=0;
-
-  //DebugFreeMem();
-
-// return if not enough memory
-  uint16_t mem=ESP.getFreeHeap();
-  if (mem<SEND_MAIL_MINRAM) {
-    return 4;
-  }
-
-  while (*buffer==' ') buffer++;
-
-  // copy params
-  oparams=(char*)calloc(strlen(buffer)+2,1);
-  if (!oparams) return 4;
-
-  params=oparams;
-
-  strcpy(params,buffer);
-
-  if (*params=='p') {
-      auth=1;
-      params++;
-  }
-
-  if (*params!='[') {
-      goto exit;
-  }
-  params++;
-
-  mserv=strtok(params,":");
-  if (!mserv) {
-      goto exit;
-  }
-
-  // port
-  pstr=strtok(NULL,":");
-  if (!pstr) {
-      goto exit;
-  }
-
-#ifdef EMAIL_PORT
-  if (*pstr=='*') {
-    port=EMAIL_PORT;
-  } else {
-    port=atoi(pstr);
-  }
-#else
-  port=atoi(pstr);
-#endif
-
-  user=strtok(NULL,":");
-  if (!user) {
-      goto exit;
-  }
-
-  passwd=strtok(NULL,":");
-  if (!passwd) {
-      goto exit;
-  }
-
-  from=strtok(NULL,":");
-  if (!from) {
-      goto exit;
-  }
-
-  to=strtok(NULL,":");
-  if (!to) {
-      goto exit;
-  }
-
-  subject=strtok(NULL,"]");
-  if (!subject) {
-      goto exit;
-  }
-
-  cmd=subject+strlen(subject)+1;
-
-#ifdef EMAIL_USER
-  if (*user=='*') {
-    user=(char*)EMAIL_USER;
-  }
-#endif
-#ifdef EMAIL_PASSWORD
-  if (*passwd=='*') {
-    passwd=(char*)EMAIL_PASSWORD;
-  }
-#endif
-#ifdef EMAIL_SERVER
-  if (*mserv=='*') {
-    mserv=(char*)EMAIL_SERVER;
-  }
-#endif //USE_SENDMAIL
-
-  // auth = 0 => AUTH LOGIN 1 => PLAIN LOGIN
-  // 2 seconds timeout
-  #define MAIL_TIMEOUT 2000
-  mail = new SendEmail(mserv, port,user,passwd, MAIL_TIMEOUT, auth);
-
-#ifdef EMAIL_FROM
-  if (*from=='*') {
-    from=(char*)EMAIL_FROM;
-  }
-#endif
-
-exit:
-  if (mail) {
-    bool result=mail->send(from,to,subject,cmd);
-    delete mail;
-    if (result==true) status=0;
-  }
-
-
-  if (oparams) free(oparams);
-  return status;
-}
-
-#endif
-
 int WebSend(char *buffer)
 {
   // [sonoff] POWER1 ON                                               --> Sends http://sonoff/cm?cmnd=POWER1 ON
@@ -2792,7 +2679,7 @@ void CmndWebPassword(void)
 
 void CmndWeblog(void)
 {
-  if ((XdrvMailbox.payload >= LOG_LEVEL_NONE) && (XdrvMailbox.payload <= LOG_LEVEL_ALL)) {
+  if ((XdrvMailbox.payload >= LOG_LEVEL_NONE) && (XdrvMailbox.payload <= LOG_LEVEL_DEBUG_MORE)) {
     Settings.weblog_level = XdrvMailbox.payload;
   }
   ResponseCmndNumber(Settings.weblog_level);

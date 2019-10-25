@@ -23,6 +23,10 @@
  * Button support
 \*********************************************************************************************/
 
+#define MAX_BUTTON_COMMANDS  5  // Max number of button commands supported
+const char kCommands[] PROGMEM =
+  D_CMND_WIFICONFIG " 2|" D_CMND_WIFICONFIG " 2|" D_CMND_WIFICONFIG " 2|" D_CMND_RESTART " 1|" D_CMND_UPGRADE " 1";
+
 struct BUTTON {
   unsigned long debounce = 0;                // Button debounce timer
   uint16_t hold_timer[MAX_KEYS] = { 0 };     // Timer for button hold
@@ -224,7 +228,7 @@ void ButtonHandler(void)
           } else {
             if (!restart_flag && !Button.hold_timer[button_index] && (Button.press_counter[button_index] > 0) && (Button.press_counter[button_index] < MAX_BUTTON_COMMANDS +3)) {
               bool single_press = false;
-              if (Button.press_counter[button_index] < 3) {              // Single or Double press
+              if (Button.press_counter[button_index] < 3) {    // Single or Double press
                 if ((SONOFF_DUAL_R2 == my_module_type) || (SONOFF_DUAL == my_module_type) || (CH4 == my_module_type)) {
                   single_press = true;
                 } else {
@@ -244,15 +248,15 @@ void ButtonHandler(void)
                 if (single_press && SendKey(KEY_BUTTON, button_index + Button.press_counter[button_index], POWER_TOGGLE)) {  // Execute Toggle command via MQTT if ButtonTopic is set
                   // Success
                 } else {
-                  if (Button.press_counter[button_index] < 3) {          // Single or Double press
-                    if (WifiState() > WIFI_RESTART) {          // WPSconfig, Smartconfig or Wifimanager active
+                  if (Button.press_counter[button_index] < 3) {  // Single or Double press
+                    if (WifiState() > WIFI_RESTART) {          // Wifimanager active
                       restart_flag = 1;
                     } else {
                       ExecuteCommandPower(button_index + Button.press_counter[button_index], POWER_TOGGLE, SRC_BUTTON);  // Execute Toggle command internally
                     }
                   } else {                                     // 3 - 7 press
                     if (!Settings.flag.button_restrict) {      // SetOption1 (0)
-                      snprintf_P(scmnd, sizeof(scmnd), kCommands[Button.press_counter[button_index] -3]);
+                      GetTextIndexed(scmnd, sizeof(scmnd), Button.press_counter[button_index] -3, kCommands);
                       ExecuteCommand(scmnd, SRC_BUTTON);
                     }
                   }

@@ -206,6 +206,12 @@ enum UserSelectablePins {
   GPIO_DDSU666_RX,     // DDSU666 Serial interface
   GPIO_SM2135_CLK,     // SM2135 Clk
   GPIO_SM2135_DAT,     // SM2135 Dat
+  GPIO_DEEPSLEEP,      // Kill switch for deepsleep
+  GPIO_EXS_ENABLE,     // EXS MCU Enable
+  GPIO_ARDUINO_TXD,    // Arduino Slave TX
+  GPIO_ARDUINO_RXD,    // Arduino Slave RX
+  GPIO_ARDUINO_RST,    // Arduino Reset Pin
+  GPIO_ARDUINO_RST_INV,  // Arduino Reset Pin inverted
   GPIO_SENSOR_END };
 
 // Programmer selectable GPIO functionality
@@ -283,7 +289,13 @@ const char kSensorNames[] PROGMEM =
   D_SENSOR_DDS2382_TX "|" D_SENSOR_DDS2382_RX "|"
   D_SENSOR_DDSU666_TX "|" D_SENSOR_DDSU666_RX "|"
   D_SENSOR_SM2135_CLK "|" D_SENSOR_SM2135_DAT "|"
+  D_SENSOR_DEEPSLEEP "|" D_SENSOR_EXS_ENABLE "|"
+  D_SENSOR_ARDUINO_TX "|" D_SENSOR_ARDUINO_RX "|" D_SENSOR_ARDUINO_RESET "|" D_SENSOR_ARDUINO_RESET "i|"
   ;
+
+const char kSensorNamesFixed[] PROGMEM =
+  D_SENSOR_SPI_MISO "|" D_SENSOR_SPI_MOSI "|" D_SENSOR_SPI_CLK "|"
+  D_SENSOR_USER;
 
 // User selectable ADC0 functionality
 enum UserSelectableAdc0 {
@@ -386,6 +398,7 @@ enum SupportedModules {
   SYF05,
   SONOFF_L1,
   SONOFF_IFAN03,
+  EXS_DIMMER,
   MAXMODULE};
 
 #define USER_MODULE        255
@@ -537,7 +550,7 @@ const uint8_t kGpioNiceList[] PROGMEM = {
   GPIO_DHT22,          // DHT21, DHT22, AM2301, AM2302, AM2321
   GPIO_SI7021,         // iTead SI7021
 #endif
-#if defined(USE_DS18B20) || defined(USE_DS18x20)
+#ifdef USE_DS18x20
   GPIO_DSB,            // Single wire DS18B20 or DS18S20
 #endif
 
@@ -566,6 +579,9 @@ const uint8_t kGpioNiceList[] PROGMEM = {
 #ifdef USE_TUYA_MCU
   GPIO_TUYA_TX,        // Tuya Serial interface
   GPIO_TUYA_RX,        // Tuya Serial interface
+#endif
+#ifdef USE_EXS_DIMMER
+  GPIO_EXS_ENABLE,     // EXS MCU Enable
 #endif
 #endif  // USE_LIGHT
 
@@ -628,11 +644,11 @@ const uint8_t kGpioNiceList[] PROGMEM = {
 #ifdef USE_PZEM_DC
   GPIO_PZEM017_RX,     // PZEM-003,017 Serial Modbus interface
 #endif
-#ifdef USE_SDM120_2
+#ifdef USE_SDM120
   GPIO_SDM120_TX,      // SDM120 Serial interface
   GPIO_SDM120_RX,      // SDM120 Serial interface
 #endif
-#ifdef USE_SDM630_2
+#ifdef USE_SDM630
   GPIO_SDM630_TX,      // SDM630 Serial interface
   GPIO_SDM630_RX,      // SDM630 Serial interface
 #endif
@@ -640,27 +656,15 @@ const uint8_t kGpioNiceList[] PROGMEM = {
   GPIO_DDS2382_TX,     // DDS2382 Serial interface
   GPIO_DDS2382_RX,     // DDS2382 Serial interface
 #endif
-#endif  // USE_ENERGY_SENSOR
-#ifndef USE_SDM120_2
-#ifdef USE_SDM120
-  GPIO_SDM120_TX,      // SDM120 Serial interface
-  GPIO_SDM120_RX,      // SDM120 Serial interface
-#endif
-#endif  // USE_SDM120_2
-#ifndef USE_SDM630_2
-#ifdef USE_SDM630
-  GPIO_SDM630_TX,      // SDM630 Serial interface
-  GPIO_SDM630_RX,      // SDM630 Serial interface
-#endif
-#endif  // USE_SDM630_2
-#ifdef USE_SOLAX_X1
-  GPIO_SOLAXX1_TX,     // Solax Inverter tx pin
-  GPIO_SOLAXX1_RX,     // Solax Inverter rx pin
-#endif
 #ifdef USE_DDSU666
   GPIO_DDSU666_TX,     // DDSU666 Serial interface
   GPIO_DDSU666_RX,     // DDSU666 Serial interface
 #endif  // USE_DDSU666
+#ifdef USE_SOLAX_X1
+  GPIO_SOLAXX1_TX,     // Solax Inverter tx pin
+  GPIO_SOLAXX1_RX,     // Solax Inverter rx pin
+#endif // USE_SOLAX_X1
+#endif  // USE_ENERGY_SENSOR
 
 #ifdef USE_SERIAL_BRIDGE
   GPIO_SBR_TX,         // Serial Bridge Serial interface
@@ -699,6 +703,12 @@ const uint8_t kGpioNiceList[] PROGMEM = {
   GPIO_PN532_TXD,      // PN532 HSU Tx
   GPIO_PN532_RXD,      // PN532 HSU Rx
 #endif
+#ifdef USE_ARDUINO_SLAVE
+  GPIO_ARDUINO_TXD,    // Arduino Slave TX
+  GPIO_ARDUINO_RXD,    // Arduino Slave RX
+  GPIO_ARDUINO_RST,    // Arduino Reset Pin
+  GPIO_ARDUINO_RST_INV,  // Arduino Reset Pin inverted
+#endif
 #ifdef USE_RDM6300
   GPIO_RDM6300_RX,
 #endif
@@ -725,7 +735,7 @@ const uint8_t kGpioNiceList[] PROGMEM = {
   GPIO_HRE_CLOCK,
   GPIO_HRE_DATA,
 #endif
-#ifdef USE_A4988_Stepper
+#ifdef USE_A4988_STEPPER
   GPIO_A4988_DIR,     // A4988 direction pin
   GPIO_A4988_STP,     // A4988 step pin
   // folowing are not mandatory
@@ -733,6 +743,9 @@ const uint8_t kGpioNiceList[] PROGMEM = {
   GPIO_A4988_MS1,     // A4988 microstep pin1
   GPIO_A4988_MS2,     // A4988 microstep pin2
   GPIO_A4988_MS3,     // A4988 microstep pin3
+#endif
+#ifdef USE_DEEPSLEEP
+  GPIO_DEEPSLEEP
 #endif
 };
 
@@ -754,17 +767,21 @@ const uint8_t kModuleNiceList[] PROGMEM = {
   SONOFF_T13,
   SONOFF_LED,          // Sonoff Light Devices
   SONOFF_BN,
-#ifdef USE_PS_16_DZ
+#ifdef USE_SONOFF_L1
   SONOFF_L1,
 #endif
   SONOFF_B1,           // Sonoff Light Bulbs
   SLAMPHER,
+#ifdef USE_SONOFF_SC
   SONOFF_SC,           // Sonoff Environmemtal Sensor
+#endif
 #ifdef USE_SONOFF_IFAN
   SONOFF_IFAN02,       // Sonoff Fan
   SONOFF_IFAN03,
 #endif
+#ifdef USE_SONOFF_RF
   SONOFF_BRIDGE,       // Sonoff Bridge
+#endif
   SONOFF_SV,           // Sonoff Development Devices
   SONOFF_DEV,
   CH1,                 // Relay Devices
@@ -802,6 +819,9 @@ const uint8_t kModuleNiceList[] PROGMEM = {
 #endif
 #ifdef USE_PS_16_DZ
   PS_16_DZ,
+#endif
+#ifdef USE_EXS_DIMMER
+  EXS_DIMMER,
 #endif
   H801,                // Light Devices
   MAGICHOME,
@@ -1350,7 +1370,11 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
                        // http://www.wykop.pl/ramka/3325399/diy-supla-do-puszki-instalacyjnej-podtynkowej-supla-org/
      0,                // GPIO00 Flash jumper
      GPIO_USER,        // GPIO01 Serial RXD and Optional sensor
+#ifdef USE_DS18x20
      GPIO_DSB,         // GPIO02 DS18B20 sensor
+#else
+     GPIO_USER,        // GPIO02 Optional sensor
+#endif
      GPIO_USER,        // GPIO03 Serial TXD and Optional sensor
      GPIO_KEY1,        // GPIO04 Button 1
      GPIO_REL1,        // GPIO05 Relay 1 (0 = Off, 1 = On)
@@ -2116,6 +2140,27 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      GPIO_LED1_INV,    // GPIO13 WIFI_CHK Blue Led on PCA (0 = On, 1 = Off) - Link and Power status
      GPIO_REL2,        // GPIO14 WIFI_O1 Relay 2 (0 = Off, 1 = On) controlling the fan
      GPIO_REL4,        // GPIO15 WIFI_O3 Relay 4 (0 = Off, 1 = On) controlling the fan
+     0, 0
+  },
+  { "EXS Dimmer",      // EXS_DIMMER - EX-Store WiFi Dimmer v4, two channel (ESP8266 w/ separate MCU dimmer)
+                       // https://ex-store.de/2-Kanal-RS232-WiFi-WLan-Dimmer-Modul-V4-fuer-Unterputzmontage-230V-3A
+                       // https://ex-store.de/2-Kanal-RS232-WiFi-WLan-Dimmer-Modul-V4-fuer-Unterputzmontage-230V-3A-ESP8266-V12-Stift-und-Buchsenleisten
+     0,
+     GPIO_TXD,         // GPIO01 MCU serial control
+     GPIO_LEDLNK,      // GPIO02 LED Link
+     GPIO_RXD,         // GPIO03 MCU serial control
+     GPIO_USER,        // GPIO04
+     GPIO_USER,        // GPIO05
+                       // GPIO06 (SD_CLK   Flash)
+                       // GPIO07 (SD_DATA0 Flash QIO/DIO/DOUT)
+                       // GPIO08 (SD_DATA1 Flash QIO/DIO/DOUT)
+     0,                // GPIO09 (SD_DATA2 Flash QIO or ESP8285)
+     0,                // GPIO10 (SD_DATA3 Flash QIO or ESP8285)
+                       // GPIO11 (SD_CMD   Flash)
+     GPIO_USER,        // GPIO12
+     GPIO_EXS_ENABLE,  // GPIO13 EXS MCU Enable
+     GPIO_USER,        // GPIO14
+     0,                // GPIO15
      0, 0
   }
 };

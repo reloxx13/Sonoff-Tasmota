@@ -541,6 +541,9 @@
 #define D_SENSOR_SAIR_TX       "SAir Tx"
 #define D_SENSOR_SPI_CS        "SPI CS"
 #define D_SENSOR_SPI_DC        "SPI DC"
+#define D_SENSOR_SPI_MISO      "SPI MISO"
+#define D_SENSOR_SPI_MOSI      "SPI MOSI"
+#define D_SENSOR_SPI_CLK       "SPI CLK"
 #define D_SENSOR_BACKLIGHT     "Подсветка"
 #define D_SENSOR_PMS5003       "PMS5003"
 #define D_SENSOR_SDS0X1_RX     "SDS0X1 Rx"
@@ -622,6 +625,11 @@
 #define D_SENSOR_DDSU666_RX    "DDSU666 Rx"
 #define D_SENSOR_SM2135_CLK    "SM2135 Clk"
 #define D_SENSOR_SM2135_DAT    "SM2135 Dat"
+#define D_SENSOR_DEEPSLEEP     "DeepSleep"
+#define D_SENSOR_EXS_ENABLE    "EXS Enable"
+#define D_SENSOR_ARDUINO_TX    "Arduino TX"
+#define D_SENSOR_ARDUINO_RX    "Arduino RX"
+#define D_SENSOR_ARDUINO_RESET "Arduino RST"
 
 // Units
 #define D_UNIT_AMPERE "A"

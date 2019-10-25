@@ -177,6 +177,10 @@ uint8_t fast_script=0;
 uint32_t script_lastmillis;
 
 
+#ifdef USE_BUTTON_EVENT
+int8_t script_button[MAX_KEYS];
+#endif
+
 char *GetNumericResult(char *lp,uint8_t lastop,float *fp,JsonObject *jo);
 char *GetStringResult(char *lp,uint8_t lastop,char *cp,JsonObject *jo);
 char *ForceStringVar(char *lp,char *dstr);
@@ -593,7 +597,9 @@ void ws2812_set_array(float *array ,uint8_t len) {
 #define NTYPE 0
 #define STYPE 0x80
 
+#ifndef FLT_MAX
 #define FLT_MAX 99999999
+#endif
 
 float median_array(float *array,uint8_t len) {
     uint8_t ind[len];
@@ -1060,6 +1066,18 @@ chknext:
           }
           goto exit;
         }
+#ifdef USE_BUTTON_EVENT
+        if (!strncmp(vname,"bt[",3)) {
+          // tasmota button state
+          GetNumericResult(vname+3,OPER_EQU,&fvar,0);
+          uint32_t index=fvar;
+          if (index<1 || index>MAX_KEYS) index=1;
+          fvar=script_button[index-1];
+          script_button[index-1]|=0x80;
+          len++;
+          goto exit;
+        }
+#endif
         break;
       case 'c':
         if (!strncmp(vname,"chg[",4)) {
@@ -2082,6 +2100,7 @@ void Replace_Cmd_Vars(char *srcbuf,char *dstbuf,uint16_t dstsize) {
     cp=srcbuf;
     struct T_INDEX ind;
     char string[SCRIPT_MAXSSIZE];
+    dstsize-=2;
     for (count=0;count<dstsize;count++) {
         if (*cp=='%') {
             cp++;
@@ -2103,8 +2122,11 @@ void Replace_Cmd_Vars(char *srcbuf,char *dstbuf,uint16_t dstsize) {
                 } else {
                     // string result
                 }
-                strcpy(&dstbuf[count],string);
-                count+=strlen(string)-1;
+                uint8_t slen=strlen(string);
+                if (count+slen<dstsize-1) {
+                  strcpy(&dstbuf[count],string);
+                  count+=slen-1;
+                }
                 cp++;
               } else {
                 strcpy(&dstbuf[count],"???");
@@ -2120,13 +2142,27 @@ void Replace_Cmd_Vars(char *srcbuf,char *dstbuf,uint16_t dstsize) {
               }
             }
         } else {
-            dstbuf[count]=*cp;
+            if (*cp=='\\') {
+              cp++;
+              if (*cp=='n') {
+                dstbuf[count]='\n';
+              } else if (*cp=='r') {
+                dstbuf[count]='\r';
+              } else if (*cp=='\\') {
+                dstbuf[count]='\\';
+              } else {
+                dstbuf[count]=*cp;
+              }
+            } else {
+              dstbuf[count]=*cp;
+            }
             if (*cp==0) {
                 break;
             }
             cp++;
         }
     }
+    dstbuf[count]=0;
 }
 
 void toLog(const char *str) {
@@ -2175,33 +2211,49 @@ char *Evaluate_expression(char *lp,uint8_t and_or, uint8_t *result,JsonObject  *
   struct T_INDEX ind;
   uint8_t vtype=0,lastop;
   uint8_t res=0;
+  char *llp=lp;
+  char *slp;
 
   SCRIPT_SKIP_SPACES
-
   if (*lp=='(') {
+    uint8_t res=0;
+    uint8_t xand_or=0;
     lp++;
-    lp=Evaluate_expression(lp,and_or,result,jo);
-    lp++;
+
+loop:
+    SCRIPT_SKIP_SPACES
+    lp=Evaluate_expression(lp,xand_or,&res,jo);
+    if (*lp==')') {
+      lp++;
+      goto exit0;
+    }
     // check for next and or
     SCRIPT_SKIP_SPACES
     if (!strncmp(lp,"or",2)) {
       lp+=2;
-      and_or=1;
-      SCRIPT_SKIP_SPACES
-      lp=Evaluate_expression(lp,and_or,result,jo);
+      xand_or=1;
+      goto loop;
     } else if (!strncmp(lp,"and",3)) {
       lp+=3;
-      and_or=2;
-      SCRIPT_SKIP_SPACES
-      lp=Evaluate_expression(lp,and_or,result,jo);
+      xand_or=2;
+      goto loop;
     }
-    return lp;
+exit0:
+    if (!and_or) {
+      *result=res;
+    } else if (and_or==1) {
+      *result|=res;
+    } else {
+      *result&=res;
+    }
+    goto exit10;
   }
 
+  llp=lp;
   // compare
   dfvar=&fvar;
   glob_script_mem.glob_error=0;
-  char *slp=lp;
+  slp=lp;
   numeric=1;
   lp=GetNumericResult(lp,OPER_EQU,dfvar,0);
   if (glob_script_mem.glob_error==1) {
@@ -2216,23 +2268,15 @@ char *Evaluate_expression(char *lp,uint8_t and_or, uint8_t *result,JsonObject  *
     char str[SCRIPT_MAXSSIZE];
     lp=GetStringResult(lp,OPER_EQU,str,jo);
     if (lastop==OPER_EQUEQU || lastop==OPER_NOTEQU) {
-      uint8_t res=0;
       res=strcmp(cmpstr,str);
       if (lastop==OPER_EQUEQU) res=!res;
-      if (!and_or) {
-          *result=res;
-      } else if (and_or==1) {
-          *result|=res;
-      } else {
-          *result&=res;
-      }
+      goto exit;
     }
 
   } else {
     // numeric
     // evaluate operand
     lp=getop(lp,&lastop);
-
     lp=GetNumericResult(lp,OPER_EQU,&fvar1,jo);
     switch (lastop) {
       case OPER_EQUEQU:
@@ -2258,6 +2302,7 @@ char *Evaluate_expression(char *lp,uint8_t and_or, uint8_t *result,JsonObject  *
           break;
     }
 
+exit:
     if (!and_or) {
       *result=res;
     } else if (and_or==1) {
@@ -2266,11 +2311,13 @@ char *Evaluate_expression(char *lp,uint8_t and_or, uint8_t *result,JsonObject  *
       *result&=res;
     }
   }
-exit:
+
+
+exit10:
 #if SCRIPT_DEBUG>0
   char tbuff[128];
-  sprintf(tbuff,"p1=%d,p2=%d,cmpres=%d line: ",(int32_t)*dfvar,(int32_t)fvar1,*result);
-  toLogEOL(tbuff,lp);
+  sprintf(tbuff,"p1=%d,p2=%d,cmpres=%d,and_or=%d line: ",(int32_t)*dfvar,(int32_t)fvar1,*result,and_or);
+  toLogEOL(tbuff,llp);
 #endif
   return lp;
 }
@@ -2571,7 +2618,7 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
 #endif
 #endif
 
-            else if (!strncmp(lp,"=>",2) || !strncmp(lp,"->",2) || !strncmp(lp,"print",5)) {
+            else if (!strncmp(lp,"=>",2) || !strncmp(lp,"->",2) || !strncmp(lp,"+>",2) || !strncmp(lp,"print",5)) {
                 // execute cmd
                 uint8_t sflag=0,pflg=0,svmqtt,swll;
                 if (*lp=='p') {
@@ -2580,6 +2627,7 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
                 }
                 else {
                   if (*lp=='-') sflag=1;
+                  if (*lp=='+') sflag=2;
                   lp+=2;
                 }
                 char *slp=lp;
@@ -2589,7 +2637,7 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
                 if (cmdmem) {
                   char *cmd=cmdmem;
                   uint16_t count;
-                  for (count=0; count<SCRIPT_CMDMEM/2-1; count++) {
+                  for (count=0; count<SCRIPT_CMDMEM/2-2; count++) {
                     //if (*lp=='\r' || *lp=='\n' || *lp=='}') {
                     if (!*lp || *lp=='\r' || *lp=='\n') {
                         cmd[count]=0;
@@ -2609,18 +2657,21 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
                     else toLog(&tmp[5]);
                   } else {
                     if (!sflag) {
+                      tasm_cmd_activ=1;
                       snprintf_P(log_data, sizeof(log_data), PSTR("Script: performs \"%s\""), tmp);
                       AddLog(glob_script_mem.script_loglevel&0x7f);
+                    } else if (sflag==2) {
+                      // allow recursive call
                     } else {
+                      tasm_cmd_activ=1;
                       svmqtt=Settings.flag.mqtt_enabled;
                       swll=Settings.weblog_level;
                       Settings.flag.mqtt_enabled=0;
                       Settings.weblog_level=0;
                     }
-                    tasm_cmd_activ=1;
                     ExecuteCommand((char*)tmp, SRC_RULE);
                     tasm_cmd_activ=0;
-                    if (sflag) {
+                    if (sflag==1) {
                       Settings.flag.mqtt_enabled=svmqtt;
                       Settings.weblog_level=swll;
                     }
@@ -2964,22 +3015,80 @@ const char HTTP_FORM_SCRIPT1[] PROGMEM =
     "<input style='width:3%%;' id='c%d' name='c%d' type='checkbox'%s><b>script enable</b><br/>"
     "<br><textarea  id='t1' name='t1' rows='8' cols='80' maxlength='%d' style='font-size: 12pt' >";
 
-
 const char HTTP_FORM_SCRIPT1b[] PROGMEM =
     "</textarea>"
     "<script type='text/javascript'>"
     "eb('charNum').innerHTML='-';"
-    "var textarea=qs('textarea');"
-    "textarea.addEventListener('input',function(){"
+    "var ta=eb('t1');"
+    "ta.addEventListener('keydown',function(e){"
+    "e = e || window.event;"
     "var ml=this.getAttribute('maxlength');"
     "var cl=this.value.length;"
     "if(cl>=ml){"
-    "eb('charNum').innerHTML='no more chars';"
+      "eb('charNum').innerHTML='no more chars';"
     "}else{"
-    "eb('charNum').innerHTML=ml-cl+' chars left';"
+      "eb('charNum').innerHTML=ml-cl+' chars left';"
     "}"
 
+#if 0
+    // catch shift ctrl v
+    "if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.which === 86) {"
+    // clipboard fails here
+      "var paste = window.clipboardData.getData('Text');"
+      //"var paste = e.view.clipboardData.getData('Text');"
+
+      "var out=\"\";"
+      "var re=/\\r\\n|\\n\\r|\\n|\\r/g;"
+      "var allLines=paste.replace(re,\"\\n\").split(\"\\n\");"
+      "allLines.forEach((line) => {"
+        "if(line.length>0) {"
+          "if(line.charAt(0)!=';'){"
+            "out+=line+'\\n';"
+          "}"
+        "}"
+      "});"
+      "alert(out);"
+    "}"
+#endif
+
+    "return true;"
     "});"
+
+
+// this works only once on a reloaded page
+#ifdef SCRIPT_STRIP_COMMENTS
+    "ta.addEventListener('paste',function(e){"
+      "let paste = (e.clipboardData || window.clipboardData).getData('text');"
+      "var ml=this.getAttribute('maxlength');"
+      "if(paste.length>=ml){"
+        "var out=\"\";"
+        "var re=/\\r\\n|\\n\\r|\\n|\\r/g;"
+        "var allLines=paste.replace(re,\"\\n\").split(\"\\n\");"
+        "allLines.forEach((line) => {"
+          "if(line.length>0) {"
+            "if(line.charAt(0)!=';'){"
+              "out+=line+'\\n';"
+            "}"
+          "}"
+        "});"
+        "event.preventDefault();"
+        "eb('t1').textContent=out;"
+      "}"
+
+    //  "alert(out);"
+    // this pastes the text on the wrong position ????
+    //"const selection = Window.getSelection();"
+    //"if (!selection.rangeCount) return false;"
+    //"selection.deleteFromDocument();"
+    //"selection.getRangeAt(0).insertNode(document.createTextNode(paste));"
+
+    //"return true;"
+
+    "});"
+
+
+#endif
+
     "</script>";
 
 const char HTTP_SCRIPT_FORM_END[] PROGMEM =
@@ -3285,7 +3394,15 @@ void HandleScriptConfiguration(void) {
     WSContentStart_P(S_CONFIGURE_SCRIPT);
     WSContentSendStyle();
     WSContentSend_P(HTTP_FORM_SCRIPT);
+
+
+#ifdef xSCRIPT_STRIP_COMMENTS
+    uint16_t ssize=glob_script_mem.script_size;
+    if (bitRead(Settings.rule_enabled, 1)) ssize*=2;
+    WSContentSend_P(HTTP_FORM_SCRIPT1,1,1,bitRead(Settings.rule_enabled,0) ? " checked" : "",ssize);
+#else
     WSContentSend_P(HTTP_FORM_SCRIPT1,1,1,bitRead(Settings.rule_enabled,0) ? " checked" : "",glob_script_mem.script_size);
+#endif
 
     // script is to larg for WSContentSend_P
     if (glob_script_mem.script_ram[0]) {
@@ -3322,6 +3439,38 @@ void ScriptSaveSettings(void) {
 
     str.replace("\r\n","\n");
     str.replace("\r","\n");
+
+#ifdef xSCRIPT_STRIP_COMMENTS
+    if (bitRead(Settings.rule_enabled, 1)) {
+      char *sp=(char*)str.c_str();
+      char *sp1=sp;
+      char *dp=sp;
+      uint8_t flg=0;
+      while (*sp) {
+        while (*sp==' ') sp++;
+        sp1=sp;
+        sp=strchr(sp,'\n');
+        if (!sp) {
+          flg=1;
+        } else {
+          *sp=0;
+        }
+        if (*sp1!=';') {
+          uint8_t slen=strlen(sp1);
+          if (slen) {
+            strcpy(dp,sp1);
+            dp+=slen;
+            *dp++='\n';
+          }
+        }
+        if (flg) {
+          *dp=0;
+          break;
+        }
+        sp++;
+      }
+    }
+#endif
 
     strlcpy(glob_script_mem.script_ram,str.c_str(), glob_script_mem.script_size);
 
@@ -3388,7 +3537,7 @@ const char SCRIPT_HUE_LIGHTS_STATUS_JSON1[] PROGMEM =
   "\"reachable\":true}"
   ",\"type\":\"{type}\","
   "\"name\":\"{j1\","
-  "\"modelid\":\"LCT007\","
+  "\"modelid\":\"{m1}\","
   "\"uniqueid\":\"{j2\","
   "\"swversion\":\"5.50.1.19085\"}";
 
@@ -3444,16 +3593,61 @@ const char SCRIPT_HUE_LIGHTS_STATUS_JSON2[] PROGMEM =
 "}";
 
 /*
+
+
+Color Ligh
+Dimmable Light
+Color Temperature Light
+Extended Color Light
+On/Off light
+
+ZGPSwitch
+ZLLSwitch
+CLIPSwitch
+CLIPOpenClose
+CLIPPresence
+CLIPTemperature
+CLIPHumidity
+Daylight
+CLIPLightlevel
+
+
   temperature ZLLTemperature
   lightlevel ZLLLightLevel
   presence ZLLPresence
   */
 
 
+/*
+
+case 'T':
+response->replace("{type}","ZLLTemperature");
+temp=glob_script_mem.fvars[hue_script[hue_devs].index[2]-1];
+light_status += "\"temperature\":";
+light_status += String(temp*100);
+light_status += ",";
+break;
+case 'L':
+response->replace("{type}","ZLLLightLevel");
+temp=glob_script_mem.fvars[hue_script[hue_devs].index[2]-1];
+light_status += "\"lightlevel\":";
+light_status += String(temp);
+light_status += ",";
+break;
+case 'P':
+response->replace("{type}","ZLLPresence");
+temp=glob_script_mem.fvars[hue_script[hue_devs].index[0]-1];
+light_status += "\"presence\":";
+if (temp==0)light_status += "false";
+else light_status += "true";
+light_status += ",";
+break;
+*/
+
 
 void Script_HueStatus(String *response, uint16_t hue_devs) {
 
-  if (hue_script[hue_devs].type=='P') {
+  if (hue_script[hue_devs].type=='p') {
     *response+=FPSTR(SCRIPT_HUE_LIGHTS_STATUS_JSON2);
     response->replace("{j1",hue_script[hue_devs].name);
     response->replace("{j2", GetHueDeviceId(hue_devs));
@@ -3502,36 +3696,29 @@ void Script_HueStatus(String *response, uint16_t hue_devs) {
 
   float temp;
   switch (hue_script[hue_devs].type) {
-    case 'E':
-      response->replace("{type}","Extended color light");
+    case 'C':
+      response->replace("{type}","Color Ligh"); // alexa ok
+      response->replace("{m1","LST001");
       break;
-    case 'S':
-      response->replace("{type}","color light");
+    case 'D':
+      response->replace("{type}","Dimmable Light"); // alexa NO
+      response->replace("{m1","LWB004");
       break;
     case 'T':
-      response->replace("{type}","ZLLTemperature");
-      temp=glob_script_mem.fvars[hue_script[hue_devs].index[2]-1];
-      light_status += "\"temperature\":";
-      light_status += String(temp*100);
-      light_status += ",";
+      response->replace("{type}","Color Temperature Light"); // alexa NO
+      response->replace("{m1","LTW011");
       break;
-    case 'L':
-      response->replace("{type}","ZLLLightLevel");
-      temp=glob_script_mem.fvars[hue_script[hue_devs].index[2]-1];
-      light_status += "\"lightlevel\":";
-      light_status += String(temp);
-      light_status += ",";
+    case 'E':
+      response->replace("{type}","Extended color light"); // alexa ok
+      response->replace("{m1","LCT007");
       break;
-    case 'P':
-      response->replace("{type}","ZLLPresence");
-      temp=glob_script_mem.fvars[hue_script[hue_devs].index[0]-1];
-      light_status += "\"presence\":";
-      if (temp==0)light_status += "false";
-      else light_status += "true";
-      light_status += ",";
+    case 'S':
+      response->replace("{type}","On/Off light"); // alexa ok
+      response->replace("{m1","LCT007");
       break;
     default:
       response->replace("{type}","color light");
+      response->replace("{m1","LST001");
       break;
   }
 
@@ -3664,7 +3851,7 @@ void Script_Check_Hue(String *response) {
       lp++;
     }
   }
-#if 1
+#if 0
   if (response) {
     AddLog_P2(LOG_LEVEL_DEBUG, PSTR("Hue: %d"), hue_devs);
     toLog(">>>>");
@@ -3879,11 +4066,20 @@ bool ScriptCommand(void) {
   }
   else if ((CMND_SCRIPT == command_code) && (index > 0)) {
 
-    if ((XdrvMailbox.payload >= 0) && (XdrvMailbox.payload < 2)) {
+    if ((XdrvMailbox.payload >= 0) && (XdrvMailbox.payload < 4)) {
       switch (XdrvMailbox.payload) {
         case 0: // Off
         case 1: // On
-        bitWrite(Settings.rule_enabled, index -1, XdrvMailbox.payload);
+          bitWrite(Settings.rule_enabled, index -1, XdrvMailbox.payload);
+          break;
+#ifdef xSCRIPT_STRIP_COMMENTS
+        case 2:
+          bitWrite(Settings.rule_enabled, 1,0);
+          break;
+        case 3:
+          bitWrite(Settings.rule_enabled, 1,1);
+          break;
+#endif
       }
     } else {
       if ('>' == XdrvMailbox.data[0]) {
@@ -4127,8 +4323,9 @@ String ScriptUnsubscribe(const char * data, int data_len)
 }
 #endif //     SUPPORT_MQTT_EVENT
 
-#ifdef USE_SCRIPT_WEB_DISPLAY
 
+
+#ifdef USE_SCRIPT_WEB_DISPLAY
 
 void Script_Check_HTML_Setvars(void) {
 
@@ -4416,6 +4613,50 @@ void ScriptWebShow(void) {
 }
 #endif //USE_SCRIPT_WEB_DISPLAY
 
+
+#ifdef USE_SENDMAIL
+void script_send_email_body(BearSSL::WiFiClientSecure_light *client) {
+uint8_t msect=Run_Scripter(">m",-2,0);
+  if (msect==99) {
+    char line[128];
+    char tmp[128];
+    char *lp=glob_script_mem.section_ptr+2;
+    while (lp) {
+      while (*lp==SCRIPT_EOL) {
+       lp++;
+      }
+      if (!*lp || *lp=='#' || *lp=='>') {
+          break;
+      }
+      if (*lp!=';') {
+        // send this line to smtp
+        memcpy(line,lp,sizeof(line));
+        line[sizeof(line)-1]=0;
+        char *cp=line;
+        for (uint32_t i=0; i<sizeof(line); i++) {
+          if (!*cp || *cp=='\n' || *cp=='\r') {
+            *cp=0;
+            break;
+          }
+          cp++;
+        }
+        Replace_Cmd_Vars(line,tmp,sizeof(tmp));
+        client->println(tmp);
+      }
+      if (*lp==SCRIPT_EOL) {
+        lp++;
+      } else {
+        lp = strchr(lp, SCRIPT_EOL);
+        if (!lp) break;
+        lp++;
+      }
+    }
+  } else {
+    client->println("*");
+  }
+}
+#endif
+
 #ifdef USE_SCRIPT_JSON_EXPORT
 void ScriptJsonAppend(void) {
   uint8_t web_script=Run_Scripter(">J",-2,0);
@@ -4474,6 +4715,12 @@ bool Xdrv10(uint8_t function)
       glob_script_mem.flags=0;
       glob_script_mem.script_pram=(uint8_t*)Settings.mems[0];
       glob_script_mem.script_pram_size=MAX_RULE_MEMS*10;
+
+#ifdef USE_BUTTON_EVENT
+      for (uint32_t cnt=0;cnt<MAX_KEYS;cnt++) {
+        script_button[cnt]=-1;
+      }
+#endif
 
 #ifdef USE_24C256
 #ifndef USE_SCRIPT_FATFS
@@ -4600,14 +4847,28 @@ bool Xdrv10(uint8_t function)
 
 #ifdef USE_SCRIPT_JSON_EXPORT
     case FUNC_JSON_APPEND:
-      ScriptJsonAppend();
+      if (bitRead(Settings.rule_enabled, 0)) {
+        ScriptJsonAppend();
+      }
       break;
 #endif //USE_SCRIPT_JSON_EXPORT
 
+#ifdef USE_BUTTON_EVENT
+    case FUNC_BUTTON_PRESSED:
+      if (bitRead(Settings.rule_enabled, 0)) {
+        if ((script_button[XdrvMailbox.index]&1)!=(XdrvMailbox.payload&1)) {
+          script_button[XdrvMailbox.index]=XdrvMailbox.payload;
+          Run_Scripter(">b",2,0);
+        }
+      }
+      break;
+#endif
 
   }
   return result;
 }
+
+
 
 #endif  // Do not USE_RULES
 #endif  // USE_SCRIPT

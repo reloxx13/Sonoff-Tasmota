@@ -47,6 +47,9 @@ void (* const TasmotaCommand[])(void) PROGMEM = {
 #endif
   &CmndSensor, &CmndDriver };
 
+const char kWifiConfig[] PROGMEM =
+  D_WCFG_0_RESTART "||" D_WCFG_2_WIFIMANAGER "||" D_WCFG_4_RETRY "|" D_WCFG_5_WAIT "|" D_WCFG_6_SERIAL "|" D_WCFG_7_WIFIMANAGER_RESET_ONLY;
+
 /********************************************************************************************/
 
 void ResponseCmndNumber(int value)
@@ -225,9 +228,7 @@ void CommandHandler(char* topicBuf, char* dataBuf, uint32_t data_len)
 
   if (mqtt_data[0] != '\0') {
      MqttPublishPrefixTopic_P(RESULT_OR_STAT, type);
-#ifdef USE_SCRIPT
      XdrvRulesProcess();
-#endif
   }
   fallback_topic_flag = false;
 }
@@ -466,6 +467,10 @@ void CmndStatus(void)
     ResponseJsonEnd();
     MqttPublishPrefixTopic_P(option, PSTR(D_CMND_STATUS "11"));
   }
+
+#ifdef USE_SCRIPT_STATUS
+  if (bitRead(Settings.rule_enabled, 0)) Run_Scripter(">U",2,mqtt_data);
+#endif
   mqtt_data[0] = '\0';
 }
 
@@ -490,7 +495,8 @@ void CmndSleep(void)
     sleep = XdrvMailbox.payload;
     WiFiSetSleepMode();
   }
-  Response_P(S_JSON_COMMAND_NVALUE_UNIT_NVALUE_UNIT, XdrvMailbox.command, sleep, (Settings.flag.value_units) ? " " D_UNIT_MILLISECOND : "", Settings.sleep, (Settings.flag.value_units) ? " " D_UNIT_MILLISECOND : "");
+  Response_P(S_JSON_COMMAND_NVALUE_ACTIVE_NVALUE, XdrvMailbox.command, Settings.sleep, sleep);
+
 }
 
 void CmndUpgrade(void)
@@ -518,7 +524,7 @@ void CmndOtaUrl(void)
 
 void CmndSeriallog(void)
 {
-  if ((XdrvMailbox.payload >= LOG_LEVEL_NONE) && (XdrvMailbox.payload <= LOG_LEVEL_ALL)) {
+  if ((XdrvMailbox.payload >= LOG_LEVEL_NONE) && (XdrvMailbox.payload <= LOG_LEVEL_DEBUG_MORE)) {
     Settings.flag.mqtt_serial = 0;
     SetSeriallog(XdrvMailbox.payload);
   }
@@ -696,21 +702,16 @@ void CmndSetoption(void)
         }
         if ((XdrvMailbox.payload >= param_low) && (XdrvMailbox.payload <= param_high)) {
           Settings.param[pindex] = XdrvMailbox.payload;
-          switch (pindex) {
 #ifdef USE_LIGHT
-            case P_RGB_REMAP:
-              LightUpdateColorMapping();
-              break;
+          if (P_RGB_REMAP == pindex) {
+            LightUpdateColorMapping();
+          }
 #endif
 #if (defined(USE_IR_REMOTE) && defined(USE_IR_RECEIVE)) || defined(USE_IR_REMOTE_FULL)
-            case P_IR_UNKNOW_THRESHOLD:
-              IrReceiveUpdateThreshold();
-              break;
-#endif
-            case P_DIMMER_MAX:
-              restart_flag = 2;  // Need a restart to update GUI
-              break;
+          if (P_IR_UNKNOW_THRESHOLD == pindex) {
+            IrReceiveUpdateThreshold();
           }
+#endif
         }
       }
     }
@@ -868,11 +869,25 @@ void CmndGpio(void)
     Response_P(PSTR("{"));
     bool jsflg = false;
     for (uint32_t i = 0; i < sizeof(Settings.my_gp); i++) {
-      if (ValidGPIO(i, cmodule.io[i])) {
+      if (ValidGPIO(i, cmodule.io[i]) || ((GPIO_USER == XdrvMailbox.payload) && !FlashPin(i))) {
         if (jsflg) { ResponseAppend_P(PSTR(",")); }
         jsflg = true;
+        uint8_t sensor_type = Settings.my_gp.io[i];
+        if (!ValidGPIO(i, cmodule.io[i])) {
+          sensor_type = cmodule.io[i];
+          if (GPIO_USER == sensor_type) {  // A user GPIO equals a not connected (=GPIO_NONE) GPIO here
+            sensor_type = GPIO_NONE;
+          }
+        }
+        uint8_t sensor_name_idx = sensor_type;
+        const char *sensor_names = kSensorNames;
+        if (sensor_type > GPIO_FIX_START) {
+          sensor_name_idx = sensor_type - GPIO_FIX_START -1;
+          sensor_names = kSensorNamesFixed;
+        }
         char stemp1[TOPSZ];
-        ResponseAppend_P(PSTR("\"" D_CMND_GPIO "%d\":{\"%d\":\"%s\"}"), i, Settings.my_gp.io[i], GetTextIndexed(stemp1, sizeof(stemp1), Settings.my_gp.io[i], kSensorNames));
+        ResponseAppend_P(PSTR("\"" D_CMND_GPIO "%d\":{\"%d\":\"%s\"}"),
+          i, sensor_type, GetTextIndexed(stemp1, sizeof(stemp1), sensor_name_idx, sensor_names));
       }
     }
     if (jsflg) {
@@ -1060,7 +1075,7 @@ void CmndSerialDelimiter(void)
 
 void CmndSyslog(void)
 {
-  if ((XdrvMailbox.payload >= LOG_LEVEL_NONE) && (XdrvMailbox.payload <= LOG_LEVEL_ALL)) {
+  if ((XdrvMailbox.payload >= LOG_LEVEL_NONE) && (XdrvMailbox.payload <= LOG_LEVEL_DEBUG_MORE)) {
     SetSyslog(XdrvMailbox.payload);
   }
   Response_P(S_JSON_COMMAND_NVALUE_ACTIVE_NVALUE, XdrvMailbox.command, Settings.syslog_level, syslog_level);
@@ -1173,20 +1188,18 @@ void CmndHostname(void)
 
 void CmndWifiConfig(void)
 {
-  char stemp1[TOPSZ];
   if ((XdrvMailbox.payload >= WIFI_RESTART) && (XdrvMailbox.payload < MAX_WIFI_OPTION)) {
+    if ((EX_WIFI_SMARTCONFIG == XdrvMailbox.payload) || (EX_WIFI_WPSCONFIG == XdrvMailbox.payload)) {
+      XdrvMailbox.payload = WIFI_MANAGER;
+    }
     Settings.sta_config = XdrvMailbox.payload;
     wifi_state_flag = Settings.sta_config;
-    snprintf_P(stemp1, sizeof(stemp1), kWifiConfig[Settings.sta_config]);
-    Response_P(PSTR("{\"" D_CMND_WIFICONFIG "\":\"%s " D_JSON_SELECTED "\"}"), stemp1);
     if (WifiState() > WIFI_RESTART) {
-//          ResponseAppend_P(PSTR(" after restart"));
       restart_flag = 2;
     }
-  } else {
-    snprintf_P(stemp1, sizeof(stemp1), kWifiConfig[Settings.sta_config]);
-    Response_P(S_JSON_COMMAND_NVALUE_SVALUE, XdrvMailbox.command, Settings.sta_config, stemp1);
   }
+  char stemp1[TOPSZ];
+  Response_P(S_JSON_COMMAND_NVALUE_SVALUE, XdrvMailbox.command, Settings.sta_config, GetTextIndexed(stemp1, sizeof(stemp1), Settings.sta_config, kWifiConfig));
 }
 
 void CmndFriendlyname(void)
@@ -1294,7 +1307,7 @@ void CmndTeleperiod(void)
     if ((Settings.tele_period > 0) && (Settings.tele_period < 10)) Settings.tele_period = 10;   // Do not allow periods < 10 seconds
     tele_period = Settings.tele_period;
   }
-  Response_P(S_JSON_COMMAND_NVALUE_UNIT, XdrvMailbox.command, Settings.tele_period, (Settings.flag.value_units) ? " " D_UNIT_SECOND : "");
+  ResponseCmndNumber(Settings.tele_period);
 }
 
 void CmndReset(void)

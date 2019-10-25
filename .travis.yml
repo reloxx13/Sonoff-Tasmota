@@ -4,12 +4,18 @@ python:
 sudo: false
 install:
   - pip install -U platformio
+  - platformio upgrade
+  - platformio update
+
+cache:
+  directories:
+  - .cache
+  - $HOME/.platformio
 
 env:
   - ENV=sonoff
   - ENV=sonoff-minimal
   - ENV=sonoff-basic
-  - ENV=sonoff-classic
   - ENV=sonoff-knx
   - ENV=sonoff-sensors
   - ENV=sonoff-display

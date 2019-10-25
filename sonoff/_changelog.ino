@@ -1,6 +1,41 @@
 /*********************************************************************************************\
+ * 6.7.0 20191025
+ * Release
+ *
+ * 6.6.0.21 20191022
+ * Remove support for WPS and SmartConfig in favour of Web server (!) based WifiManager (#6680)
+ * Remove binary sonoff-classic (#6680)
+ * Remove command SetOption2
+ *
+ * 6.6.0.20 20191018
+ * Add command SetOption65 0/1 to disable (1) fast power cycle detection fixing unwanted brownout trigger
+ * Add absolute PowerDelta using command PowerDelta 101..32000 where 101 = 101-100 = 1W, 202 = 202-100 = 102W (#5901)
+ * Add support for EX-Store WiFi Dimmer V4 (#5856)
+ * Add ZigbeeRead command and many improvements (#6095)
+ * Add ArduinoSlave driver (EXPERIMENTAL)
+ *
+ * 6.6.0.19 20191018
+ * Replace obsolete xsns_23_sdm120 with xnrg_08_sdm120 and consolidate define USE_SDM120
+ * Replace obsolete xsns_25_sdm630 with xnrg_10_sdm630 and consolidate define USE_SDM630
+ * Replace obsolete xsns_49_solaxX1 with xnrg_12_solaxX1 (#6677)
+ *
+ * 6.6.0.18 20191010
+ * Add command DimmerRange in Light module to support 2 byte dimming ranges from Tuya
+ * Add Zigbee additional commands and sending messages to control devices (#6095)
+ * Fix Rules were not triggered with IR unknown protocol or in sonoff-it (#6629)
+ * Add define USE_DEEPSLEEP and command DeepSleepTime 0 or 10..86400 (seconds) to enter deepsleep mode (#6638)
+ * Add define USE_SONOFF_RF to enable/disable Sonoff Rf support (#6648)
+ * Add incremental beeps to Ifan03 remote control fan speed buttons (#6636)
+ * Add rule support after every command execution like Fanspeed#Data=2 (#6636)
+ * Fix handling of ligth channels when pwm_multichannel (Option68) is enabled
+ * Add WebUI for multiple, independent PWM channels
+ * Remove default DS18B20 driver and only support define DS18x20 (#6647)
+ * Add support for PMS3003 dust particle sensor
+ * Change Sonoff L1 support by adding define USE_SONOFF_L1
+ *
  * 6.6.0.17 20191009
  * Add command SetOption34 0..255 to set backlog delay. Default value is 200 (mSeconds) (#6562)
+ * Add command Gpio 255 to show physical GPIO configuration of all non-flash pins (#6407)
  *
  * 6.6.0.16 20191008
  * Change PZEM004T default address mask from 0.0.0.x to 192.168.1.x for legacy reason (#6585)
@@ -58,7 +93,7 @@
  * Add support for Hiking DDS238-2 Modbus energy meter by Matteo Campanella (#6384)
  *
  * 6.6.0.10 20190905
- * Redesign Tuya support by Shantur Rathore (#6353)
+ * Redesign Tuya support by Shantur Rathore removing commands SetOption34, 41, 44, 45, 46 and 65 (#6353)
  * Add command Reset 99 to reset bootcount to zero (#684, #6351)
  * Change command Time 1/2/3 to select JSON time format ISO, ISO + Epoch or Epoch for legacy reason
  *

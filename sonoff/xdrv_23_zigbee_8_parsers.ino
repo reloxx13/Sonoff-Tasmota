@@ -73,6 +73,39 @@ int32_t Z_CheckNVWrite(int32_t res, class SBuffer &buf) {
   }
 }
 
+const char     Z_RebootReason[] PROGMEM = "Power-up|External|Watchdog";
+
+int32_t Z_Reboot(int32_t res, class SBuffer &buf) {
+  // print information about the reboot of device
+  // 4180.02.02.00.02.06.03
+  // 
+  uint8_t reason = buf.get8(2);
+  uint8_t transport_rev = buf.get8(3);
+  uint8_t product_id = buf.get8(4);
+  uint8_t major_rel = buf.get8(5);
+  uint8_t minor_rel = buf.get8(6);
+  uint8_t hw_rev = buf.get8(7);
+  char reason_str[12];
+
+  if (reason > 3) { reason = 3; }
+  GetTextIndexed(reason_str, sizeof(reason_str), reason, Z_RebootReason);
+
+  Response_P(PSTR("{\"" D_JSON_ZIGBEE_STATUS "\":{"
+                  "\"Status\":%d,\"Message\":\"%s\",\"RestartReason\":\"%s\""
+                  ",\"MajorRel\":%d,\"MinorRel\":%d}}"),
+                  ZIGBEE_STATUS_BOOT, "CC2530 booted", reason_str,
+                  major_rel, minor_rel);
+
+  MqttPublishPrefixTopic_P(RESULT_OR_TELE, PSTR(D_JSON_ZIGBEE_STATUS));
+  XdrvRulesProcess();
+
+  if ((0x02 == major_rel) && (0x06 == minor_rel)) {
+  	return 0;	  // version 2.6.x is ok
+  } else {
+    return ZIGBEE_LABEL_UNSUPPORTED_VERSION;  // abort
+  }
+}
+
 int32_t Z_ReceiveCheckVersion(int32_t res, class SBuffer &buf) {
   // check that the version is supported
   // typical version for ZNP 1.2
@@ -178,6 +211,8 @@ int32_t Z_ReceiveNodeDesc(int32_t res, const class SBuffer &buf) {
   uint8_t           descriptorCapabilities = buf.get8(19);
 
   if (0 == status) {
+    zigbee_devices.updateLastSeen(nwkAddr);
+
     uint8_t           deviceType = logicalType & 0x7;   // 0=coordinator, 1=router, 2=end device
     if (deviceType > 3) { deviceType = 3; }
     bool              complexDescriptorAvailable = (logicalType & 0x08) ? 1 : 0;
@@ -239,7 +274,7 @@ void Z_SendAFInfoRequest(uint16_t shortaddr, uint8_t endpoint, uint16_t clusteri
 
   buf.add8(3 + 2*sizeof(uint16_t)); // Len = 0x07
   buf.add8(0x00);                 // Frame Control Field
-  buf.add8(transacid);            // Transaction Sequance Number
+  buf.add8(transacid);            // Transaction Sequence Number
   buf.add8(ZCL_READ_ATTRIBUTES);  // 00 Command
   buf.add16(0x0004);              // 0400 ManufacturerName
   buf.add16(0x0005);              // 0500 ModelIdentifier
@@ -290,9 +325,9 @@ int32_t Z_ReceiveSimpleDesc(int32_t res, const class SBuffer &buf) {
     XdrvRulesProcess();
 
     uint8_t cluster = zigbee_devices.findClusterEndpointIn(nwkAddr, 0x0000);
-Serial.printf(">>> Endpoint is 0x%02X for cluster 0x%04X\n", cluster, 0x0000);
+//Serial.printf(">>> Endpoint is 0x%02X for cluster 0x%04X\n", cluster, 0x0000);
     if (cluster) {
-      Z_SendAFInfoRequest(nwkAddr, cluster, 0x0000, 0x01); // TODO
+      Z_SendAFInfoRequest(nwkAddr, cluster, 0x0000, 0x01); // TODO, do we need tarnsacId counter?
     }
   }
   return -1;
@@ -335,19 +370,25 @@ int32_t Z_ReceiveAfIncomingMessage(int32_t res, const class SBuffer &buf) {
   uint32_t        timestamp = buf.get32(13);
   uint8_t         seqnumber = buf.get8(17);
 
+  zigbee_devices.updateLastSeen(srcaddr);
   ZCLFrame zcl_received = ZCLFrame::parseRawFrame(buf, 19, buf.get8(18), clusterid, groupid);
 
+#ifdef ZIGBEE_VERBOSE
   zcl_received.publishMQTTReceived(groupid, clusterid, srcaddr,
                                   srcendpoint, dstendpoint, wasbroadcast,
                                   linkquality, securityuse, seqnumber,
                                   timestamp);
+#endif
 
   char shortaddr[8];
   snprintf_P(shortaddr, sizeof(shortaddr), PSTR("0x%04X"), srcaddr);
 
   DynamicJsonBuffer jsonBuffer;
   JsonObject& json_root = jsonBuffer.createObject();
-  JsonObject& json = json_root.createNestedObject(shortaddr);
+  JsonObject& json1 = json_root.createNestedObject(F(D_CMND_ZIGBEE_RECEIVED));
+  JsonObject& json = json1.createNestedObject(shortaddr);
+  
+  // TODO add name field if it is known
   if ( (!zcl_received.isClusterSpecificCommand()) && (ZCL_REPORT_ATTRIBUTES == zcl_received.getCmdId())) {
    zcl_received.parseRawAttributes(json);
   } else if ( (!zcl_received.isClusterSpecificCommand()) && (ZCL_READ_ATTRIBUTES_RESPONSE == zcl_received.getCmdId())) {
@@ -361,11 +402,13 @@ int32_t Z_ReceiveAfIncomingMessage(int32_t res, const class SBuffer &buf) {
   AddLog_P2(LOG_LEVEL_INFO, PSTR("ZigbeeZCLRawReceived: %s"), msg.c_str());
 
   zcl_received.postProcessAttributes(srcaddr, json);
+  // Add linkquality
+  json[F("_" D_CMND_ZIGBEE_LINKQUALITY)] = linkquality;   // prefix with underscore for metadata
 
   msg = "";
   json_root.printTo(msg);
   Response_P(PSTR("%s"), msg.c_str());
-  MqttPublishPrefixTopic_P(RESULT_OR_TELE, PSTR(D_JSON_ZIGBEEZCL_RECEIVED));
+  MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_SENSOR));
   XdrvRulesProcess();
   return -1;
 }
