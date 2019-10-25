@@ -1,4 +1,4 @@
-set version=6.7.0.0-mod-1.67.0
+set version=6.7.0.0-mod-1.67.1
 
 mkdir %version%
 
