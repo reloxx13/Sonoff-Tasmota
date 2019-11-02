@@ -86,7 +86,7 @@ a_setoption = [[
     ],[
     "Key hold time (ms)",
     "Sonoff POW Max_Power_Retry",
-    "(not used) Tuya MCU device id",
+    "Backlog delay (ms)",
     "(not used) mDNS delayed start (Sec)",
     "Boot loop retry offset (0 = disable)",
     "RGBWW remap",
@@ -99,8 +99,8 @@ a_setoption = [[
     "(not used) Tuya MCU voltage Id",
     "(not used) Tuya MCU current Id",
     "(not used) Tuya MCU power Id",
-    "Energy Tariff1 start hour",
-    "Energy Tariff2 start hour",
+    "(not used) Energy Tariff1 start hour",
+    "(not used) Energy Tariff2 start hour",
     "",
     ],[
     "Timers enabled",
@@ -119,17 +119,29 @@ a_setoption = [[
     "Do not scan relay power state at restart",
     "Use _ instead of - as sensor index separator",
     "Disable fast power cycle detection for device reset",
-    "(not used) Disable Dimmer range 255 slider control",
+    "Enable TuyaMcuReceived messages over Mqtt",
     "Enable buzzer when available",
     "Enable multi-channels PWM instead of Color PWM",
     "(not used) Limits Tuya MCU dimmers to minimum of 10% (25) when enabled",
     "Enable Weekend Energy Tariff",
     "Select different Modbus registers for Active Energy",
+    "Enable hardware energy total counter as reference",
+    "Enable HTTP CORS",
+    "Enable internal pullup for single DS18x20 sensor",
+    "GroupTopic replaces %topic% (0) or fixed topic cmnd/grouptopic (1)",
     "","",
-    "","","","",
     "","",
     "Enable shutter support",
     "Invert PCF8574 ports"
+    ],[
+    "","","","",
+    "","","","",
+    "","","","",
+    "","","","",
+    "","","","",
+    "","","","",
+    "","","","",
+    "","","",""
     ]]
 
 a_features = [[
@@ -245,7 +257,7 @@ def StartDecode():
                             options.append(str("{0:2d} ({1:3d}) {2}".format(i, split_register[opt_idx], option)))
                             i += 1
 
-                if r in (0, 2): #registers 1 and 3 hold binary values
+                if r in (0, 2, 3): #registers 1 and 3 hold binary values
                     for opt_idx, option in enumerate(opt_group):
                         i_register = int(register,16)
                         state = (i_register >> opt_idx) & 1

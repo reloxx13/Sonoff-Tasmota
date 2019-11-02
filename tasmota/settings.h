@@ -79,16 +79,16 @@ typedef union {                            // Restricted by MISRA-C Rule 18.4 bu
     uint32_t no_power_feedback : 1;        // bit 13 (v6.5.0.9)  - SetOption63 - Don't scan relay power state at restart
     uint32_t use_underscore : 1;           // bit 14 (v6.5.0.12) - SetOption64 - Enable "_" instead of "-" as sensor index separator
     uint32_t fast_power_cycle_disable : 1; // bit 15 (v6.6.0.20) - SetOption65 - Disable fast power cycle detection for device reset
-    uint32_t tuya_serial_mqtt_publish : 1;    // bit 16 (v6.6.0.21)  - SetOption66 - Enable or Disable TuyaMcuReceived messages over Mqtt
+    uint32_t tuya_serial_mqtt_publish : 1; // bit 16 (v6.6.0.21) - SetOption66 - Enable TuyaMcuReceived messages over Mqtt
     uint32_t buzzer_enable : 1;            // bit 17 (v6.6.0.1)  - SetOption67 - Enable buzzer when available
     uint32_t pwm_multi_channels : 1;       // bit 18 (v6.6.0.3)  - SetOption68 - Enable multi-channels PWM instead of Color PWM
-    uint32_t ex_tuya_dimmer_min_limit : 1;    // bit 19 (v6.6.0.5)  - SetOption69 - Limits Tuya dimmers to minimum of 10% (25) when enabled.
+    uint32_t ex_tuya_dimmer_min_limit : 1; // bit 19 (v6.6.0.5)  - SetOption69 - Limits Tuya dimmers to minimum of 10% (25) when enabled.
     uint32_t energy_weekend : 1;           // bit 20 (v6.6.0.8)  - CMND_TARIFF
     uint32_t dds2382_model : 1;            // bit 21 (v6.6.0.14) - SetOption71 - Select different Modbus registers for Active Energy (#6531)
     uint32_t hardware_energy_total : 1;    // bit 22 (v6.6.0.15) - SetOption72 - Enable / Disable hardware energy total counter as reference (#6561)
-    uint32_t spare23 : 1;
-    uint32_t spare24 : 1;
-    uint32_t spare25 : 1;
+    uint32_t cors_enabled : 1;             // bit 23 (v7.0.0.1)  - SetOption73 - Enable HTTP CORS
+    uint32_t ds18x20_internal_pullup : 1;  // bit 24 (v7.0.0.1)  - SetOption74 - Enable internal pullup for single DS18x20 sensor
+    uint32_t grouptopic_mode : 1;          // bit 25 (v7.0.0.1)  - SetOption75 - GroupTopic replaces %topic% (0) or fixed topic cmnd/grouptopic (1)
     uint32_t spare26 : 1;
     uint32_t spare27 : 1;
     uint32_t spare28 : 1;
@@ -97,6 +97,44 @@ typedef union {                            // Restricted by MISRA-C Rule 18.4 bu
     uint32_t pcf8574_ports_inverted : 1;   // bit 31 (v6.6.0.14) - SetOption81 - Invert all ports on PCF8574 devices
   };
 } SysBitfield3;
+
+typedef union {                            // Restricted by MISRA-C Rule 18.4 but so useful...
+  uint32_t data;                           // Allow bit manipulation using SetOption
+  struct {                                 // SetOption82 .. SetOption113
+    uint32_t spare00 : 1;
+    uint32_t spare01 : 1;
+    uint32_t spare02 : 1;
+    uint32_t spare03 : 1;
+    uint32_t spare04 : 1;
+    uint32_t spare05 : 1;
+    uint32_t spare06 : 1;
+    uint32_t spare07 : 1;
+    uint32_t spare08 : 1;
+    uint32_t spare09 : 1;
+    uint32_t spare10 : 1;
+    uint32_t spare11 : 1;
+    uint32_t spare12 : 1;
+    uint32_t spare13 : 1;
+    uint32_t spare14 : 1;
+    uint32_t spare15 : 1;
+    uint32_t spare16 : 1;
+    uint32_t spare17 : 1;
+    uint32_t spare18 : 1;
+    uint32_t spare19 : 1;
+    uint32_t spare20 : 1;
+    uint32_t spare21 : 1;
+    uint32_t spare22 : 1;
+    uint32_t spare23 : 1;
+    uint32_t spare24 : 1;
+    uint32_t spare25 : 1;
+    uint32_t spare26 : 1;
+    uint32_t spare27 : 1;
+    uint32_t spare28 : 1;
+    uint32_t spare29 : 1;
+    uint32_t spare30 : 1;
+    uint32_t spare31 : 1;
+  };
+} SysBitfield4;
 
 typedef union {
   uint32_t data;                           // Allow bit manipulation
@@ -227,7 +265,13 @@ struct SYSCFG {
   uint8_t       weblog_level;              // 1AC
   uint8_t       mqtt_fingerprint[2][20];   // 1AD
   uint8_t       adc_param_type;            // 1D5
-  uint8_t       register8[16];             // 1D6 - 16 x 8-bit registers indexed by enum SettingsRegister8
+
+  uint8_t       free_1d6[10];              // 1D6
+
+  SysBitfield4  flag4;                     // 1E0
+
+  uint8_t       free_1e4[2];               // 1E4
+
   uint8_t       shutter_accuracy;          // 1E6
   uint8_t       mqttlog_level;             // 1E7
   uint8_t       sps30_inuse_hours;         // 1E8
@@ -388,8 +432,10 @@ struct SYSCFG {
   uint16_t      dimmer_hw_max;             // E92
   uint32_t      deepsleep;                 // E94
   uint16_t      energy_power_delta;        // E98
-
-  uint8_t       free_e9a[350];             // E9A
+  uint8_t       shutter_motordelay[MAX_SHUTTERS];      // E9A
+  uint8_t       free_e9e[342];             // E9E
+  uint8_t       web_color2[1][3];          // FF4
+  uint8_t       free_ff7      ;            // FF7
 
   uint32_t      cfg_timestamp;             // FF8
   uint32_t      cfg_crc32;                 // FFC

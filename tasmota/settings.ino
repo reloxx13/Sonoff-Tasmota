@@ -119,6 +119,9 @@
 #ifndef COLOR_TIMER_TAB_BACKGROUND
 #define COLOR_TIMER_TAB_BACKGROUND  "#999"     // Config timer tab background color - Light grey
 #endif
+#ifndef COLOR_TITLE_TEXT
+#define COLOR_TITLE_TEXT			      COLOR_TEXT // Title text color defaults to global text color either dark or light
+#endif
 #ifndef IR_RCV_MIN_UNKNOWN_SIZE
 #define IR_RCV_MIN_UNKNOWN_SIZE     6          // Set the smallest sized "UNKNOWN" message packets we actually care about (default 6, max 255)
 #endif
@@ -137,7 +140,7 @@ enum WebColors {
   COL_INPUT_TEXT, COL_INPUT, COL_CONSOLE_TEXT, COL_CONSOLE,
   COL_TEXT_WARNING, COL_TEXT_SUCCESS,
   COL_BUTTON_TEXT, COL_BUTTON, COL_BUTTON_HOVER, COL_BUTTON_RESET, COL_BUTTON_RESET_HOVER, COL_BUTTON_SAVE, COL_BUTTON_SAVE_HOVER,
-  COL_TIMER_TAB_TEXT, COL_TIMER_TAB_BACKGROUND,
+  COL_TIMER_TAB_TEXT, COL_TIMER_TAB_BACKGROUND, COL_TITLE,
   COL_LAST };
 
 const char kWebColors[] PROGMEM =
@@ -145,7 +148,7 @@ const char kWebColors[] PROGMEM =
   COLOR_INPUT_TEXT "|" COLOR_INPUT "|" COLOR_CONSOLE_TEXT "|" COLOR_CONSOLE "|"
   COLOR_TEXT_WARNING "|" COLOR_TEXT_SUCCESS "|"
   COLOR_BUTTON_TEXT "|" COLOR_BUTTON "|" COLOR_BUTTON_HOVER "|" COLOR_BUTTON_RESET "|" COLOR_BUTTON_RESET_HOVER "|" COLOR_BUTTON_SAVE "|" COLOR_BUTTON_SAVE_HOVER "|"
-  COLOR_TIMER_TAB_TEXT "|" COLOR_TIMER_TAB_BACKGROUND;
+  COLOR_TIMER_TAB_TEXT "|" COLOR_TIMER_TAB_BACKGROUND "|" COLOR_TITLE_TEXT;
 
 /*********************************************************************************************\
  * RTC memory
@@ -256,11 +259,22 @@ const uint32_t SPIFFS_END = ((uint32_t)&_SPIFFS_end - 0x40200000) / SPI_FLASH_SE
 
 #else  // Core > 2.5.2 and STAGE
 
+#if AUTOFLASHSIZE
+
+#include "flash_hal.h"
+
+// From libraries/EEPROM/EEPROM.cpp EEPROMClass
+const uint32_t SPIFFS_END = (FS_end - 0x40200000) / SPI_FLASH_SEC_SIZE;
+
+#else
+
 extern "C" uint32_t _FS_end;
 // From libraries/EEPROM/EEPROM.cpp EEPROMClass
 const uint32_t SPIFFS_END = ((uint32_t)&_FS_end - 0x40200000) / SPI_FLASH_SEC_SIZE;
 
-#endif
+#endif  // AUTOFLASHSIZE
+
+#endif  // All cores < pre-2.6.0
 
 // Version 4.2 config = eeprom area
 const uint32_t SETTINGS_LOCATION = SPIFFS_END;  // No need for SPIFFS as it uses EEPROM area
@@ -522,8 +536,6 @@ void SettingsErase(uint8_t type)
   */
 
 #ifndef FIRMWARE_MINIMAL
-  bool result;
-
   uint32_t _sectorStart = (ESP.getSketchSize() / SPI_FLASH_SEC_SIZE) + 1;
   uint32_t _sectorEnd = ESP.getFlashChipRealSize() / SPI_FLASH_SEC_SIZE;
   if (1 == type) {
@@ -540,7 +552,7 @@ void SettingsErase(uint8_t type)
   AddLog_P2(LOG_LEVEL_DEBUG, PSTR(D_LOG_APPLICATION D_ERASE " %d " D_UNIT_SECTORS), _sectorEnd - _sectorStart);
 
   for (uint32_t _sector = _sectorStart; _sector < _sectorEnd; _sector++) {
-    result = ESP.flashEraseSector(_sector);
+    bool result = ESP.flashEraseSector(_sector);
     if (_serialoutput) {
       Serial.print(F(D_LOG_APPLICATION D_ERASED_SECTOR " "));
       Serial.print(_sector);
@@ -814,13 +826,41 @@ void SettingsDefaultSet2(void)
 //  Settings.light_wakeup = 0;
   Settings.light_pixels = WS2812_LEDS;
 //  Settings.light_rotation = 0;
-  SettingsDefaultSet_5_8_1();    // Clock color
+  Settings.ws_width[WS_SECOND] = 1;
+  Settings.ws_color[WS_SECOND][WS_RED] = 255;
+//  Settings.ws_color[WS_SECOND][WS_GREEN] = 0;
+  Settings.ws_color[WS_SECOND][WS_BLUE] = 255;
+  Settings.ws_width[WS_MINUTE] = 3;
+//  Settings.ws_color[WS_MINUTE][WS_RED] = 0;
+  Settings.ws_color[WS_MINUTE][WS_GREEN] = 255;
+//  Settings.ws_color[WS_MINUTE][WS_BLUE] = 0;
+  Settings.ws_width[WS_HOUR] = 5;
+  Settings.ws_color[WS_HOUR][WS_RED] = 255;
+//  Settings.ws_color[WS_HOUR][WS_GREEN] = 0;
+//  Settings.ws_color[WS_HOUR][WS_BLUE] = 0;
 
   Settings.dimmer_hw_max = DEFAULT_DIMMER_MAX;
   Settings.dimmer_hw_min = DEFAULT_DIMMER_MIN;
 
   // Display
-  SettingsDefaultSet_5_10_1();   // Display settings
+//  Settings.display_model = 0;
+  Settings.display_mode = 1;
+  Settings.display_refresh = 2;
+  Settings.display_rows = 2;
+  Settings.display_cols[0] = 16;
+  Settings.display_cols[1] = 8;
+  Settings.display_dimmer = 1;
+  Settings.display_size = 1;
+  Settings.display_font = 1;
+//  Settings.display_rotate = 0;
+  Settings.display_address[0] = MTX_ADDRESS1;
+  Settings.display_address[1] = MTX_ADDRESS2;
+  Settings.display_address[2] = MTX_ADDRESS3;
+  Settings.display_address[3] = MTX_ADDRESS4;
+  Settings.display_address[4] = MTX_ADDRESS5;
+  Settings.display_address[5] = MTX_ADDRESS6;
+  Settings.display_address[6] = MTX_ADDRESS7;
+  Settings.display_address[7] = MTX_ADDRESS8;
 
   // Time
   if (((APP_TIMEZONE > -14) && (APP_TIMEZONE < 15)) || (99 == APP_TIMEZONE)) {
@@ -842,7 +882,8 @@ void SettingsDefaultSet2(void)
   }
   Settings.latitude = (int)((double)LATITUDE * 1000000);
   Settings.longitude = (int)((double)LONGITUDE * 1000000);
-  SettingsDefaultSet_5_13_1c();  // Time STD/DST settings
+  SettingsResetStd();
+  SettingsResetDst();
 
   Settings.button_debounce = KEY_DEBOUNCE_TIME;
   Settings.switch_debounce = SWITCH_DEBOUNCE_TIME;
@@ -859,45 +900,6 @@ void SettingsDefaultSet2(void)
 }
 
 /********************************************************************************************/
-
-void SettingsDefaultSet_5_8_1(void)
-{
-//  Settings.flag.ws_clock_reverse = 0;
-  Settings.ws_width[WS_SECOND] = 1;
-  Settings.ws_color[WS_SECOND][WS_RED] = 255;
-  Settings.ws_color[WS_SECOND][WS_GREEN] = 0;
-  Settings.ws_color[WS_SECOND][WS_BLUE] = 255;
-  Settings.ws_width[WS_MINUTE] = 3;
-  Settings.ws_color[WS_MINUTE][WS_RED] = 0;
-  Settings.ws_color[WS_MINUTE][WS_GREEN] = 255;
-  Settings.ws_color[WS_MINUTE][WS_BLUE] = 0;
-  Settings.ws_width[WS_HOUR] = 5;
-  Settings.ws_color[WS_HOUR][WS_RED] = 255;
-  Settings.ws_color[WS_HOUR][WS_GREEN] = 0;
-  Settings.ws_color[WS_HOUR][WS_BLUE] = 0;
-}
-
-void SettingsDefaultSet_5_10_1(void)
-{
-  Settings.display_model = 0;
-  Settings.display_mode = 1;
-  Settings.display_refresh = 2;
-  Settings.display_rows = 2;
-  Settings.display_cols[0] = 16;
-  Settings.display_cols[1] = 8;
-  Settings.display_dimmer = 1;
-  Settings.display_size = 1;
-  Settings.display_font = 1;
-  Settings.display_rotate = 0;
-  Settings.display_address[0] = MTX_ADDRESS1;
-  Settings.display_address[1] = MTX_ADDRESS2;
-  Settings.display_address[2] = MTX_ADDRESS3;
-  Settings.display_address[3] = MTX_ADDRESS4;
-  Settings.display_address[4] = MTX_ADDRESS5;
-  Settings.display_address[5] = MTX_ADDRESS6;
-  Settings.display_address[6] = MTX_ADDRESS7;
-  Settings.display_address[7] = MTX_ADDRESS8;
-}
 
 void SettingsResetStd(void)
 {
@@ -917,12 +919,6 @@ void SettingsResetDst(void)
   Settings.tflag[1].month = TIME_DST_MONTH;
   Settings.tflag[1].hour = TIME_DST_HOUR;
   Settings.toffset[1] = TIME_DST_OFFSET;
-}
-
-void SettingsDefaultSet_5_13_1c(void)
-{
-  SettingsResetStd();
-  SettingsResetDst();
 }
 
 void SettingsDefaultWebColor(void)
@@ -1037,7 +1033,6 @@ void SettingsDelta(void)
       Settings.baudrate = Settings.ex_baudrate * 4;
       Settings.sbaudrate = Settings.ex_sbaudrate * 4;
     }
-
     if (Settings.version < 0x0606000A) {
       uint8_t tuyaindex = 0;
       if (Settings.param[P_BACKLOG_DELAY] > 0) {             // ex SetOption34
@@ -1069,11 +1064,10 @@ void SettingsDelta(void)
       if (Settings.param[P_ex_TUYA_CURRENT_ID] > 0) {        // ex SetOption45
         Settings.tuya_fnid_map[tuyaindex].fnid = 32;         // TUYA_MCU_FUNC_CURRENT - Move Tuya Current Id to Map
         Settings.tuya_fnid_map[tuyaindex].dpid = Settings.param[P_ex_TUYA_CURRENT_ID];
-        tuyaindex++;
       }
     }
     if (Settings.version < 0x0606000C) {
-      memset(&Settings.register8, 0x00, sizeof(Settings.register8));
+      memset((char*)&Settings +0x1D6, 0x00, 16);
     }
     if (Settings.version < 0x0606000F) {
       Settings.shutter_accuracy = 0;

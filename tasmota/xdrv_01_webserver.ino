@@ -366,7 +366,7 @@ const char HTTP_HEAD_STYLE3[] PROGMEM =
 #ifdef FIRMWARE_MINIMAL
   "<div style='text-align:center;color:#%06x;'><h3>" D_MINIMAL_FIRMWARE_PLEASE_UPGRADE "</h3></div>"  // COLOR_TEXT_WARNING
 #endif
-  "<div style='text-align:center;'><noscript>" D_NOSCRIPT "<br></noscript>"
+  "<div style='text-align:center;color:#%06x;'><noscript>" D_NOSCRIPT "<br></noscript>" // COLOR_TITLE
 #ifdef LANGUAGE_MODULE_NAME
   "<h3>" D_MODULE " %s</h3>"
 #else
@@ -670,14 +670,19 @@ bool HttpCheckPriviledgedAccess(bool autorequestauth = true)
   return true;
 }
 
+void HttpHeaderCors(void)
+{
+  if (Settings.flag3.cors_enabled) {
+    WebServer->sendHeader(F("Access-Control-Allow-Origin"), F("*"));
+  }
+}
+
 void WSHeaderSend(void)
 {
   WebServer->sendHeader(F("Cache-Control"), F("no-cache, no-store, must-revalidate"));
   WebServer->sendHeader(F("Pragma"), F("no-cache"));
   WebServer->sendHeader(F("Expires"), F("-1"));
-#ifndef ARDUINO_ESP8266_RELEASE_2_3_0
-  WebServer->sendHeader(F("Access-Control-Allow-Origin"), F("*"));
-#endif
+  HttpHeaderCors();
 }
 
 /**********************************************************************************************
@@ -830,6 +835,7 @@ void WSContentSendStyle_P(const char* formatP, ...)
 #ifdef FIRMWARE_MINIMAL
     WebColor(COL_TEXT_WARNING),
 #endif
+    WebColor(COL_TITLE),
     ModuleName().c_str(), Settings.friendlyname[0]);
   if (Settings.flag3.gui_hostname_ip) {
     bool lip = (static_cast<uint32_t>(WiFi.localIP()) != 0);
@@ -1908,9 +1914,10 @@ void HandleInformation(void)
 #endif
     WSContentSend_P(PSTR("}1" D_MQTT_CLIENT "}2%s"), mqtt_client);
     WSContentSend_P(PSTR("}1" D_MQTT_TOPIC "}2%s"), Settings.mqtt_topic);
-    WSContentSend_P(PSTR("}1" D_MQTT_GROUP_TOPIC "}2%s"), Settings.mqtt_grptopic);
+//    WSContentSend_P(PSTR("}1" D_MQTT_GROUP_TOPIC "}2%s"), Settings.mqtt_grptopic);
+    WSContentSend_P(PSTR("}1" D_MQTT_GROUP_TOPIC "}2%s"), GetGroupTopic_P(stopic, ""));
     WSContentSend_P(PSTR("}1" D_MQTT_FULL_TOPIC "}2%s"), GetTopic_P(stopic, CMND, mqtt_topic, ""));
-    WSContentSend_P(PSTR("}1" D_MQTT " " D_FALLBACK_TOPIC "}2%s"), GetFallbackTopic_P(stopic, CMND, ""));
+    WSContentSend_P(PSTR("}1" D_MQTT " " D_FALLBACK_TOPIC "}2%s"), GetFallbackTopic_P(stopic, ""));
   } else {
     WSContentSend_P(PSTR("}1" D_MQTT "}2" D_DISABLED));
   }
@@ -2276,7 +2283,7 @@ void HandleUploadLoop(void)
 
 void HandlePreflightRequest(void)
 {
-  WebServer->sendHeader(F("Access-Control-Allow-Origin"), F("*"));
+  HttpHeaderCors();
   WebServer->sendHeader(F("Access-Control-Allow-Methods"), F("GET, POST"));
   WebServer->sendHeader(F("Access-Control-Allow-Headers"), F("authorization"));
   WSSend(200, CT_HTML, "");
