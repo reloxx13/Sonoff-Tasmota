@@ -161,7 +161,7 @@ String sendIRJsonState(const struct decode_results &results) {
     } else {
       json += ",\"" D_JSON_IR_HASH "\":";
     }
-    if (Settings.flag.ir_receive_decimal) {
+    if (Settings.flag.ir_receive_decimal) {  // SetOption29 - IR receive data format
       char svalue[32];
       ulltoa(results.value, svalue, 10);
       json += svalue;
@@ -208,7 +208,7 @@ void IrReceiveCheck(void)
       ir_lasttime = now;
       Response_P(PSTR("{\"" D_JSON_IRRECEIVED "\":%s"), sendIRJsonState(results).c_str());
 
-      if (Settings.flag3.receive_raw) {
+      if (Settings.flag3.receive_raw) {  // SetOption58 - Add IR Raw data to JSON message
         ResponseAppend_P(PSTR(",\"" D_JSON_IR_RAWDATA "\":["));
         uint16_t i;
         for (i = 1; i < results.rawlen; i++) {

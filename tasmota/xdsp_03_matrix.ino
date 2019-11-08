@@ -22,6 +22,7 @@
 #ifdef USE_DISPLAY_MATRIX
 
 #define XDSP_03                    3
+#define XI2C_05                    5  // See I2CDEVICES.md
 
 #define MTX_MAX_SCREEN_BUFFER      80
 
@@ -198,7 +199,7 @@ void MatrixInitDriver(void)
   mtx_buffer = (char*)(malloc(MTX_MAX_SCREEN_BUFFER));
   if (mtx_buffer != nullptr) {
     if (!Settings.display_model) {
-      if (I2cDevice(Settings.display_address[1])) {
+      if (I2cSetDevice(Settings.display_address[1])) {
         Settings.display_model = XDSP_03;
       }
     }
@@ -207,6 +208,7 @@ void MatrixInitDriver(void)
       mtx_state = 1;
       for (mtx_matrices = 0; mtx_matrices < 8; mtx_matrices++) {
         if (Settings.display_address[mtx_matrices]) {
+          AddLog_P2(LOG_LEVEL_INFO, S_LOG_I2C_FOUND_AT, "8x8Matrix", Settings.display_address[mtx_matrices]);
           matrix[mtx_matrices] = new Adafruit_8x8matrix();
           matrix[mtx_matrices]->begin(Settings.display_address[mtx_matrices]);
         } else {
@@ -330,30 +332,30 @@ void MatrixRefresh(void)  // Every second
 
 bool Xdsp03(uint8_t function)
 {
+  if (!I2cEnabled(XI2C_05)) { return false; }
+
   bool result = false;
 
-  if (i2c_flg) {
-    if (FUNC_DISPLAY_INIT_DRIVER == function) {
-      MatrixInitDriver();
-    }
-    else if (XDSP_03 == Settings.display_model) {
-      switch (function) {
-        case FUNC_DISPLAY_MODEL:
-          result = true;
-          break;
-        case FUNC_DISPLAY_INIT:
-          MatrixInit(dsp_init);
-          break;
-        case FUNC_DISPLAY_EVERY_50_MSECOND:
-          MatrixRefresh();
-          break;
-        case FUNC_DISPLAY_POWER:
-          MatrixOnOff();
-          break;
-        case FUNC_DISPLAY_DRAW_STRING:
-          MatrixDrawStringAt(dsp_x, dsp_y, dsp_str, dsp_color, dsp_flag);
-          break;
-      }
+  if (FUNC_DISPLAY_INIT_DRIVER == function) {
+    MatrixInitDriver();
+  }
+  else if (XDSP_03 == Settings.display_model) {
+    switch (function) {
+      case FUNC_DISPLAY_MODEL:
+        result = true;
+        break;
+      case FUNC_DISPLAY_INIT:
+        MatrixInit(dsp_init);
+        break;
+      case FUNC_DISPLAY_EVERY_50_MSECOND:
+        MatrixRefresh();
+        break;
+      case FUNC_DISPLAY_POWER:
+        MatrixOnOff();
+        break;
+      case FUNC_DISPLAY_DRAW_STRING:
+        MatrixDrawStringAt(dsp_x, dsp_y, dsp_str, dsp_color, dsp_flag);
+        break;
     }
   }
   return result;

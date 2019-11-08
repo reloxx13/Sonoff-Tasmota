@@ -48,6 +48,7 @@
  * Assign Tasmota sensor model ID
  */
 #define XSNS_30          30
+#define XI2C_23          23  // See I2CDEVICES.md
 
 /** @defgroup group1 MPR121
  *  MPR121 preprocessor directives
@@ -399,6 +400,8 @@ void Mpr121Show(struct mpr121 *pS, uint8_t function)
  */
 bool Xsns30(uint8_t function)
 {
+  if (!I2cEnabled(XI2C_23)) { return false; }
+
 	// ???
 	bool result = false;
 
@@ -406,31 +409,29 @@ bool Xsns30(uint8_t function)
 	static struct mpr121 mpr121;
 
 	// Check if I2C is enabled
-	if (i2c_flg) {
-		switch (function) {
+	switch (function) {
 
-			// Initialize Sensors
-		case FUNC_INIT:
-			Mpr121Init(&mpr121);
-			break;
+		// Initialize Sensors
+	case FUNC_INIT:
+		Mpr121Init(&mpr121);
+		break;
 
-			// Run ever 50 milliseconds (near real-time functions)
-		case FUNC_EVERY_50_MSECOND:
-			Mpr121Show(&mpr121, FUNC_EVERY_50_MSECOND);
-			break;
+		// Run ever 50 milliseconds (near real-time functions)
+	case FUNC_EVERY_50_MSECOND:
+		Mpr121Show(&mpr121, FUNC_EVERY_50_MSECOND);
+		break;
 
-			// Generate JSON telemetry string
-		case FUNC_JSON_APPEND:
-			Mpr121Show(&mpr121, FUNC_JSON_APPEND);
-			break;
+		// Generate JSON telemetry string
+	case FUNC_JSON_APPEND:
+		Mpr121Show(&mpr121, FUNC_JSON_APPEND);
+		break;
 
 #ifdef USE_WEBSERVER
-			// Show sensor data on main web page
-		case FUNC_WEB_SENSOR:
-			Mpr121Show(&mpr121, FUNC_WEB_SENSOR);
-			break;
+		// Show sensor data on main web page
+	case FUNC_WEB_SENSOR:
+		Mpr121Show(&mpr121, FUNC_WEB_SENSOR);
+		break;
 #endif				// USE_WEBSERVER
-		}
 	}
 	// Return bool result
 	return result;

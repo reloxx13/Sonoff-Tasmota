@@ -43,6 +43,8 @@
 \*********************************************************************************************/
 
 #define XSNS_48                       48
+#define XI2C_33                       33  // See I2CDEVICES.md
+
 #define CHIRP_MAX_SENSOR_COUNT        3            // 127 is expectectd to be the max number
 
 #define CHIRP_ADDR_STANDARD           0x20         // standard address
@@ -521,31 +523,31 @@ bool ChirpCmd(void) {
 
 bool Xsns48(uint8_t function)
 {
+  if (!I2cEnabled(XI2C_33)) { return false; }
+
   bool result = false;
 
-  if (i2c_flg) {
-    switch (function) {
-      case FUNC_INIT:
-        ChirpDetect();         // We can call CHIRPSCAN later to re-detect
-        break;
-      case FUNC_EVERY_100_MSECOND:
-        if(chirp_found_sensors > 0){
-          ChirpEvery100MSecond();
-        }
-        break;
-      case FUNC_COMMAND:
-        result = ChirpCmd();
-        break;
-      case FUNC_JSON_APPEND:
-        ChirpShow(1);
-        chirp_next_job = 14; // TELE done, now compute time for next measure cycle
-        break;
+  switch (function) {
+    case FUNC_INIT:
+      ChirpDetect();         // We can call CHIRPSCAN later to re-detect
+      break;
+    case FUNC_EVERY_100_MSECOND:
+      if(chirp_found_sensors > 0){
+        ChirpEvery100MSecond();
+      }
+      break;
+    case FUNC_COMMAND:
+      result = ChirpCmd();
+      break;
+    case FUNC_JSON_APPEND:
+      ChirpShow(1);
+      chirp_next_job = 14; // TELE done, now compute time for next measure cycle
+      break;
 #ifdef USE_WEBSERVER
-      case FUNC_WEB_SENSOR:
-        ChirpShow(0);
-        break;
+    case FUNC_WEB_SENSOR:
+      ChirpShow(0);
+      break;
 #endif  // USE_WEBSERVER
-    }
   }
   return result;
 }

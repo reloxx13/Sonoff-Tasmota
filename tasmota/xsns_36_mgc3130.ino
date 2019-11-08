@@ -33,6 +33,7 @@
 \*********************************************************************************************/
 
 #define XSNS_36                 36
+#define XI2C_27                 27  // See I2CDEVICES.md
 
 #warning **** MGC3130: It is recommended to disable all unneeded I2C-drivers ****
 
@@ -200,7 +201,7 @@ uint8_t MGC3130enableAirwheel[] = {0x10, 0x00, 0x00, 0xA2, 0x90, 0x00 , 0x00, 0x
 void MGC3130_triggerTele(){
     mqtt_data[0] = '\0';
     if (MqttShowSensor()) {
-      MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_SENSOR), Settings.flag.mqtt_sensor_retain);
+      MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_SENSOR), Settings.flag.mqtt_sensor_retain);  // CMND_SENSORRETAIN
     #ifdef USE_RULES
       RulesTeleperiod();  // Allow rule based HA messages
     #endif  // USE_RULES
@@ -602,31 +603,31 @@ bool MGC3130CommandSensor()
 
 bool Xsns36(uint8_t function)
 {
+  if (!I2cEnabled(XI2C_27)) { return false; }
+
   bool result = false;
 
-  if (i2c_flg) {
-    if ((FUNC_INIT == function) && (pin[GPIO_MGC3130_XFER] < 99) && (pin[GPIO_MGC3130_RESET] < 99)) {
-      MGC3130_detect();
-    }
-    else if (MGC3130_type) {
-      switch (function) {
-        case FUNC_EVERY_50_MSECOND:
-          MGC3130_loop();
-          break;
-        case FUNC_COMMAND_SENSOR:
-          if (XSNS_36 == XdrvMailbox.index) {
-            result = MGC3130CommandSensor();
-          }
-          break;
-        case FUNC_JSON_APPEND:
-          MGC3130_show(1);
-          break;
+  if ((FUNC_INIT == function) && (pin[GPIO_MGC3130_XFER] < 99) && (pin[GPIO_MGC3130_RESET] < 99)) {
+    MGC3130_detect();
+  }
+  else if (MGC3130_type) {
+    switch (function) {
+      case FUNC_EVERY_50_MSECOND:
+        MGC3130_loop();
+        break;
+      case FUNC_COMMAND_SENSOR:
+        if (XSNS_36 == XdrvMailbox.index) {
+          result = MGC3130CommandSensor();
+        }
+        break;
+      case FUNC_JSON_APPEND:
+        MGC3130_show(1);
+        break;
 #ifdef USE_WEBSERVER
-        case FUNC_WEB_SENSOR:
-          MGC3130_show(0);
-          break;
+      case FUNC_WEB_SENSOR:
+        MGC3130_show(0);
+        break;
 #endif  // USE_WEBSERVER
-      }
     }
   }
   return result;

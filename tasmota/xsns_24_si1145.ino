@@ -28,6 +28,7 @@
 \*********************************************************************************************/
 
 #define XSNS_24                             24
+#define XI2C_19                             19  // See I2CDEVICES.md
 
 #define SI114X_ADDR                         0X60
 //
@@ -350,22 +351,22 @@ void Si1145Show(bool json)
 
 bool Xsns24(uint8_t function)
 {
+  if (!I2cEnabled(XI2C_19)) { return false; }
+
   bool result = false;
 
-  if (i2c_flg) {
-    switch (function) {
-      case FUNC_EVERY_SECOND:
-        Si1145Update();
-        break;
-      case FUNC_JSON_APPEND:
-        Si1145Show(1);
-        break;
+  switch (function) {
+    case FUNC_EVERY_SECOND:
+      Si1145Update();
+      break;
+    case FUNC_JSON_APPEND:
+      Si1145Show(1);
+      break;
 #ifdef USE_WEBSERVER
-      case FUNC_WEB_SENSOR:
-        Si1145Show(0);
-        break;
+    case FUNC_WEB_SENSOR:
+      Si1145Show(0);
+      break;
 #endif  // USE_WEBSERVER
-    }
   }
   return result;
 }

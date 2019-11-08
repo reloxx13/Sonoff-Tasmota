@@ -22,6 +22,7 @@
 #ifdef USE_DISPLAY_LCD
 
 #define XDSP_01                1
+#define XI2C_03                3            // See I2CDEVICES.md
 
 #define LCD_ADDRESS1           0x27         // LCD I2C address option 1
 #define LCD_ADDRESS2           0x3F         // LCD I2C address option 2
@@ -57,17 +58,19 @@ void LcdInit(uint8_t mode)
 void LcdInitDriver(void)
 {
   if (!Settings.display_model) {
-    if (I2cDevice(LCD_ADDRESS1)) {
+    if (I2cSetDevice(LCD_ADDRESS1)) {
       Settings.display_address[0] = LCD_ADDRESS1;
       Settings.display_model = XDSP_01;
     }
-    else if (I2cDevice(LCD_ADDRESS2)) {
+    else if (I2cSetDevice(LCD_ADDRESS2)) {
       Settings.display_address[0] = LCD_ADDRESS2;
       Settings.display_model = XDSP_01;
     }
   }
 
   if (XDSP_01 == Settings.display_model) {
+    AddLog_P2(LOG_LEVEL_INFO, S_LOG_I2C_FOUND_AT, "LCD", Settings.display_address[0]);
+
     Settings.display_width = Settings.display_cols[0];
     Settings.display_height = Settings.display_rows;
     lcd = new LiquidCrystal_I2C(Settings.display_address[0], Settings.display_cols[0], Settings.display_rows);
@@ -189,26 +192,27 @@ void LcdRefresh(void)  // Every second
 
 bool Xdsp01(uint8_t function)
 {
+  if (!I2cEnabled(XI2C_03)) { return false; }
+
   bool result = false;
 
-  if (i2c_flg) {
-    if (FUNC_DISPLAY_INIT_DRIVER == function) {
-      LcdInitDriver();
-    }
-    else if (XDSP_01 == Settings.display_model) {
-      switch (function) {
-        case FUNC_DISPLAY_MODEL:
-          result = true;
-          break;
-        case FUNC_DISPLAY_INIT:
-          LcdInit(dsp_init);
-          break;
-        case FUNC_DISPLAY_POWER:
-          LcdDisplayOnOff(disp_power);
-          break;
-        case FUNC_DISPLAY_CLEAR:
-          lcd->clear();
-          break;
+  if (FUNC_DISPLAY_INIT_DRIVER == function) {
+    LcdInitDriver();
+  }
+  else if (XDSP_01 == Settings.display_model) {
+    switch (function) {
+      case FUNC_DISPLAY_MODEL:
+        result = true;
+        break;
+      case FUNC_DISPLAY_INIT:
+        LcdInit(dsp_init);
+        break;
+      case FUNC_DISPLAY_POWER:
+        LcdDisplayOnOff(disp_power);
+        break;
+      case FUNC_DISPLAY_CLEAR:
+        lcd->clear();
+        break;
 //        case FUNC_DISPLAY_DRAW_HLINE:
 //          break;
 //        case FUNC_DISPLAY_DRAW_VLINE:
@@ -227,20 +231,19 @@ bool Xdsp01(uint8_t function)
 //          break;
 //        case FUNC_DISPLAY_FONT_SIZE:
 //          break;
-        case FUNC_DISPLAY_DRAW_STRING:
-          LcdDrawStringAt();
-          break;
-        case FUNC_DISPLAY_ONOFF:
-          LcdDisplayOnOff(dsp_on);
-          break;
+      case FUNC_DISPLAY_DRAW_STRING:
+        LcdDrawStringAt();
+        break;
+      case FUNC_DISPLAY_ONOFF:
+        LcdDisplayOnOff(dsp_on);
+        break;
 //        case FUNC_DISPLAY_ROTATION:
 //          break;
 #ifdef USE_DISPLAY_MODES1TO5
-        case FUNC_DISPLAY_EVERY_SECOND:
-          LcdRefresh();
-          break;
+      case FUNC_DISPLAY_EVERY_SECOND:
+        LcdRefresh();
+        break;
 #endif  // USE_DISPLAY_MODES1TO5
-      }
     }
   }
   return result;

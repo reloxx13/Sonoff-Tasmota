@@ -38,6 +38,7 @@
 \*********************************************************************************************/
 
 #define XSNS_50                     50
+#define XI2C_34                     34  // See I2CDEVICES.md
 
 #define PAJ7620_ADDR                0x73              // standard address
 
@@ -133,7 +134,7 @@ void PAJ7620SelectBank(uint8_t bank)
 void PAJ7620TriggerTele(){
   mqtt_data[0] = '\0';
   if (MqttShowSensor()) {
-    MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_SENSOR), Settings.flag.mqtt_sensor_retain);
+    MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_SENSOR), Settings.flag.mqtt_sensor_retain);  // CMND_SENSORRETAIN
 #ifdef USE_RULES
     RulesTeleperiod();  // Allow rule based HA messages
 #endif  // USE_RULES
@@ -536,32 +537,32 @@ bool PAJ7620Cmd(void) {
 
 bool Xsns50(uint8_t function)
 {
+  if (!I2cEnabled(XI2C_34)) { return false; }
+
   bool result = false;
 
-  if (i2c_flg) {
-    switch (function) {
-      case FUNC_INIT:
-        DEBUG_SENSOR_LOG(PSTR("PAJ7620: 1 second until init"));
-        break;
-			case FUNC_COMMAND_SENSOR:
-				if (XSNS_50 == XdrvMailbox.index){
-          result = PAJ7620Cmd();
-        }
-        break;
-      case FUNC_EVERY_100_MSECOND:
-        if(PAJ7620_next_job <255) {
-          PAJ7620Loop();
-        }
-        break;
-      case FUNC_JSON_APPEND:
-        PAJ7620Show(1);
-        break;
+  switch (function) {
+    case FUNC_INIT:
+      DEBUG_SENSOR_LOG(PSTR("PAJ7620: 1 second until init"));
+      break;
+    case FUNC_COMMAND_SENSOR:
+      if (XSNS_50 == XdrvMailbox.index){
+        result = PAJ7620Cmd();
+      }
+      break;
+    case FUNC_EVERY_100_MSECOND:
+      if(PAJ7620_next_job <255) {
+        PAJ7620Loop();
+      }
+      break;
+    case FUNC_JSON_APPEND:
+      PAJ7620Show(1);
+      break;
 #ifdef USE_WEBSERVER
-      case FUNC_WEB_SENSOR:
-        PAJ7620Show(0);
-        break;
+    case FUNC_WEB_SENSOR:
+      PAJ7620Show(0);
+      break;
 #endif  // USE_WEBSERVER
-    }
   }
   return result;
 }

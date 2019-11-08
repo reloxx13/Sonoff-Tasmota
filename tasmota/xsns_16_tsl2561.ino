@@ -28,6 +28,7 @@
 \*********************************************************************************************/
 
 #define XSNS_16             16
+#define XI2C_16             16  // See I2CDEVICES.md
 
 #include <Tsl2561Util.h>
 
@@ -66,12 +67,12 @@ void Tsl2561Detect(void)
   if (tsl2561_type) { return; }
   uint8_t id;
 
-  if (I2cDevice(0x29) || I2cDevice(0x39) || I2cDevice(0x49)) {
+  if (I2cSetDevice(0x29) || I2cSetDevice(0x39) || I2cSetDevice(0x49)) {
     Tsl.begin();
     if (!Tsl.id(id)) return;
     if (Tsl.on()) {
       tsl2561_type = 1;
-      AddLog_P2(LOG_LEVEL_DEBUG, S_LOG_I2C_FOUND_AT, tsl2561_types, Tsl.address(), id);
+      AddLog_P2(LOG_LEVEL_DEBUG, S_LOG_I2C_FOUND_AT, tsl2561_types, Tsl.address());
     }
   }
 }
@@ -121,25 +122,25 @@ void Tsl2561Show(bool json)
 
 bool Xsns16(uint8_t function)
 {
+  if (!I2cEnabled(XI2C_16)) { return false; }
+
   bool result = false;
 
-  if (i2c_flg) {
-    switch (function) {
-      case FUNC_INIT:
-        Tsl2561Detect();
-        break;
-      case FUNC_EVERY_SECOND:
-        Tsl2561EverySecond();
-        break;
-      case FUNC_JSON_APPEND:
-        Tsl2561Show(1);
-        break;
+  switch (function) {
+    case FUNC_EVERY_SECOND:
+      Tsl2561EverySecond();
+      break;
+    case FUNC_JSON_APPEND:
+      Tsl2561Show(1);
+      break;
 #ifdef USE_WEBSERVER
-      case FUNC_WEB_SENSOR:
-        Tsl2561Show(0);
-        break;
+    case FUNC_WEB_SENSOR:
+      Tsl2561Show(0);
+      break;
 #endif  // USE_WEBSERVER
-    }
+    case FUNC_INIT:
+      Tsl2561Detect();
+      break;
   }
   return result;
 }

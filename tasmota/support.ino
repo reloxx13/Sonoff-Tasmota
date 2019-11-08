@@ -304,7 +304,7 @@ char* ulltoa(unsigned long long value, char *str, int radix)
 }
 
 // see https://stackoverflow.com/questions/6357031/how-do-you-convert-a-byte-array-to-a-hexadecimal-string-in-c
-// char* ToHex_P(unsigned char * in, size_t insz, char * out, size_t outsz, char inbetween = '\0'); in sonoff_post.h
+// char* ToHex_P(unsigned char * in, size_t insz, char * out, size_t outsz, char inbetween = '\0'); in tasmota_post.h
 char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, char inbetween)
 {
   // ToHex_P(in, insz, out, outz)      -> "12345667"
@@ -495,7 +495,7 @@ char IndexSeparator()
 
   return separators[Settings.flag3.use_underscore];
 */
-  if (Settings.flag3.use_underscore) {
+  if (Settings.flag3.use_underscore) {  // SetOption64 - Enable "_" instead of "-" as sensor index separator
     return '_';
   } else {
     return '-';
@@ -619,8 +619,8 @@ float ConvertTemp(float c)
   global_update = uptime;
   global_temperature = c;
 
-  if (!isnan(c) && Settings.flag.temperature_conversion) {
-    result = c * 1.8 + 32;  // Fahrenheit
+  if (!isnan(c) && Settings.flag.temperature_conversion) {    // SetOption8 - Switch between Celsius or Fahrenheit
+    result = c * 1.8 + 32;                                    // Fahrenheit
   }
   return result;
 }
@@ -629,15 +629,15 @@ float ConvertTempToCelsius(float c)
 {
   float result = c;
 
-  if (!isnan(c) && Settings.flag.temperature_conversion) {
-    result = (c - 32) / 1.8;  // Celsius
+  if (!isnan(c) && Settings.flag.temperature_conversion) {    // SetOption8 - Switch between Celsius or Fahrenheit
+    result = (c - 32) / 1.8;                                  // Celsius
   }
   return result;
 }
 
 char TempUnit(void)
 {
-  return (Settings.flag.temperature_conversion) ? 'F' : 'C';
+  return (Settings.flag.temperature_conversion) ? 'F' : 'C';  // SetOption8  - Switch between Celsius or Fahrenheit
 }
 
 float ConvertHumidity(float h)
@@ -655,8 +655,8 @@ float ConvertPressure(float p)
   global_update = uptime;
   global_pressure = p;
 
-  if (!isnan(p) && Settings.flag.pressure_conversion) {
-    result = p * 0.75006375541921;  // mmHg
+  if (!isnan(p) && Settings.flag.pressure_conversion) {  // SetOption24 - Switch between hPa or mmHg pressure unit
+    result = p * 0.75006375541921;                       // mmHg
   }
   return result;
 }
@@ -883,8 +883,9 @@ void WebHexCode(uint32_t i, const char* code)
     color = w | (w << 4);                                                            // 00112233
   }
 */
-  uint32_t j = sizeof(Settings.web_color)/3;          // First area contains j=18 colors
-  if (i < j) { 
+  uint32_t j = sizeof(Settings.web_color) / 3;          // First area contains j = 18 colors
+/*
+  if (i < j) {
     Settings.web_color[i][0] = (color >> 16) & 0xFF;  // Red
     Settings.web_color[i][1] = (color >> 8) & 0xFF;   // Green
     Settings.web_color[i][2] = color & 0xFF;          // Blue
@@ -892,14 +893,30 @@ void WebHexCode(uint32_t i, const char* code)
     Settings.web_color2[i-j][0] = (color >> 16) & 0xFF;  // Red
     Settings.web_color2[i-j][1] = (color >> 8) & 0xFF;   // Green
     Settings.web_color2[i-j][2] = color & 0xFF;          // Blue
-  }	  
+  }
+*/
+  if (i >= j) {
+    // Calculate i to index in Settings.web_color2 - Dirty(!) but saves 128 bytes code
+    i += ((((uint8_t*)&Settings.web_color2 - (uint8_t*)&Settings.web_color) / 3) - j);
+  }
+  Settings.web_color[i][0] = (color >> 16) & 0xFF;  // Red
+  Settings.web_color[i][1] = (color >> 8) & 0xFF;   // Green
+  Settings.web_color[i][2] = color & 0xFF;          // Blue
 }
 
 uint32_t WebColor(uint32_t i)
 {
-  uint32_t j = sizeof(Settings.web_color)/3;          // First area contains j=18 colors
+  uint32_t j = sizeof(Settings.web_color) / 3;          // First area contains j = 18 colors
+/*
   uint32_t tcolor = (i<j)? (Settings.web_color[i][0] << 16) | (Settings.web_color[i][1] << 8) | Settings.web_color[i][2] :
                            (Settings.web_color2[i-j][0] << 16) | (Settings.web_color2[i-j][1] << 8) | Settings.web_color2[i-j][2];
+*/
+  if (i >= j) {
+    // Calculate i to index in Settings.web_color2 - Dirty(!) but saves 128 bytes code
+    i += ((((uint8_t*)&Settings.web_color2 - (uint8_t*)&Settings.web_color) / 3) - j);
+  }
+  uint32_t tcolor = (Settings.web_color[i][0] << 16) | (Settings.web_color[i][1] << 8) | Settings.web_color[i][2];
+
   return tcolor;
 }
 
@@ -1085,7 +1102,7 @@ uint8_t ValidPin(uint32_t pin, uint32_t gpio)
   if (FlashPin(pin)) {
     result = GPIO_NONE;  // Disable flash pins GPIO6, GPIO7, GPIO8 and GPIO11
   }
-  if ((WEMOS == Settings.module) && (!Settings.flag3.user_esp8285_enable)) {
+  if ((WEMOS == Settings.module) && (!Settings.flag3.user_esp8285_enable)) {  // SetOption51 - Enable ESP8285 user GPIO's
     if ((pin == 9) || (pin == 10)) { result = GPIO_NONE; }  // Disable possible flash GPIO9 and GPIO10
   }
   return result;
@@ -1469,6 +1486,17 @@ void I2cScan(char *devs, unsigned int devs_len)
   }
 }
 
+void I2cResetActive(uint32_t addr, uint32_t count = 1)
+{
+  addr &= 0x7F;         // Max I2C address is 127
+  count &= 0x7F;        // Max 4 x 32 bits available
+  while (count-- && (addr < 128)) {
+    i2c_active[addr / 32] &= ~(1 << (addr % 32));
+    addr++;
+  }
+//  AddLog_P2(LOG_LEVEL_DEBUG, PSTR("I2C: Active %08X,%08X,%08X,%08X"), i2c_active[0], i2c_active[1], i2c_active[2], i2c_active[3]);
+}
+
 void I2cSetActive(uint32_t addr, uint32_t count = 1)
 {
   addr &= 0x7F;         // Max I2C address is 127
@@ -1489,14 +1517,18 @@ bool I2cActive(uint32_t addr)
   return false;
 }
 
-bool I2cDevice(uint8_t addr)
+bool I2cSetDevice(uint32_t addr)
 {
   addr &= 0x7F;         // Max I2C address is 127
   if (I2cActive(addr)) {
     return false;       // If already active report as not present;
   }
-  Wire.beginTransmission(addr);
-  return (0 == Wire.endTransmission());
+  Wire.beginTransmission((uint8_t)addr);
+  bool result = (0 == Wire.endTransmission());
+  if (result) {
+    I2cSetActive(addr, 1);
+  }
+  return result;
 }
 #endif  // USE_I2C
 

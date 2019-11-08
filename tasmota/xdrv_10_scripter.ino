@@ -38,6 +38,7 @@ keywords if then else endif, or, and are better readable for beginners (others m
 \*********************************************************************************************/
 
 #define XDRV_10             10
+#define XI2C_37             37  // See I2CDEVICES.md
 
 #define SCRIPT_DEBUG 0
 
@@ -2664,15 +2665,15 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
                       // allow recursive call
                     } else {
                       tasm_cmd_activ=1;
-                      svmqtt=Settings.flag.mqtt_enabled;
+                      svmqtt=Settings.flag.mqtt_enabled;  // SetOption3 - Enable MQTT
                       swll=Settings.weblog_level;
-                      Settings.flag.mqtt_enabled=0;
+                      Settings.flag.mqtt_enabled=0;       // SetOption3 - Enable MQTT
                       Settings.weblog_level=0;
                     }
                     ExecuteCommand((char*)tmp, SRC_RULE);
                     tasm_cmd_activ=0;
                     if (sflag==1) {
-                      Settings.flag.mqtt_enabled=svmqtt;
+                      Settings.flag.mqtt_enabled=svmqtt;  // SetOption3  - Enable MQTT
                       Settings.weblog_level=swll;
                     }
                   }
@@ -4729,8 +4730,8 @@ bool Xdrv10(uint8_t function)
 
 #ifdef USE_24C256
 #ifndef USE_SCRIPT_FATFS
-      if (i2c_flg) {
-        if (I2cDevice(EEPROM_ADDRESS)) {
+      if (I2cEnabled(XI2C_37)) {
+        if (I2cSetDevice(EEPROM_ADDRESS)) {
           // found 32kb eeprom
           char *script;
           script=(char*)calloc(EEP_SCRIPT_SIZE+4,1);

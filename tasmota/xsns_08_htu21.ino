@@ -28,6 +28,7 @@
 \*********************************************************************************************/
 
 #define XSNS_08             8
+#define XI2C_09             9       // See I2CDEVICES.md
 
 #define HTU21_ADDR          0x40
 
@@ -199,8 +200,11 @@ void HtuDetect(void)
   if (htu_type) { return; }
 
   htu_address = HTU21_ADDR;
+  if (I2cActive(htu_address)) { return; }
+
   htu_type = HtuReadDeviceId();
   if (htu_type) {
+    I2cSetActive(htu_address);
     uint8_t index = 0;
     HtuInit();
     switch (htu_type) {
@@ -223,7 +227,7 @@ void HtuDetect(void)
         htu_delay_humidity = 23;
     }
     GetTextIndexed(htu_types, sizeof(htu_types), index, kHtuTypes);
-    AddLog_P2(LOG_LEVEL_DEBUG, S_LOG_I2C_FOUND_AT, htu_types, htu_address);
+    AddLog_P2(LOG_LEVEL_INFO, S_LOG_I2C_FOUND_AT, htu_types, htu_address);
   }
 }
 
@@ -280,25 +284,25 @@ void HtuShow(bool json)
 
 bool Xsns08(uint8_t function)
 {
+  if (!I2cEnabled(XI2C_09)) { return false; }
+
   bool result = false;
 
-  if (i2c_flg) {
-    switch (function) {
-      case FUNC_INIT:
-        HtuDetect();
-        break;
-      case FUNC_EVERY_SECOND:
-        HtuEverySecond();
-        break;
-      case FUNC_JSON_APPEND:
-        HtuShow(1);
-        break;
+  switch (function) {
+    case FUNC_INIT:
+      HtuDetect();
+      break;
+    case FUNC_EVERY_SECOND:
+      HtuEverySecond();
+      break;
+    case FUNC_JSON_APPEND:
+      HtuShow(1);
+      break;
 #ifdef USE_WEBSERVER
-      case FUNC_WEB_SENSOR:
-        HtuShow(0);
-        break;
+    case FUNC_WEB_SENSOR:
+      HtuShow(0);
+      break;
 #endif  // USE_WEBSERVER
-    }
   }
   return result;
 }

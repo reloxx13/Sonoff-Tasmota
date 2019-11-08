@@ -74,7 +74,7 @@ uint8_t OneWireReset(void)
   uint8_t retries = 125;
 
   //noInterrupts();
-  pinMode(ds18x20_pin, Settings.flag3.ds18x20_internal_pullup ? INPUT_PULLUP : INPUT);
+  pinMode(ds18x20_pin, Settings.flag3.ds18x20_internal_pullup ? INPUT_PULLUP : INPUT);  // SetOption74 - Enable internal pullup for single DS18x20 sensor
   do {
     if (--retries == 0) {
       return 0;
@@ -84,7 +84,7 @@ uint8_t OneWireReset(void)
   pinMode(ds18x20_pin, OUTPUT);
   digitalWrite(ds18x20_pin, LOW);
   delayMicroseconds(480);
-  pinMode(ds18x20_pin, Settings.flag3.ds18x20_internal_pullup ? INPUT_PULLUP : INPUT);
+  pinMode(ds18x20_pin, Settings.flag3.ds18x20_internal_pullup ? INPUT_PULLUP : INPUT);  // SetOption74 - Enable internal pullup for single DS18x20 sensor
   delayMicroseconds(70);
   uint8_t r = !digitalRead(ds18x20_pin);
   //interrupts();
@@ -113,7 +113,7 @@ uint8_t OneWireReadBit(void)
   pinMode(ds18x20_pin, OUTPUT);
   digitalWrite(ds18x20_pin, LOW);
   delayMicroseconds(3);
-  pinMode(ds18x20_pin, Settings.flag3.ds18x20_internal_pullup ? INPUT_PULLUP : INPUT);
+  pinMode(ds18x20_pin, Settings.flag3.ds18x20_internal_pullup ? INPUT_PULLUP : INPUT);  // SetOption74 - Enable internal pullup for single DS18x20 sensor
   delayMicroseconds(10);
   uint8_t r = digitalRead(ds18x20_pin);
   //interrupts();
@@ -431,15 +431,11 @@ void Ds18x20Show(bool json)
       Ds18x20Name(i);
 
       if (json) {
-        if (1 == ds18x20_sensors) {
-          ResponseAppend_P(JSON_SNS_TEMP, ds18x20_types, temperature);
-        } else {
-          char address[17];
-          for (uint32_t j = 0; j < 6; j++) {
-            sprintf(address+2*j, "%02X", ds18x20_sensor[index].address[6-j]);  // Skip sensor type and crc
-          }
-          ResponseAppend_P(PSTR(",\"%s\":{\"" D_JSON_ID "\":\"%s\",\"" D_JSON_TEMPERATURE "\":%s}"), ds18x20_types, address, temperature);
+        char address[17];
+        for (uint32_t j = 0; j < 6; j++) {
+          sprintf(address+2*j, "%02X", ds18x20_sensor[index].address[6-j]);  // Skip sensor type and crc
         }
+        ResponseAppend_P(PSTR(",\"%s\":{\"" D_JSON_ID "\":\"%s\",\"" D_JSON_TEMPERATURE "\":%s}"), ds18x20_types, address, temperature);
 #ifdef USE_DOMOTICZ
         if ((0 == tele_period) && (0 == i)) {
           DomoticzSensor(DZ_TEMP, temperature);

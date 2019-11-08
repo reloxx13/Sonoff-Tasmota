@@ -135,7 +135,7 @@ void SonoffIfanReceived(void)
   }
   if (6 == mode) {
     // AA 55 01 06 00 01 01 09 - Buzzer
-    Settings.flag3.buzzer_enable = !Settings.flag3.buzzer_enable;  // SetOption67
+    Settings.flag3.buzzer_enable = !Settings.flag3.buzzer_enable;  // SetOption67 - Enable buzzer when available
   }
   if (7 == mode) {
     // AA 55 01 07 00 01 01 0A - Rf long press - forget RF codes
@@ -217,7 +217,7 @@ void CmndFanspeed(void)
 bool SonoffIfanInit(void)
 {
   if (SONOFF_IFAN03 == my_module_type) {
-    Settings.flag.mqtt_serial = 0;
+    Settings.flag.mqtt_serial = 0;  // CMND_SERIALSEND and CMND_SERIALLOG
     baudrate = 9600;
     SetSeriallog(LOG_LEVEL_NONE);
   }

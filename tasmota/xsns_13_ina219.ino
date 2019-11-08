@@ -28,6 +28,7 @@
 \*********************************************************************************************/
 
 #define XSNS_13                                 13
+#define XI2C_14                                 14        // See I2CDEVICES.md
 
 #define INA219_ADDRESS1                         (0x40)    // 1000000 (A0+A1=GND)
 #define INA219_ADDRESS2                         (0x41)    // 1000000 (A0=Vcc, A1=GND)
@@ -197,13 +198,14 @@ bool Ina219CommandSensor(void)
 
 void Ina219Detect(void)
 {
-  for (int i=0; i<sizeof(ina219_type); i++) {
-    if (ina219_type[i])
-      continue;
+  for (uint32_t i = 0; i < sizeof(ina219_type); i++) {
+    if (ina219_type[i]) { continue; }
     uint16_t addr = ina219_addresses[i];
+    if (I2cActive(addr)) { continue; }
     if (Ina219SetCalibration(Settings.ina219_mode, addr)) {
-        ina219_type[i] = 1;
-        AddLog_P2(LOG_LEVEL_DEBUG, S_LOG_I2C_FOUND_AT, ina219_types, addr);
+      I2cSetActive(addr);
+      ina219_type[i] = 1;
+      AddLog_P2(LOG_LEVEL_DEBUG, S_LOG_I2C_FOUND_AT, ina219_types, addr);
     }
   }
 }
@@ -275,30 +277,30 @@ void Ina219Show(bool json)
 
 bool Xsns13(uint8_t function)
 {
+  if (!I2cEnabled(XI2C_14)) { return false; }
+
   bool result = false;
 
-  if (i2c_flg) {
-    switch (function) {
-      case FUNC_COMMAND_SENSOR:
-        if ((XSNS_13 == XdrvMailbox.index) && (ina219_type)) {
-          result = Ina219CommandSensor();
-        }
-        break;
-      case FUNC_INIT:
-        Ina219Detect();
-        break;
-      case FUNC_EVERY_SECOND:
-        Ina219EverySecond();
-        break;
-      case FUNC_JSON_APPEND:
-        Ina219Show(1);
-        break;
+  switch (function) {
+    case FUNC_COMMAND_SENSOR:
+      if ((XSNS_13 == XdrvMailbox.index) && (ina219_type)) {
+        result = Ina219CommandSensor();
+      }
+      break;
+    case FUNC_EVERY_SECOND:
+      Ina219EverySecond();
+      break;
+    case FUNC_JSON_APPEND:
+      Ina219Show(1);
+      break;
 #ifdef USE_WEBSERVER
-      case FUNC_WEB_SENSOR:
-        Ina219Show(0);
-        break;
+    case FUNC_WEB_SENSOR:
+      Ina219Show(0);
+      break;
 #endif  // USE_WEBSERVER
-    }
+    case FUNC_INIT:
+      Ina219Detect();
+      break;
   }
   return result;
 }

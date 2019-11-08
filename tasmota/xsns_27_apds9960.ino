@@ -37,6 +37,7 @@
 \*********************************************************************************************/
 
 #define XSNS_27             27
+#define XI2C_21             21  // See I2CDEVICES.md
 
 #if defined(USE_SHT) || defined(USE_VEML6070) || defined(USE_TSL2561)
   #warning **** Turned off conflicting drivers SHT and VEML6070 ****
@@ -1812,7 +1813,7 @@ void handleGesture(void) {
 
     mqtt_data[0] = '\0';
     if (MqttShowSensor()) {
-      MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_SENSOR), Settings.flag.mqtt_sensor_retain);
+      MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_SENSOR), Settings.flag.mqtt_sensor_retain);  // CMND_SENSORRETAIN
 #ifdef USE_RULES
       RulesTeleperiod();  // Allow rule based HA messages
 #endif  // USE_RULES
@@ -2026,30 +2027,30 @@ bool APDS9960CommandSensor(void)
 
 bool Xsns27(uint8_t function)
 {
+  if (!I2cEnabled(XI2C_21)) { return false; }
+
   bool result = false;
 
-  if (i2c_flg) {
-    if (FUNC_INIT == function) {
-      APDS9960_detect();
-    } else if (APDS9960type) {
-      switch (function) {
-        case FUNC_EVERY_50_MSECOND:
-            APDS9960_loop();
-            break;
-        case FUNC_COMMAND_SENSOR:
-            if (XSNS_27 == XdrvMailbox.index) {
-            result = APDS9960CommandSensor();
-            }
-            break;
-        case FUNC_JSON_APPEND:
-            APDS9960_show(1);
-            break;
-#ifdef USE_WEBSERVER
-        case FUNC_WEB_SENSOR:
-          APDS9960_show(0);
+  if (FUNC_INIT == function) {
+    APDS9960_detect();
+  } else if (APDS9960type) {
+    switch (function) {
+      case FUNC_EVERY_50_MSECOND:
+          APDS9960_loop();
           break;
+      case FUNC_COMMAND_SENSOR:
+          if (XSNS_27 == XdrvMailbox.index) {
+          result = APDS9960CommandSensor();
+          }
+          break;
+      case FUNC_JSON_APPEND:
+          APDS9960_show(1);
+          break;
+#ifdef USE_WEBSERVER
+      case FUNC_WEB_SENSOR:
+        APDS9960_show(0);
+        break;
 #endif  // USE_WEBSERVER
-      }
     }
   }
   return result;

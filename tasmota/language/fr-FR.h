@@ -182,7 +182,7 @@
 #define D_WARMLIGHT "Chaud"
 #define D_WEB_SERVER "Serveur web"
 
-// sonoff.ino
+// tasmota.ino
 #define D_WARNING_MINIMAL_VERSION "ATTENTION Cette version ne supporte pas les réglages persistants"
 #define D_LEVEL_10 "level 1-0"
 #define D_LEVEL_01 "level 0-1"
@@ -511,7 +511,7 @@
 //xsns_43_hre.ino
 #define D_LOG_HRE "HRE: "
 
-// sonoff_template.h - keep them as short as possible to be able to fit them in GUI drop down box
+// tasmota_template.h - keep them as short as possible to be able to fit them in GUI drop down box
 #define D_SENSOR_NONE          "Aucun"
 #define D_SENSOR_USER          "Utilisateur"
 #define D_SENSOR_DHT11         "DHT11"
@@ -548,6 +548,8 @@
 #define D_SENSOR_PMS5003       "PMS5003"
 #define D_SENSOR_SDS0X1_RX     "SDS0X1 Rx"
 #define D_SENSOR_SDS0X1_TX     "SDS0X1 Tx"
+#define D_SENSOR_HPMA_RX       "HPMA Rx"
+#define D_SENSOR_HPMA_TX       "HPMA Tx"
 #define D_SENSOR_SBR_RX        "SerBr Rx"
 #define D_SENSOR_SBR_TX        "SerBr Tx"
 #define D_SENSOR_SR04_TRIG     "SR04 Tri"

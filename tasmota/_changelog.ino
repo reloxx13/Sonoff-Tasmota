@@ -1,4 +1,18 @@
 /*********************************************************************************************\
+ * 7.0.0.3 20191103
+ * Initial support for I2C driver runtime control using command I2CDriver and document I2CDEVICES.md
+ * Fix random crash caused by UPNP flood
+ * Add support for Honeywell HPMA115S0 particle concentration sensor by David Hunt (#6843)
+ * Remove driver xsns_12_ads1115_i2cdev replaced by xsns_12_ads1115
+ *
+ * 7.0.0.2 20191102
+ * Add command WebColor19 to control color of Module and Name (#6811)
+ * Add support for Honeywell I2C HIH series Humidity and Temperetaure sensor (#6808)
+ * Fix wrong Dimmer behavior introduced with #6799 when SetOption37 < 128
+ * Change add DS18x20 support in Tasmota-IR
+ * Add Zigbee command support, considered as v1.0 for full Zigbee support
+ * Fix Reduce flash size after change to IRremoteESP8266 v2.7.0
+ *
  * 7.0.0.1 20191027
  * Remove references to versions before 6.0
  * Change default GUI to dark theme
@@ -8,6 +22,7 @@
  * Fix better control of RGB/White when SetOption37 >128, added Dimmer1 and Dimmer2 commands (#6714)
  * Add hide Alexa objects with friendlyname starting with '$' (#6722, #6762)
  * Add command SetOption75 0/1 to switch between grouptopic (0) using fulltopic replacing %topic% or (1) is cmnd/<grouptopic> (#6779)
+ * Change Update IRremoteESP8266 to v2.7.0
  *
  * 6.7.1.1 20191026
  * Change ArduinoSlave to TasmotaSlave (Experimental)

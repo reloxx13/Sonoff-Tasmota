@@ -26,6 +26,7 @@
 \*********************************************************************************************/
 
 #define XSNS_10              10
+#define XI2C_11              11  // See I2CDEVICES.md
 
 #define BH1750_ADDR1         0x23
 #define BH1750_ADDR2         0x5C
@@ -55,17 +56,17 @@ bool Bh1750Read(void)
 
 void Bh1750Detect(void)
 {
-  if (bh1750_type) {
-    return;
-  }
+  if (bh1750_type) { return; }
 
   for (uint32_t i = 0; i < sizeof(bh1750_addresses); i++) {
     bh1750_address = bh1750_addresses[i];
+    if (I2cActive(bh1750_address)) { continue; }
     Wire.beginTransmission(bh1750_address);
     Wire.write(BH1750_CONTINUOUS_HIGH_RES_MODE);
     if (!Wire.endTransmission()) {
+      I2cSetActive(bh1750_address);
       bh1750_type = 1;
-      AddLog_P2(LOG_LEVEL_DEBUG, S_LOG_I2C_FOUND_AT, bh1750_types, bh1750_address);
+      AddLog_P2(LOG_LEVEL_INFO, S_LOG_I2C_FOUND_AT, bh1750_types, bh1750_address);
       break;
     }
   }
@@ -112,25 +113,25 @@ void Bh1750Show(bool json)
 
 bool Xsns10(uint8_t function)
 {
+  if (!I2cEnabled(XI2C_11)) { return false; }
+
   bool result = false;
 
-  if (i2c_flg) {
-    switch (function) {
-      case FUNC_INIT:
-        Bh1750Detect();
-        break;
-      case FUNC_EVERY_SECOND:
-        Bh1750EverySecond();
-        break;
-      case FUNC_JSON_APPEND:
-        Bh1750Show(1);
-        break;
+  switch (function) {
+    case FUNC_INIT:
+      Bh1750Detect();
+      break;
+    case FUNC_EVERY_SECOND:
+      Bh1750EverySecond();
+      break;
+    case FUNC_JSON_APPEND:
+      Bh1750Show(1);
+      break;
 #ifdef USE_WEBSERVER
-      case FUNC_WEB_SENSOR:
-        Bh1750Show(0);
-        break;
+    case FUNC_WEB_SENSOR:
+      Bh1750Show(0);
+      break;
 #endif  // USE_WEBSERVER
-    }
   }
   return result;
 }

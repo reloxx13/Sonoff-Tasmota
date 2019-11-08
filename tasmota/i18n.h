@@ -193,7 +193,7 @@
 
 #define D_LOG_SOME_SETTINGS_RESET "Some settings have been reset"
 
-// Commands sonoff.ino
+// Commands tasmota.ino
 #define D_CMND_BACKLOG "Backlog"
 #define D_CMND_DELAY "Delay"
 #define D_CMND_STATUS "Status"
@@ -280,6 +280,7 @@
 #define D_CMND_LEDSTATE "LedState"
 #define D_CMND_LEDMASK "LedMask"
 #define D_CMND_I2CSCAN "I2CScan"
+#define D_CMND_I2CDRIVER "I2CDriver"
 #define D_CMND_SERIALSEND "SerialSend"
 #define D_CMND_SERIALDELIMITER "SerialDelimiter"
 #define D_CMND_BAUDRATE "Baudrate"
@@ -456,6 +457,7 @@
 #define D_JSON_TUYA_MCU_RECEIVED "TuyaReceived"
 
 // Commands xdrv_23_zigbee.ino
+#define D_ZIGBEE_NOT_STARTED "Zigbee not started (yet)"
 #define D_CMND_ZIGBEE_PERMITJOIN "ZigbeePermitJoin"
 #define D_CMND_ZIGBEE_STATUS "ZigbeeStatus"
 #define D_CMND_ZIGBEE_RESET "ZigbeeReset"
@@ -468,12 +470,12 @@
   #define D_JSON_ZIGBEEZCL_RAW_RECEIVED "ZigbeeZCLRawReceived"
   #define D_JSON_ZIGBEE_DEVICE "Device"
   #define D_JSON_ZIGBEE_NAME "Name"
-#define D_CMND_ZIGBEE_ZCL_SEND "ZigbeeZCLSend"
-  #define D_JSON_ZIGBEE_ZCL_SENT "ZigbeeZCLSent"
 #define D_CMND_ZIGBEE_PROBE "ZigbeeProbe"
 #define D_CMND_ZIGBEE_RECEIVED "ZigbeeReceived"
   #define D_CMND_ZIGBEE_LINKQUALITY "LinkQuality"
 #define D_CMND_ZIGBEE_READ "ZigbeeRead"
+#define D_CMND_ZIGBEE_SEND "ZigbeeSend"
+  #define D_JSON_ZIGBEE_ZCL_SENT "ZigbeeZCLSent"
 
   // Commands xdrv_25_A4988_Stepper.ino
   #ifdef USE_A4988_STEPPER

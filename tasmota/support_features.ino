@@ -29,19 +29,19 @@ void GetFeatures(void)
   feature_drv1 |= 0x00000001;  // xdrv_03_energy.ino
 #endif
 #ifdef USE_LIGHT
-  feature_drv1 |= 0x00000002;  // sonoff.ino, xdrv_04_light.ino
+  feature_drv1 |= 0x00000002;  // tasmota.ino, xdrv_04_light.ino
 #endif
 #ifdef USE_I2C
-  feature_drv1 |= 0x00000004;  // sonoff.ino
+  feature_drv1 |= 0x00000004;  // tasmota.ino
 #endif
 #ifdef USE_SPI
-  feature_drv1 |= 0x00000008;  // sonoff.ino
+  feature_drv1 |= 0x00000008;  // tasmota.ino
 #endif
 #ifdef USE_DISCOVERY
-  feature_drv1 |= 0x00000010;  // sonoff.ino
+  feature_drv1 |= 0x00000010;  // tasmota.ino
 #endif
 #ifdef USE_ARDUINO_OTA
-  feature_drv1 |= 0x00000020;  // sonoff.ino
+  feature_drv1 |= 0x00000020;  // tasmota.ino
 #endif
 #ifdef USE_MQTT_TLS
   feature_drv1 |= 0x00000040;  // xdrv_02_mqtt.ino
@@ -480,8 +480,12 @@ void GetFeatures(void)
 #ifdef USE_ARDUINO_SLAVE
   feature5 |= 0x00010000;  // xdrv_31_arduino_slave.ino
 #endif
-//  feature5 |= 0x00020000;
-//  feature5 |= 0x00040000;
+#ifdef USE_HIH6
+  feature5 |= 0x00020000;  // xsns_55_hih_series.ino
+#endif
+#ifdef USE_HPMA
+  feature5 |= 0x00040000;
+#endif
 //  feature5 |= 0x00080000;
 
 //  feature5 |= 0x00100000;

@@ -21,14 +21,15 @@
 #ifdef USE_SCD30
 
 #define XSNS_42 42
+#define XI2C_29 29  // See I2CDEVICES.md
 
 #define SCD30_MAX_MISSED_READS 3
-#define SONOFF_SCD30_STATE_NO_ERROR 0
-#define SONOFF_SCD30_STATE_ERROR_DATA_CRC 1
-#define SONOFF_SCD30_STATE_ERROR_READ_MEAS 2
-#define SONOFF_SCD30_STATE_ERROR_SOFT_RESET 3
-#define SONOFF_SCD30_STATE_ERROR_I2C_RESET 4
-#define SONOFF_SCD30_STATE_ERROR_UNKNOWN 5
+#define SCD30_STATE_NO_ERROR 0
+#define SCD30_STATE_ERROR_DATA_CRC 1
+#define SCD30_STATE_ERROR_READ_MEAS 2
+#define SCD30_STATE_ERROR_SOFT_RESET 3
+#define SCD30_STATE_ERROR_I2C_RESET 4
+#define SCD30_STATE_ERROR_UNKNOWN 5
 
 #include "Arduino.h"
 #include <FrogmoreScd30.h>
@@ -60,7 +61,7 @@ FrogmoreScd30 scd30;
 
 bool scd30Found = false;
 bool scd30IsDataValid = false;
-int scd30ErrorState = SONOFF_SCD30_STATE_NO_ERROR;
+int scd30ErrorState = SCD30_STATE_NO_ERROR;
 uint16_t scd30Interval_sec;
 int scd30Loop_count = 0;
 int scd30DataNotAvailable_count = 0;
@@ -154,7 +155,7 @@ int Scd30Update()
     {
       switch (scd30ErrorState)
       {
-        case SONOFF_SCD30_STATE_NO_ERROR:
+        case SCD30_STATE_NO_ERROR:
         {
           error = scd30.readMeasurement(&scd30_CO2, &scd30_CO2EAvg, &scd30_Temp, &scd30_Humid);
           switch (error)
@@ -170,7 +171,7 @@ int Scd30Update()
               break;
 
             case ERROR_SCD30_CRC_ERROR:
-              scd30ErrorState = SONOFF_SCD30_STATE_ERROR_DATA_CRC;
+              scd30ErrorState = SCD30_STATE_ERROR_DATA_CRC;
               scd30CrcError_count++;
 #ifdef SCD30_DEBUG
               snprintf_P(log_data, sizeof(log_data), "SCD30: CRC error, CRC error: %ld, CO2 zero: %ld, good: %ld, no data: %ld, sc30_reset: %ld, i2c_reset: %ld", scd30CrcError_count, scd30Co2Zero_count, scd30GoodMeas_count, scd30DataNotAvailable_count, scd30Reset_count, i2cReset_count);
@@ -188,7 +189,7 @@ int Scd30Update()
 
             default:
             {
-              scd30ErrorState = SONOFF_SCD30_STATE_ERROR_READ_MEAS;
+              scd30ErrorState = SCD30_STATE_ERROR_READ_MEAS;
 #ifdef SCD30_DEBUG
               snprintf_P(log_data, sizeof(log_data), "SCD30: Update: ReadMeasurement error: 0x%lX, counter: %ld", error, scd30Loop_count);
               AddLog(LOG_LEVEL_ERROR);
@@ -200,7 +201,7 @@ int Scd30Update()
         }
         break;
 
-        case SONOFF_SCD30_STATE_ERROR_DATA_CRC:
+        case SCD30_STATE_ERROR_DATA_CRC:
         {
           //scd30IsDataValid = false;
 #ifdef SCD30_DEBUG
@@ -213,7 +214,7 @@ int Scd30Update()
         }
         break;
 
-        case SONOFF_SCD30_STATE_ERROR_READ_MEAS:
+        case SCD30_STATE_ERROR_READ_MEAS:
         {
           //scd30IsDataValid = false;
 #ifdef SCD30_DEBUG
@@ -233,11 +234,11 @@ int Scd30Update()
             error >>= 8;
             if (error == 4)
             {
-              scd30ErrorState = SONOFF_SCD30_STATE_ERROR_SOFT_RESET;
+              scd30ErrorState = SCD30_STATE_ERROR_SOFT_RESET;
             }
             else
             {
-              scd30ErrorState = SONOFF_SCD30_STATE_ERROR_UNKNOWN;
+              scd30ErrorState = SCD30_STATE_ERROR_UNKNOWN;
             }
           }
           else
@@ -247,7 +248,7 @@ int Scd30Update()
         }
         break;
 
-        case SONOFF_SCD30_STATE_ERROR_SOFT_RESET:
+        case SCD30_STATE_ERROR_SOFT_RESET:
         {
           //scd30IsDataValid = false;
 #ifdef SCD30_DEBUG
@@ -260,7 +261,7 @@ int Scd30Update()
           error = scd30.clearI2CBus();
           if (error)
           {
-            scd30ErrorState = SONOFF_SCD30_STATE_ERROR_I2C_RESET;
+            scd30ErrorState = SCD30_STATE_ERROR_I2C_RESET;
 #ifdef SCD30_DEBUG
             snprintf_P(log_data, sizeof(log_data), "SCD30: error clearing i2c bus: 0x%lX", error);
             AddLog(LOG_LEVEL_ERROR);
@@ -280,7 +281,7 @@ int Scd30Update()
           snprintf_P(log_data, sizeof(log_data), "SCD30: unknown error state: 0x%lX", scd30ErrorState);
           AddLog(LOG_LEVEL_ERROR);
 #endif
-          scd30ErrorState = SONOFF_SCD30_STATE_ERROR_SOFT_RESET; // try again
+          scd30ErrorState = SCD30_STATE_ERROR_SOFT_RESET; // try again
         }
       }
 
@@ -472,25 +473,25 @@ void Scd30Show(bool json)
 
 bool Xsns42(byte function)
 {
+  if (!I2cEnabled(XI2C_29)) { return false; }
+
   bool result = false;
 
-  if (i2c_flg) {
-    switch (function) {
-      case FUNC_EVERY_SECOND:
-        Scd30Update();
-        break;
-      case FUNC_COMMAND:
-        result = Scd30CommandSensor();
-        break;
-      case FUNC_JSON_APPEND:
-        Scd30Show(1);
-        break;
+  switch (function) {
+    case FUNC_EVERY_SECOND:
+      Scd30Update();
+      break;
+    case FUNC_COMMAND:
+      result = Scd30CommandSensor();
+      break;
+    case FUNC_JSON_APPEND:
+      Scd30Show(1);
+      break;
 #ifdef USE_WEBSERVER
-      case FUNC_WEB_SENSOR:
-        Scd30Show(0);
-        break;
+    case FUNC_WEB_SENSOR:
+      Scd30Show(0);
+      break;
 #endif  // USE_WEBSERVER
-    }
   }
   return result;
 }

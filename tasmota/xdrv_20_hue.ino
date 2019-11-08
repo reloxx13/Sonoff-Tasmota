@@ -246,7 +246,7 @@ char     prev_y_str[24] = "\0";
 uint8_t getLocalLightSubtype(uint8_t device) {
   if (light_type) {
     if (device >= Light.device) {
-      if (Settings.flag3.pwm_multi_channels) {
+      if (Settings.flag3.pwm_multi_channels) {  // SetOption68 - Enable multi-channels PWM instead of Color PWM
         return LST_SINGLE;     // If SetOption68, each channel acts like a dimmer
       } else {
         return Light.subtype;  // the actual light
@@ -484,7 +484,7 @@ void HueAuthentication(String *path)
 void HueLights(String *path)
 {
 /*
- * http://sonoff/api/username/lights/1/state?1={"on":true,"hue":56100,"sat":254,"bri":254,"alert":"none","transitiontime":40}
+ * http://tasmota/api/username/lights/1/state?1={"on":true,"hue":56100,"sat":254,"bri":254,"alert":"none","transitiontime":40}
  */
   String response;
   int code = 200;
@@ -576,7 +576,7 @@ void HueLights(String *path)
       }
 
       if (light_type && (local_light_subtype >= LST_SINGLE)) {
-        if (!Settings.flag3.pwm_multi_channels) {
+        if (!Settings.flag3.pwm_multi_channels) {  // SetOption68 - Enable multi-channels PWM instead of Color PWM
           light_state.getHSB(&hue, &sat, nullptr);
           bri = light_state.getBri();   // get the combined bri for CT and RGB, not only the RGB one
           ct = light_state.getCT();
@@ -685,7 +685,7 @@ void HueLights(String *path)
         } else
 #endif
         if (light_type && (local_light_subtype > LST_NONE)) {   // not relay
-          if (!Settings.flag3.pwm_multi_channels) {
+          if (!Settings.flag3.pwm_multi_channels) {  // SetOption68 - Enable multi-channels PWM instead of Color PWM
             if (g_gotct) {
               light_controller.changeCTB(ct, bri);
             } else {
@@ -744,7 +744,7 @@ void HueLights(String *path)
 void HueGroups(String *path)
 {
 /*
- * http://sonoff/api/username/groups?1={"name":"Woonkamer","lights":[],"type":"Room","class":"Living room"})
+ * http://tasmota/api/username/groups?1={"name":"Woonkamer","lights":[],"type":"Room","class":"Living room"})
  */
   String response = "{}";
   uint8_t maxhue = (devices_present > MAX_HUE_DEVICES) ? MAX_HUE_DEVICES : devices_present;
@@ -774,9 +774,9 @@ void HandleHueApi(String *path)
    * (c) Heiko Krupp, 2017
    *
    * Hue URL
-   * http://sonoff/api/username/lights/1/state with post data {"on":true,"hue":56100,"sat":254,"bri":254,"alert":"none","transitiontime":40}
+   * http://tasmota/api/username/lights/1/state with post data {"on":true,"hue":56100,"sat":254,"bri":254,"alert":"none","transitiontime":40}
    * is converted by webserver to
-   * http://sonoff/api/username/lights/1/state with arg plain={"on":true,"hue":56100,"sat":254,"bri":254,"alert":"none","transitiontime":40}
+   * http://tasmota/api/username/lights/1/state with arg plain={"on":true,"hue":56100,"sat":254,"bri":254,"alert":"none","transitiontime":40}
    */
 
   uint8_t args = 0;

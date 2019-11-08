@@ -29,6 +29,7 @@
 \*********************************************************************************************/
 
 #define XSNS_29                   29
+#define XI2C_22                   22  // See I2CDEVICES.md
 
 /*
    Default register locations for MCP23008 - They change for MCP23017 in default bank mode
@@ -161,7 +162,7 @@ void MCP230xx_ApplySettings(void) {
 #ifdef USE_MCP230xx_OUTPUT
         case 5 ... 6:
           reg_iodir &= ~(1 << idx);
-          if (Settings.flag.save_state) { // Firmware configuration wants us to use the last pin state
+          if (Settings.flag.save_state) {  // SetOption0 - Save power state and use after restart - Firmware configuration wants us to use the last pin state
             reg_portpins |= (Settings.mcp230xx_config[idx+(mcp230xx_port*8)].saved_state << idx);
           } else {
             if (Settings.mcp230xx_config[idx+(mcp230xx_port*8)].pullup) {
@@ -347,7 +348,7 @@ void MCP230xx_SetOutPin(uint8_t pin,uint8_t pinstate) {
   uint8_t portpins;
   uint8_t port = 0;
   uint8_t pinmo = Settings.mcp230xx_config[pin].pinmode;
-  uint8_t interlock = Settings.flag.interlock;
+  uint8_t interlock = Settings.flag.interlock;  // CMND_INTERLOCK - Enable/disable interlock
   int pinadd = (pin % 2)+1-(3*(pin % 2)); //check if pin is odd or even and convert to 1 (if even) or -1 (if odd)
   char cmnd[7], stt[4];
   if (pin > 7) { port = 1; }
@@ -374,7 +375,7 @@ void MCP230xx_SetOutPin(uint8_t pin,uint8_t pinstate) {
     }
   }
   I2cWrite8(USE_MCP230xx_ADDR, MCP230xx_GPIO + port, portpins);
-  if (Settings.flag.save_state) { // Firmware configured to save last known state in settings
+  if (Settings.flag.save_state) {  // SetOption0 - Save power state and use after restart - Firmware configured to save last known state in settings
     Settings.mcp230xx_config[pin].saved_state=portpins>>(pin-(port*8))&1;
     Settings.mcp230xx_config[pin+pinadd].saved_state=portpins>>(pin+pinadd-(port*8))&1;
   }
@@ -737,7 +738,7 @@ void MCP230xx_OutputTelemetry(void) {
       }
     }
     ResponseAppend_P(PSTR("\"END\":1}}"));
-    MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_SENSOR), Settings.flag.mqtt_sensor_retain);
+    MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_SENSOR), Settings.flag.mqtt_sensor_retain);  // CMND_SENSORRETAIN
   }
 }
 
@@ -752,7 +753,7 @@ void MCP230xx_Interrupt_Counter_Report(void) {
     }
   }
   ResponseAppend_P(PSTR("\"END\":1}}"));
-  MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_SENSOR), Settings.flag.mqtt_sensor_retain);
+  MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_SENSOR), Settings.flag.mqtt_sensor_retain);  // CMND_SENSORRETAIN
   mcp230xx_int_sec_counter = 0;
 }
 
@@ -767,7 +768,7 @@ void MCP230xx_Interrupt_Retain_Report(void) {
     }
   }
   ResponseAppend_P(PSTR("\"Value\":%u}}"),retainresult);
-  MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_SENSOR), Settings.flag.mqtt_sensor_retain);
+  MqttPublishPrefixTopic_P(TELE, PSTR(D_RSLT_SENSOR), Settings.flag.mqtt_sensor_retain);  // CMND_SENSORRETAIN
 }
 
 /*********************************************************************************************\
@@ -776,58 +777,56 @@ void MCP230xx_Interrupt_Retain_Report(void) {
 
 bool Xsns29(uint8_t function)
 {
+  if (!I2cEnabled(XI2C_22)) { return false; }
+
   bool result = false;
 
-  if (i2c_flg) {
-    switch (function) {
-      case FUNC_EVERY_SECOND:
-        MCP230xx_Detect();
-        if (mcp230xx_int_counter_en) {
-          mcp230xx_int_sec_counter++;
-          if (mcp230xx_int_sec_counter >= Settings.mcp230xx_int_timer) { // Interrupt counter interval reached, lets report
-            MCP230xx_Interrupt_Counter_Report();
-          }
+  switch (function) {
+    case FUNC_EVERY_SECOND:
+      MCP230xx_Detect();
+      if (mcp230xx_int_counter_en) {
+        mcp230xx_int_sec_counter++;
+        if (mcp230xx_int_sec_counter >= Settings.mcp230xx_int_timer) { // Interrupt counter interval reached, lets report
+          MCP230xx_Interrupt_Counter_Report();
         }
-        if (tele_period == 0) {
-          if (mcp230xx_int_retainer_en) { // We have pins configured for interrupt retain reporting
-            MCP230xx_Interrupt_Retain_Report();
-          }
+      }
+      if (tele_period == 0) {
+        if (mcp230xx_int_retainer_en) { // We have pins configured for interrupt retain reporting
+          MCP230xx_Interrupt_Retain_Report();
         }
+      }
 #ifdef USE_MCP230xx_OUTPUT
-        if (tele_period == 0) {
-          MCP230xx_OutputTelemetry();
-        }
+      if (tele_period == 0) {
+        MCP230xx_OutputTelemetry();
+      }
 #endif // USE_MCP230xx_OUTPUT
-        break;
-      case FUNC_EVERY_50_MSECOND:
-        if ((mcp230xx_int_en) && (mcp230xx_type)) { // Only check for interrupts if its enabled on one of the pins
-          mcp230xx_int_prio_counter++;
-          if ((mcp230xx_int_prio_counter) >= (Settings.mcp230xx_int_prio)) {
-            MCP230xx_CheckForInterrupt();
-            mcp230xx_int_prio_counter=0;
-          }
+      break;
+    case FUNC_EVERY_50_MSECOND:
+      if ((mcp230xx_int_en) && (mcp230xx_type)) { // Only check for interrupts if its enabled on one of the pins
+        mcp230xx_int_prio_counter++;
+        if ((mcp230xx_int_prio_counter) >= (Settings.mcp230xx_int_prio)) {
+          MCP230xx_CheckForInterrupt();
+          mcp230xx_int_prio_counter=0;
         }
-        break;
-      case FUNC_JSON_APPEND:
-        MCP230xx_Show(1);
-        break;
-      case FUNC_COMMAND_SENSOR:
-        if (XSNS_29 == XdrvMailbox.index) {
-          result = MCP230xx_Command();
-        }
-        break;
+      }
+      break;
+    case FUNC_JSON_APPEND:
+      MCP230xx_Show(1);
+      break;
+    case FUNC_COMMAND_SENSOR:
+      if (XSNS_29 == XdrvMailbox.index) {
+        result = MCP230xx_Command();
+      }
+      break;
 #ifdef USE_WEBSERVER
 #ifdef USE_MCP230xx_OUTPUT
 #ifdef USE_MCP230xx_DISPLAYOUTPUT
-      case FUNC_WEB_SENSOR:
-        MCP230xx_UpdateWebData();
-        break;
+    case FUNC_WEB_SENSOR:
+      MCP230xx_UpdateWebData();
+      break;
 #endif // USE_MCP230xx_DISPLAYOUTPUT
 #endif // USE_MCP230xx_OUTPUT
 #endif // USE_WEBSERVER
-      default:
-        break;
-    }
   }
   return result;
 }

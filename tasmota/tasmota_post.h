@@ -126,7 +126,6 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 #define USE_BH1750                               // Add I2C code for BH1750 sensor (+0k5 code)
 #define USE_VEML6070                             // Add I2C code for VEML6070 sensor (+0k5 code)
 #define USE_ADS1115                              // Add I2C code for ADS1115 16 bit A/D converter based on Adafruit ADS1x15 library (no library needed) (+0k7 code)
-//#define USE_ADS1115_I2CDEV                       // Add I2C code for ADS1115 16 bit A/D converter using library i2cdevlib-Core and i2cdevlib-ADS1115 (+2k code)
 #define USE_INA219                               // Add I2C code for INA219 Low voltage and current sensor (+1k code)
 //#define USE_INA226                               // Enable INA226 (I2C address 0x40, 0x41 0x44 or 0x45) Low voltage and current sensor (+2k3 code)
 #define USE_SHT3X                                // Add I2C code for SHT3x sensor (+0k6 code)
@@ -157,6 +156,7 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 //#define USE_CHIRP                                // Enable CHIRP soil moisture sensor (variable I2C address, default 0x20)
 //#define USE_PAJ7620                              // Enable PAJ7620 gesture sensor (I2C address 0x73) (+2.5k code)
 //#define USE_PCF8574                              // Enable PCF8574 I/O Expander (I2C addresses 0x20 - 0x27 and 0x38 - 0x3F) (+1k9 code)
+//#define USE_HIH6                                 // Enable Honywell HIH Humidity and Temperature sensor (I2C address 0x27) (+0k6)
 
 #define USE_MHZ19                                // Add support for MH-Z19 CO2 sensor (+2k code)
 #define USE_SENSEAIR                             // Add support for SenseAir K30, K70 and S8 CO2 sensor (+2k3 code)
@@ -169,6 +169,7 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 #define USE_PMS5003                              // Add support for PMS5003 and PMS7003 particle concentration sensor (+1k3 code)
   //#define PMS_MODEL_PMS3003                      // Enable support of PMS3003 instead of PMS5003/PMS7003 (needs the USE_PMS5003 above)
 #define USE_NOVA_SDS                             // Add support for SDS011 and SDS021 particle concentration sensor (+0k7 code)
+#define USE_HPMA                                 // Add support for Honeywell HPMA115S0 particle concentration sensor
 #define USE_SERIAL_BRIDGE                        // Add support for software Serial Bridge (+0k8 code)
 #define USE_MP3_PLAYER                           // Use of the DFPlayer Mini MP3 Player RB-DFR-562 commands: play, volume and stop
   #define MP3_VOLUME           10                // Set the startup volume on init, the range can be 0..30(max)
@@ -355,7 +356,7 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
   #undef USE_DDSU666                             // Disable support for Chint DDSU666 Modbus energy monitor (+0k6 code)
   #undef USE_SOLAX_X1                            // Disable support for Solax X1 series Modbus log info (+3k1 code)
 
-#undef USE_DS18x20                               // Disable support for DS18x20 sensors with id sort, single scan and read retry (+1k3 code)
+//#undef USE_DS18x20                               // Disable support for DS18x20 sensors with id sort, single scan and read retry (+1k3 code)
 
 #undef USE_I2C                                   // Disable all I2C sensors
 #undef USE_SPI                                   // Disable all SPI devices
@@ -364,6 +365,7 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 #undef USE_SENSEAIR                              // Disable support for SenseAir K30, K70 and S8 CO2 sensor
 #undef USE_PMS5003                               // Disable support for PMS5003 and PMS7003 particle concentration sensor
 #undef USE_NOVA_SDS                              // Disable support for SDS011 and SDS021 particle concentration sensor
+#undef USE_HPMA                                  // Disable support for Honeywell HPMA115S0 particle concentration sensor
 #undef USE_SERIAL_BRIDGE                         // Disable support for software Serial Bridge
 #undef USE_MP3_PLAYER                            // Disable DFPlayer Mini MP3 Player RB-DFR-562 commands: play, volume and stop
 #undef USE_AZ7798                                // Disable support for AZ-Instrument 7798 CO2 datalogger
@@ -451,6 +453,7 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 #undef USE_SENSEAIR                              // Disable support for SenseAir K30, K70 and S8 CO2 sensor
 #undef USE_PMS5003                               // Disable support for PMS5003 and PMS7003 particle concentration sensor
 #undef USE_NOVA_SDS                              // Disable support for SDS011 and SDS021 particle concentration sensor
+#undef USE_HPMA                                  // Disable support for Honeywell HPMA115S0 particle concentration sensor
 #undef USE_SERIAL_BRIDGE                         // Disable support for software Serial Bridge
 #undef USE_MP3_PLAYER                            // Disable DFPlayer Mini MP3 Player RB-DFR-562 commands: play, volume and stop
 #undef USE_AZ7798                                // Disable support for AZ-Instrument 7798 CO2 datalogger
@@ -498,6 +501,13 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 
 #undef CODE_IMAGE
 #define CODE_IMAGE 1
+
+#undef FIRMWARE_BASIC                           // Disable tasmota-basic with no sensors
+#undef FIRMWARE_SENSORS                         // Disable tasmota-sensors with useful sensors enabled
+#undef FIRMWARE_KNX_NO_EMULATION                // Disable tasmota-knx with KNX but without Emulation
+#undef FIRMWARE_DISPLAYS                        // Disable tasmota-display with display drivers enabled
+#undef FIRMWARE_IR                              // Disable tasmota-ir with IR full protocols activated
+#undef FIRMWARE_IR_CUSTOM                       // Disable tasmota customizable with special marker to add all IR protocols
 
 #undef USE_ARDUINO_OTA                           // Disable support for Arduino OTA
 #undef USE_DOMOTICZ                              // Disable Domoticz
@@ -552,6 +562,7 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 #undef USE_SENSEAIR                              // Disable support for SenseAir K30, K70 and S8 CO2 sensor
 #undef USE_PMS5003                               // Disable support for PMS5003 and PMS7003 particle concentration sensor
 #undef USE_NOVA_SDS                              // Disable support for SDS011 and SDS021 particle concentration sensor
+#undef USE_HPMA                                  // Disable support for Honeywell HPMA115S0 particle concentration sensor
 #undef USE_SERIAL_BRIDGE                         // Disable support for software Serial Bridge
 #undef USE_MP3_PLAYER                            // Disable DFPlayer Mini MP3 Player RB-DFR-562 commands: play, volume and stop
 #undef USE_AZ7798                                // Disable support for AZ-Instrument 7798 CO2 datalogger
@@ -662,6 +673,12 @@ char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, c
 #define DEBUG_SENSOR_LOG(...) AddLog_Debug(__VA_ARGS__)
 #else
 #define DEBUG_SENSOR_LOG(...)
+#endif
+
+#ifdef DEBUG_TASMOTA_TRACE
+#define DEBUG_TRACE_LOG(...) AddLog_Debug(__VA_ARGS__)
+#else
+#define DEBUG_TRACE_LOG(...)
 #endif
 
 #endif  // _TASMOTA_POST_H_
