@@ -134,6 +134,12 @@
 #ifndef DEFAULT_DIMMER_MIN
 #define DEFAULT_DIMMER_MIN          0
 #endif
+#ifndef DEFAULT_LIGHT_DIMMER
+#define DEFAULT_LIGHT_DIMMER        10
+#endif
+#ifndef DEFAULT_LIGHT_COMPONENT
+#define DEFAULT_LIGHT_COMPONENT     255
+#endif
 
 enum WebColors {
   COL_TEXT, COL_BACKGROUND, COL_FORM,
@@ -530,17 +536,24 @@ void SettingsLoad(void)
 void SettingsErase(uint8_t type)
 {
   /*
-    0 = Erase from program end until end of physical flash
-    1 = Erase SDK parameter area at end of linker memory model (0x0FDxxx - 0x0FFFFF) solving possible wifi errors
-    2 = Erase Tasmota settings
+    Erase only works from flash start address to SDK recognized flash end address (flashchip->chip_size = ESP.getFlashChipSize).
+    Addresses above SDK recognized size (up to ESP.getFlashChipRealSize) are not accessable.
+    The only way to erase whole flash is esptool which uses direct SPI writes to flash.
+
+    0 = Erase from program end until end of flash as seen by SDK
+    1 = Erase 16k SDK parameter area near end of flash as seen by SDK (0x0xFCxxx - 0x0xFFFFF) solving possible wifi errors
+    2 = Erase Tasmota settings (0x0xF4xxx - 0x0xFBFFF)
   */
 
 #ifndef FIRMWARE_MINIMAL
+//  AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SDK: Flash size 0x%08X"), flashchip->chip_size);
+
   uint32_t _sectorStart = (ESP.getSketchSize() / SPI_FLASH_SEC_SIZE) + 1;
-  uint32_t _sectorEnd = ESP.getFlashChipRealSize() / SPI_FLASH_SEC_SIZE;
+//  uint32_t _sectorEnd = ESP.getFlashChipRealSize() / SPI_FLASH_SEC_SIZE;
+  uint32_t _sectorEnd = ESP.getFlashChipSize() / SPI_FLASH_SEC_SIZE;
   if (1 == type) {
-    _sectorStart = SETTINGS_LOCATION +2;  // SDK parameter area above EEPROM area (0x0FDxxx - 0x0FFFFF)
-    _sectorEnd = SETTINGS_LOCATION +5;
+    // source Esp.cpp and core_esp8266_phy.cpp
+    _sectorStart = (ESP.getFlashChipSize() / SPI_FLASH_SEC_SIZE) - 4;
   }
   else if (2 == type) {
     _sectorStart = SETTINGS_LOCATION - CFG_ROTATES;  // Tasmota parameter area (0x0F4xxx - 0x0FBFFF)
@@ -559,7 +572,7 @@ void SettingsErase(uint8_t type)
       if (result) {
         Serial.println(F(" " D_OK));
       } else {
-        Serial.println(F(" " D_ERROR));
+        Serial.println(F(" " D_ERROR));  //
       }
       delay(10);
     }
@@ -568,24 +581,10 @@ void SettingsErase(uint8_t type)
 #endif  // FIRMWARE_MINIMAL
 }
 
-// Copied from 2.4.0 as 2.3.0 is incomplete
-bool SettingsEraseConfig(void) {
-  const size_t cfgSize = 0x4000;
-  size_t cfgAddr = ESP.getFlashChipSize() - cfgSize;
-
-  for (size_t offset = 0; offset < cfgSize; offset += SPI_FLASH_SEC_SIZE) {
-    if (!ESP.flashEraseSector((cfgAddr + offset) / SPI_FLASH_SEC_SIZE)) {
-      return false;
-    }
-  }
-  return true;
-}
-
 void SettingsSdkErase(void)
 {
   WiFi.disconnect(true);    // Delete SDK wifi config
   SettingsErase(1);
-  SettingsEraseConfig();
   delay(1000);
 }
 
@@ -619,7 +618,7 @@ void SettingsDefaultSet2(void)
 //  Settings.flag.stop_flash_rotate = 0;
   Settings.save_data = SAVE_DATA;
   Settings.param[P_BACKLOG_DELAY] = MIN_BACKLOG_DELAY;
-  Settings.param[P_BOOT_LOOP_OFFSET] = BOOT_LOOP_OFFSET;
+  Settings.param[P_BOOT_LOOP_OFFSET] = BOOT_LOOP_OFFSET;  // SetOption36
   Settings.param[P_RGB_REMAP] = RGB_REMAP_RGBW;
   Settings.sleep = APP_SLEEP;
   if (Settings.sleep < 50) {
@@ -656,6 +655,7 @@ void SettingsDefaultSet2(void)
   Settings.seriallog_level = SERIAL_LOG_LEVEL;
 
   // Wifi
+  Settings.wifi_output_power = 170;
   ParseIp(&Settings.ip_address[0], WIFI_IP_ADDRESS);
   ParseIp(&Settings.ip_address[1], WIFI_GATEWAY);
   ParseIp(&Settings.ip_address[2], WIFI_SUBNETMASK);
@@ -814,11 +814,11 @@ void SettingsDefaultSet2(void)
   Settings.pwm_frequency = PWM_FREQ;
   Settings.pwm_range = PWM_RANGE;
   for (uint32_t i = 0; i < MAX_PWMS; i++) {
-    Settings.light_color[i] = 255;
+    Settings.light_color[i] = DEFAULT_LIGHT_COMPONENT;
 //    Settings.pwm_value[i] = 0;
   }
   Settings.light_correction = 1;
-  Settings.light_dimmer = 10;
+  Settings.light_dimmer = DEFAULT_LIGHT_DIMMER;
 //  Settings.light_fade = 0;
   Settings.light_speed = 1;
 //  Settings.light_scheme = 0;
@@ -1000,7 +1000,7 @@ void SettingsDelta(void)
       for (uint32_t i = 1; i < MAX_INTERLOCKS; i++) { Settings.interlock[i] = 0; }
     }
     if (Settings.version < 0x0604010D) {
-      Settings.param[P_BOOT_LOOP_OFFSET] = BOOT_LOOP_OFFSET;
+      Settings.param[P_BOOT_LOOP_OFFSET] = BOOT_LOOP_OFFSET;  // SetOption36
     }
     if (Settings.version < 0x06040110) {
       ModuleDefault(WEMOS);
@@ -1130,6 +1130,9 @@ void SettingsDelta(void)
     }
     if (Settings.version < 0x07000003) {
       SettingsEnableAllI2cDrivers();
+    }
+    if (Settings.version < 0x07000004) {
+      Settings.wifi_output_power = 170;
     }
     Settings.version = VERSION;
     SettingsSave(1);
