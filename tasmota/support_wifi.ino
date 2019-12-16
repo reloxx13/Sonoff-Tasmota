@@ -356,6 +356,14 @@ bool WifiCheckIPv6(void)
   return ipv6_global;
 }
 
+String WifiGetIPv6(void)
+{
+  for (auto a : addrList) {
+    if(!a.isLocal() && a.isV6()) return a.toString();
+  }
+  return "";
+}
+
 bool WifiCheckIPAddrStatus(void)	// Return false for 169.254.x.x or fe80::/64
 {
   bool ip_global=false;
@@ -621,6 +629,7 @@ void WifiShutdown(void)
 void EspRestart(void)
 {
   WifiShutdown();
+  CrashDumpClear();           // Clear the stack dump in RTC
 //  ESP.restart();            // This results in exception 3 on restarts on core 2.3.0
   ESP.reset();
 }

@@ -565,7 +565,7 @@ void MqttShowState(void)
       if (i == LightDevice())  { LightState(1); }    // call it only once
     } else {
 #endif
-      ResponseAppend_P(PSTR(",\"%s\":{\"STATE\":\"%s\"}"), GetPowerDevice(stemp1, i, sizeof(stemp1), Settings.flag.device_index_enable),  // SetOption26 - Switch between POWER or POWER1
+      ResponseAppend_P(PSTR(",\"%s\":\"%s\""), GetPowerDevice(stemp1, i, sizeof(stemp1), Settings.flag.device_index_enable),  // SetOption26 - Switch between POWER or POWER1
                                                GetStateText(bitRead(power, i-1)));
 #ifdef USE_SONOFF_IFAN
       if (IsModuleIfan()) {
@@ -583,8 +583,9 @@ void MqttShowState(void)
     MqttShowPWMState();
   }
 
-  ResponseAppend_P(PSTR(",\"" D_JSON_WIFI "\":{\"" D_JSON_AP "\":%d,\"" D_JSON_SSID "\":\"%s\",\"" D_JSON_BSSID "\":\"%s\",\"" D_JSON_CHANNEL "\":%d,\"" D_JSON_RSSI "\":%d,\"" D_JSON_LINK_COUNT "\":%d,\"" D_JSON_DOWNTIME "\":\"%s\"}}"),
-    Settings.sta_active +1, Settings.sta_ssid[Settings.sta_active], WiFi.BSSIDstr().c_str(), WiFi.channel(), WifiGetRssiAsQuality(WiFi.RSSI()), WifiLinkCount(), WifiDowntime().c_str());
+  ResponseAppend_P(PSTR(",\"" D_JSON_WIFI "\":{\"" D_JSON_AP "\":%d,\"" D_JSON_SSID "\":\"%s\",\"" D_JSON_BSSID "\":\"%s\",\"" D_JSON_CHANNEL "\":%d,\"" D_JSON_RSSI "\":%d,\"" D_JSON_SIGNAL "\":%d,\"" D_JSON_LINK_COUNT "\":%d,\"" D_JSON_DOWNTIME "\":\"%s\"}}"),
+    Settings.sta_active +1, Settings.sta_ssid[Settings.sta_active], WiFi.BSSIDstr().c_str(), WiFi.channel(),
+    WifiGetRssiAsQuality(WiFi.RSSI()), WiFi.RSSI(), WifiLinkCount(), WifiDowntime().c_str());
 }
 
 void MqttPublishTeleState(void)
@@ -609,7 +610,7 @@ bool MqttShowSensor(void)
     if (pin[GPIO_SWT1 +i] < 99) {
 #endif  // USE_TM1638
       bool swm = ((FOLLOW_INV == Settings.switchmode[i]) || (PUSHBUTTON_INV == Settings.switchmode[i]) || (PUSHBUTTONHOLD_INV == Settings.switchmode[i]));
-      ResponseAppend_P(PSTR(",\"" D_JSON_SWITCH "%d\":{\"STATE\":\"%s\"}"), i +1, GetStateText(swm ^ SwitchLastState(i)));
+      ResponseAppend_P(PSTR(",\"" D_JSON_SWITCH "%d\":\"%s\""), i +1, GetStateText(swm ^ SwitchLastState(i)));
     }
   }
   XsnsCall(FUNC_JSON_APPEND);
@@ -904,12 +905,15 @@ void Every250mSeconds(void)
       if ((214 == restart_flag) || (215 == restart_flag) || (216 == restart_flag)) {
         char storage_wifi[sizeof(Settings.sta_ssid) +
                           sizeof(Settings.sta_pwd)];
+
         char storage_mqtt[sizeof(Settings.mqtt_host) +
                           sizeof(Settings.mqtt_port) +
                           sizeof(Settings.mqtt_client) +
                           sizeof(Settings.mqtt_user) +
                           sizeof(Settings.mqtt_pwd) +
                           sizeof(Settings.mqtt_topic)];
+        uint16_t mqtt_port = Settings.mqtt_port;                           // Workaround 7.1.2.6 Settings shuffle
+
         memcpy(storage_wifi, Settings.sta_ssid, sizeof(storage_wifi));     // Backup current SSIDs and Passwords
         if (216 == restart_flag) {
           memcpy(storage_mqtt, Settings.mqtt_host, sizeof(storage_mqtt));  // Backup mqtt host, port, client, username and password
@@ -922,6 +926,7 @@ void Every250mSeconds(void)
         if (216 == restart_flag) {
           memcpy(Settings.mqtt_host, storage_mqtt, sizeof(storage_mqtt));  // Restore the mqtt host, port, client, username and password
           strlcpy(Settings.mqtt_client, MQTT_CLIENT_ID, sizeof(Settings.mqtt_client));  // Set client to default
+          Settings.mqtt_port = mqtt_port;                                  // Workaround 7.1.2.6 Settings shuffle
         }
         restart_flag = 2;
       }
@@ -1285,15 +1290,19 @@ void GpioInit(void)
   }
 #endif  // USE_SONOFF_SC
 
-  if (!light_type) {
-    for (uint32_t i = 0; i < MAX_PWMS; i++) {     // Basic PWM control only
-      if (pin[GPIO_PWM1 +i] < 99) {
+  for (uint32_t i = 0; i < MAX_PWMS; i++) {     // Basic PWM control only
+    if (pin[GPIO_PWM1 +i] < 99) {
+      pinMode(pin[GPIO_PWM1 +i], OUTPUT);
+      if (light_type) {
+        // force PWM GPIOs to low or high mode, see #7165
+        analogWrite(pin[GPIO_PWM1 +i], bitRead(pwm_inverted, i) ? Settings.pwm_range : 0);
+      } else {
         pwm_present = true;
-        pinMode(pin[GPIO_PWM1 +i], OUTPUT);
         analogWrite(pin[GPIO_PWM1 +i], bitRead(pwm_inverted, i) ? Settings.pwm_range - Settings.pwm_value[i] : Settings.pwm_value[i]);
       }
     }
   }
+
   for (uint32_t i = 0; i < MAX_RELAYS; i++) {
     if (pin[GPIO_REL1 +i] < 99) {
       pinMode(pin[GPIO_REL1 +i], OUTPUT);

@@ -140,6 +140,10 @@
 #ifndef DEFAULT_LIGHT_COMPONENT
 #define DEFAULT_LIGHT_COMPONENT     255
 #endif
+#ifndef CORS_ENABLED_ALL
+#define CORS_ENABLED_ALL            "*"
+#endif
+
 
 enum WebColors {
   COL_TEXT, COL_BACKGROUND, COL_FORM,
@@ -155,6 +159,23 @@ const char kWebColors[] PROGMEM =
   COLOR_TEXT_WARNING "|" COLOR_TEXT_SUCCESS "|"
   COLOR_BUTTON_TEXT "|" COLOR_BUTTON "|" COLOR_BUTTON_HOVER "|" COLOR_BUTTON_RESET "|" COLOR_BUTTON_RESET_HOVER "|" COLOR_BUTTON_SAVE "|" COLOR_BUTTON_SAVE_HOVER "|"
   COLOR_TIMER_TAB_TEXT "|" COLOR_TIMER_TAB_BACKGROUND "|" COLOR_TITLE_TEXT;
+
+enum TasmotaSerialConfig {
+  TS_SERIAL_5N1, TS_SERIAL_6N1, TS_SERIAL_7N1, TS_SERIAL_8N1,
+  TS_SERIAL_5N2, TS_SERIAL_6N2, TS_SERIAL_7N2, TS_SERIAL_8N2,
+  TS_SERIAL_5E1, TS_SERIAL_6E1, TS_SERIAL_7E1, TS_SERIAL_8E1,
+  TS_SERIAL_5E2, TS_SERIAL_6E2, TS_SERIAL_7E2, TS_SERIAL_8E2,
+  TS_SERIAL_5O1, TS_SERIAL_6O1, TS_SERIAL_7O1, TS_SERIAL_8O1,
+  TS_SERIAL_5O2, TS_SERIAL_6O2, TS_SERIAL_7O2, TS_SERIAL_8O2 };
+
+const uint8_t kTasmotaSerialConfig[] PROGMEM = {
+  SERIAL_5N1, SERIAL_6N1, SERIAL_7N1, SERIAL_8N1,
+  SERIAL_5N2, SERIAL_6N2, SERIAL_7N2, SERIAL_8N2,
+  SERIAL_5E1, SERIAL_6E1, SERIAL_7E1, SERIAL_8E1,
+  SERIAL_5E2, SERIAL_6E2, SERIAL_7E2, SERIAL_8E2,
+  SERIAL_5O1, SERIAL_6O1, SERIAL_7O1, SERIAL_8O1,
+  SERIAL_5O2, SERIAL_6O2, SERIAL_7O2, SERIAL_8O2
+};
 
 /*********************************************************************************************\
  * RTC memory
@@ -422,6 +443,84 @@ void UpdateQuickPowerCycle(bool update)
 }
 
 /*********************************************************************************************\
+ * Config Settings.text char array support
+\*********************************************************************************************/
+
+const uint32_t settings_text_size = 457;  // Settings.flag4 (1E0) - Settings.ota_url (017)
+
+uint32_t GetSettingsTextLen(void)
+{
+  char* position = Settings.ota_url;
+  for (uint32_t size = 0; size < SET_MAX; size++) {
+    while (*position++ != '\0') { }
+  }
+  return position - Settings.ota_url;
+}
+
+bool SettingsUpdateText(uint32_t index, char* replace_me)
+{
+  if (index >= SET_MAX) {
+    return false;  // Setting not supported - internal error
+  }
+
+  // Make a copy first in case we use source from Settings.text
+  uint32_t replace_len = strlen(replace_me);
+  char replace[replace_len +1];
+  memcpy(replace, replace_me, sizeof(replace));
+
+  uint32_t start_pos = 0;
+  uint32_t end_pos = 0;
+  char* position = Settings.ota_url;
+  for (uint32_t size = 0; size < SET_MAX; size++) {
+    while (*position++ != '\0') { }
+    if (1 == index) {
+      start_pos = position - Settings.ota_url;
+    }
+    else if (0 == index) {
+      end_pos = position - Settings.ota_url -1;
+    }
+    index--;
+  }
+  uint32_t char_len = position - Settings.ota_url;
+
+  uint32_t current_len = end_pos - start_pos;
+  int diff = replace_len - current_len;
+
+//  AddLog_P2(LOG_LEVEL_DEBUG, PSTR("TST: start %d, end %d, len %d, current %d, replace %d, diff %d"),
+//    start_pos, end_pos, char_len, current_len, replace_len, diff);
+
+  int too_long = (char_len + diff) - settings_text_size;
+  if (too_long > 0) {
+//    AddLog_P2(LOG_LEVEL_INFO, PSTR("CFG: Text too long by %d char(s)"), too_long);
+    return false;  // Replace text too long
+  }
+
+  if (diff != 0) {
+    // Shift Settings.text up or down
+    memmove_P(Settings.ota_url + start_pos + replace_len, Settings.ota_url + end_pos, char_len - end_pos);
+  }
+  // Replace text
+  memmove_P(Settings.ota_url + start_pos, replace, replace_len);
+  // Fill for future use
+  memset(Settings.ota_url + char_len + diff, 0x00, settings_text_size - char_len - diff);
+
+  return true;
+}
+
+char* SettingsGetText(uint32_t index)
+{
+  if (index >= SET_MAX) {
+    return nullptr;  // Setting not supported - internal error
+  }
+
+  char* position = Settings.ota_url;
+  for (;index > 0; index--) {
+    while (*position++ != '\0') { }
+  }
+  return position;
+}
+
+/*********************************************************************************************\
  * Config Save - Save parameters to Flash ONLY if any parameter has changed
 \*********************************************************************************************/
 
@@ -670,6 +769,7 @@ void SettingsDefaultSet2(void)
 //  for (uint32_t i = 1; i < MAX_PULSETIMERS; i++) { Settings.pulse_timer[i] = 0; }
 
   // Serial
+  Settings.serial_config = TS_SERIAL_8N1;
   Settings.baudrate = APP_BAUDRATE / 300;
   Settings.sbaudrate = SOFT_BAUDRATE / 300;
   Settings.serial_delimiter = 0xff;
@@ -700,6 +800,7 @@ void SettingsDefaultSet2(void)
   Settings.weblog_level = WEB_LOG_LEVEL;
   strlcpy(Settings.web_password, WEB_PASSWORD, sizeof(Settings.web_password));
   Settings.flag3.mdns_enabled = MDNS_ENABLED;
+  strlcpy(Settings.cors_domain, CORS_DOMAIN, sizeof(Settings.cors_domain));
 
   // Button
 //  Settings.flag.button_restrict = 0;
@@ -1059,8 +1160,8 @@ void SettingsDelta(void)
       }
     }
     if (Settings.version < 0x06060009) {
-      Settings.baudrate = Settings.ex_baudrate * 4;
-      Settings.sbaudrate = Settings.ex_sbaudrate * 4;
+      Settings.baudrate = APP_BAUDRATE / 300;
+      Settings.sbaudrate = SOFT_BAUDRATE / 300;
     }
     if (Settings.version < 0x0606000A) {
       uint8_t tuyaindex = 0;
@@ -1154,6 +1255,27 @@ void SettingsDelta(void)
     }
     if (Settings.version < 0x07000004) {
       Settings.wifi_output_power = 170;
+    }
+    if (Settings.version < 0x07010202) {
+      Settings.serial_config = TS_SERIAL_8N1;
+    }
+    if (Settings.version < 0x07010204) {
+      if (Settings.flag3.ex_cors_enabled == 1) {
+        strlcpy(Settings.cors_domain, CORS_ENABLED_ALL, sizeof(Settings.cors_domain));
+      } else {
+        Settings.cors_domain[0] = 0;
+      }
+    }
+    if (Settings.version < 0x07010205) {
+      Settings.seriallog_level = Settings.ex_seriallog_level;  // 09E -> 452
+      Settings.sta_config = Settings.ex_sta_config;            // 09F -> EC7
+      Settings.sta_active = Settings.ex_sta_active;            // 0A0 -> EC8
+      memcpy((char*)&Settings.rule_stop, (char*)&Settings.ex_rule_stop, 47);  // 1A7 -> EC9
+    }
+    if (Settings.version < 0x07010206) {
+      Settings.flag4 = Settings.ex_flag4;                      // 1E0 -> EF8
+      Settings.mqtt_port = Settings.ex_mqtt_port;              // 20A -> EFC
+      memcpy((char*)&Settings.serial_config, (char*)&Settings.ex_serial_config, 5);  // 1E4 -> EFE
     }
 
     Settings.version = VERSION;
