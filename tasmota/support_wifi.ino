@@ -195,7 +195,7 @@ void WifiBegin(uint8_t flag, uint8_t channel)
   case 2:  // Toggle
     Settings.sta_active ^= 1;
   }        // 3: Current AP
-  if ('\0' == SettingsText(SET_STASSID1 + Settings.sta_active)) {
+  if (!strlen(SettingsText(SET_STASSID1 + Settings.sta_active))) {
     Settings.sta_active ^= 1;  // Skip empty SSID
   }
   if (Settings.ip_address[0]) {
@@ -440,7 +440,7 @@ void WifiCheckIp(void)
         if (!Wifi.retry || ((Wifi.retry_init / 2) == Wifi.retry)) {
           AddLog_P(LOG_LEVEL_INFO, S_LOG_WIFI, PSTR(D_CONNECT_FAILED_AP_TIMEOUT));
         } else {
-          if (('\0' == SettingsText(SET_STASSID1)) && ('\0' == SettingsText(SET_STASSID2))) {
+          if (!strlen(SettingsText(SET_STASSID1)) && !strlen(SettingsText(SET_STASSID2))) {
             wifi_config_tool = WIFI_MANAGER;  // Skip empty SSIDs and start Wifi config tool
             Wifi.retry = 0;
           } else {
