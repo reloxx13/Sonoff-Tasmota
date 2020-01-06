@@ -1,7 +1,7 @@
 /*
   xdrv_12_home_assistant.ino - home assistant support for Tasmota
 
-  Copyright (C) 2019  Theo Arends
+  Copyright (C) 2020  Theo Arends
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -99,6 +99,12 @@ const char HASS_DISCOVER_SENSOR_HUM[] PROGMEM =
   ",\"unit_of_meas\":\"%%\","                         // %
   "\"val_tpl\":\"{{value_json['%s'].Humidity}}\","    // "SI7021-14":{"Temperature":null,"Humidity":null} -> {{ value_json['SI7021-14'].Humidity }}
   "\"dev_cla\":\"humidity\"";                         // humidity
+
+const char HASS_DISCOVER_SENSOR_MOIST[] PROGMEM =
+  ",\"unit_of_meas\":\"%%\","                         // %
+  "\"val_tpl\":\"{{value_json['%s'].Moisture}}\","    // "ANALOG":{"Moisture":78} -> {{ value_json['ANALOG'].Moisture }}
+  "\"dev_cla\":\"humidity\","                         // humidity
+  "\"ic\":\"mdi:cup-water\"";                         // cup-water icon
 
 const char HASS_DISCOVER_SENSOR_PRESS[] PROGMEM =
   ",\"unit_of_meas\":\"%s\","                         // PressureUnit() setting
@@ -286,7 +292,7 @@ void HAssAnnounceRelayLight(void)
           Shorten(&white_temp_command_topic, prefix);
           TryResponseAppend_P(HASS_DISCOVER_LIGHT_WHITE, white_temp_command_topic, state_topic);
         }
-        if ((LST_COLDWARM == Light.subtype) || (LST_RGBWC == Light.subtype)) {
+        if ((LST_COLDWARM == Light.subtype) || (LST_RGBCW == Light.subtype)) {
           char *color_temp_command_topic = stemp1;
 
           GetTopic_P(color_temp_command_topic, CMND, mqtt_topic, D_CMND_COLORTEMPERATURE);
@@ -473,6 +479,8 @@ void HAssAnnounceSensor(const char* sensorname, const char* subsensortype)
       TryResponseAppend_P(HASS_DISCOVER_SENSOR_AMPERE, sensorname, subsensortype);
     } else if (!strcmp_P(subsensortype, PSTR(D_JSON_ILLUMINANCE))){
       TryResponseAppend_P(HASS_DISCOVER_SENSOR_ILLUMINANCE, sensorname, subsensortype);
+    } else if (!strcmp_P(subsensortype, PSTR(D_JSON_MOISTURE))){
+      TryResponseAppend_P(HASS_DISCOVER_SENSOR_MOIST, sensorname, subsensortype);
     } else {
         if (is_sensor){
         TryResponseAppend_P(PSTR(",\"unit_of_meas\":\" \""));   // " " As unit of measurement to get a value graph (not available for binary sensors)

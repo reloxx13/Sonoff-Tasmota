@@ -1,7 +1,7 @@
 /*
   bg-BG.h - localization for Bulgaria - Bulgarian for Tasmota
 
-  Copyright (C) 2019  Theo Arends
+  Copyright (C) 2020  Theo Arends
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -74,6 +74,7 @@
 #define D_CORS_DOMAIN "CORS домейн"
 #define D_COUNT "Брой"
 #define D_COUNTER "Брояч"
+#define D_CT_POWER "CT Power"
 #define D_CURRENT "Ток"          // As in Voltage and Current
 #define D_DATA "Данни"
 #define D_DARKLIGHT "Тъмна"
@@ -113,6 +114,7 @@
 #define D_LIGHT "Светлина"
 #define D_LWT "LWT"
 #define D_MODULE "Модул"
+#define D_MOISTURE "Moisture"
 #define D_MQTT "MQTT"
 #define D_MULTI_PRESS "неколкократно натискане"
 #define D_NOISE "Шум"
@@ -630,6 +632,8 @@
 #define D_SENSOR_SLAVE_TX    "Slave TX"
 #define D_SENSOR_SLAVE_RX    "Slave RX"
 #define D_SENSOR_SLAVE_RESET "Slave RST"
+#define D_SENSOR_GPS_RX        "GPS RX"
+#define D_SENSOR_GPS_TX        "GPS TX"
 
 // Units
 #define D_UNIT_AMPERE "A"
@@ -699,5 +703,18 @@
 #define D_SOLAX_ERROR_6   "Грешка - прегряване"
 #define D_SOLAX_ERROR_7   "Грешка - вентилатор"
 #define D_SOLAX_ERROR_8   "Грешка - друго оборудване"
+
+//xdrv_10_scripter.ino
+#define D_CONFIGURE_SCRIPT     "Edit script"
+#define D_SCRIPT               "edit script"
+#define D_SDCARD_UPLOAD        "file upload"
+#define D_SDCARD_DIR           "sd card directory"
+#define D_UPL_DONE             "Done"
+#define D_SCRIPT_CHARS_LEFT    "chars left"
+#define D_SCRIPT_CHARS_NO_MORE "no more chars"
+#define D_SCRIPT_DOWNLOAD      "Download"
+#define D_SCRIPT_ENABLE        "script enable"
+#define D_SCRIPT_UPLOAD        "Upload"
+#define D_SCRIPT_UPLOAD_FILES  "Upload files"
 
 #endif  // _LANGUAGE_BG_BG_H_

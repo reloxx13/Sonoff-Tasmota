@@ -26,6 +26,7 @@
 | USE_SCRIPT            | - | - | - | - | - | - | - |
 | USE_EXPRESSION        | - | - | - | - | - | - | - |
 | SUPPORT_IF_STATEMENT  | - | - | - | - | - | - | - |
+| USE_HOTPLUG           | - | - | - | - | x | - | - |
 |                       |   |   |   |   |   |   |   |
 | Feature or Sensor     | minimal | lite | tasmota | knx | sensors | ir | display | Remarks
 | ROTARY_V1             | - | - | - | - | - | - | - |
@@ -107,6 +108,7 @@
 | USE_PCF8574           | - | - | - | - | - | - | - |
 | USE_HIH6              | - | - | - | - | x | - | - |
 | USE_DHT12             | - | - | - | - | x | - | - |
+| USE_DS1624            | - | - | - | - | x | - | - |
 |                       |   |   |   |   |   |   |   |
 | Feature or Sensor     | minimal | lite | tasmota | knx | sensors | ir | display | Remarks
 | USE_SPI               | - | - | - | - | - | - | x |
@@ -119,6 +121,9 @@
 | USE_MP3_PLAYER        | - | - | - | - | x | - | - |
 | USE_AZ7798            | - | - | - | - | - | - | - |
 | USE_PN532_HSU         | - | - | - | - | x | - | - |
+| USE_RDM6300           | - | - | - | - | x | - | - |
+| USE_IBEACON           | - | - | - | - | x | - | - |
+| USE_GPS               | - | - | - | - | - | - | - |
 | USE_ZIGBEE            | - | - | - | - | - | - | - |
 |                       |   |   |   |   |   |   |   |
 | USE_IR_REMOTE         | - | - | x | x | x | x | x |

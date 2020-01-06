@@ -1,7 +1,7 @@
 /*
   xdrv_23_zigbee_constants.ino - zigbee support for Tasmota
 
-  Copyright (C) 2019  Theo Arends and Stephan Hadinger
+  Copyright (C) 2020  Theo Arends and Stephan Hadinger
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -18,6 +18,8 @@
 */
 
 #ifdef USE_ZIGBEE
+
+#define OCCUPANCY "Occupancy"             // global define for Aqara
 
 typedef uint64_t Z_IEEEAddress;
 typedef uint16_t Z_ShortAddress;

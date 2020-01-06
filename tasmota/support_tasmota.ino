@@ -1,7 +1,7 @@
 /*
   support_tasmota.ino - Core support for Tasmota
 
-  Copyright (C) 2019  Theo Arends
+  Copyright (C) 2020  Theo Arends
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -546,7 +546,7 @@ void MqttShowPWMState(void)
 
 void MqttShowState(void)
 {
-  char stemp1[33];
+  char stemp1[TOPSZ];
 
   ResponseAppendTime();
   ResponseAppend_P(PSTR(",\"" D_JSON_UPTIME "\":\"%s\",\"UptimeSec\":%u"), GetUptime().c_str(), UpTime());
@@ -1000,7 +1000,9 @@ void ArduinoOTAInit(void)
 {
   ArduinoOTA.setPort(8266);
   ArduinoOTA.setHostname(my_hostname);
-  if (strlen(SettingsText(SET_WEBPWD))) { ArduinoOTA.setPassword(SettingsText(SET_WEBPWD)); }
+  if (strlen(SettingsText(SET_WEBPWD))) {
+    ArduinoOTA.setPassword(SettingsText(SET_WEBPWD));
+  }
 
   ArduinoOTA.onStart([]()
   {
@@ -1058,6 +1060,14 @@ void ArduinoOTAInit(void)
 
   ArduinoOTA.begin();
   AddLog_P2(LOG_LEVEL_INFO, PSTR(D_LOG_UPLOAD "Arduino OTA " D_ENABLED " " D_PORT " 8266"));
+}
+
+void ArduinoOtaLoop(void)
+{
+  MDNS.update();
+  ArduinoOTA.handle();
+  // Once OTA is triggered, only handle that and dont do other stuff. (otherwise it fails)
+  while (arduino_ota_triggered) { ArduinoOTA.handle(); }
 }
 #endif  // USE_ARDUINO_OTA
 
@@ -1169,7 +1179,8 @@ void GpioInit(void)
   SetModuleType();
 
   if (Settings.module != Settings.last_module) {
-    baudrate = APP_BAUDRATE;
+    Settings.baudrate = APP_BAUDRATE / 300;
+    Settings.serial_config = TS_SERIAL_8N1;
   }
 
   for (uint32_t i = 0; i < sizeof(Settings.user_template.gp); i++) {
@@ -1296,20 +1307,16 @@ void GpioInit(void)
 //    devices_present = 1;
   }
   else if (SONOFF_DUAL == my_module_type) {
-    Settings.flag.mqtt_serial = 0;           // CMND_SERIALSEND and CMND_SERIALLOG
     devices_present = 2;
-    baudrate = 19200;
+    SetSerial(19200, TS_SERIAL_8N1);
   }
   else if (CH4 == my_module_type) {
-    Settings.flag.mqtt_serial = 0;           // CMND_SERIALSEND and CMND_SERIALLOG
     devices_present = 4;
-    baudrate = 19200;
+    SetSerial(19200, TS_SERIAL_8N1);
   }
 #ifdef USE_SONOFF_SC
   else if (SONOFF_SC == my_module_type) {
-    Settings.flag.mqtt_serial = 0;           // CMND_SERIALSEND and CMND_SERIALLOG
-    devices_present = 0;
-    baudrate = 19200;
+    SetSerial(19200, TS_SERIAL_8N1);
   }
 #endif  // USE_SONOFF_SC
 

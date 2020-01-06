@@ -1,7 +1,7 @@
 /*
   xdrv_20_hue.ino - Philips Hue support for Tasmota
 
-  Copyright (C) 2019  Heiko Krupp and Theo Arends
+  Copyright (C) 2020  Heiko Krupp and Theo Arends
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -124,6 +124,7 @@ const char HUE_DESCRIPTION_XML[] PROGMEM =
     "<friendlyName>Amazon-Echo-HA-Bridge ({x1)</friendlyName>"
 //    "<friendlyName>Philips hue ({x1)</friendlyName>"
     "<manufacturer>Royal Philips Electronics</manufacturer>"
+    "<manufacturerURL>http://www.philips.com</manufacturerURL>"
     "<modelDescription>Philips hue Personal Wireless Lighting</modelDescription>"
     "<modelName>Philips hue bridge 2012</modelName>"
     "<modelNumber>929000226503</modelNumber>"
@@ -230,7 +231,7 @@ void HueConfig(String *path)
 }
 
 // device is forced to CT mode instead of HSB
-// only makes sense for LST_COLDWARM, LST_RGBW and LST_RGBWC
+// only makes sense for LST_COLDWARM, LST_RGBW and LST_RGBCW
 bool g_gotct = false;
 
 // store previously set values from the Alexa app
@@ -365,7 +366,6 @@ void HueLightStatus1(uint8_t device, String *response)
 // Any device whose friendly name start with "$" is considered hidden
 bool HueActive(uint8_t device) {
   if (device > MAX_FRIENDLYNAMES) { device = MAX_FRIENDLYNAMES; }
-//  return '$' != Settings.friendlyname[device-1][0];
   return '$' != *SettingsText(SET_FRIENDLYNAME1 +device -1);
 }
 

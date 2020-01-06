@@ -1,18 +1,67 @@
 ## Unreleased (development)
 
+### 8.1.0.2 20191230
+
+- Add support for ``AdcParam`` parameters to control ADC0 Current Transformer Apparent Power formula by Jodi Dillon (#7100)
+- Add optional support for Prometheus using file xsns_91_prometheus.ino (#7216)
+- Add command ``ShutterButton <parameters>`` to control shutter(s) by to-scho (#7403)
+- Add experimental support for NRF24L01 as BLE-bridge for Mijia Bluetooth sensors by Christian Baars (#7394)
+- Add support to BMP driver to enter reset state (sleep enable) when deep sleep is used in Tasmota
+- Fix LCD line and column positioning (#7387)
+- Fix Display handling of hexadecimal escape characters (#7387)
+- Fix Improved fade linearity with gamma correction
+- Fix wrong gamma correction for Module 48 lights (PWM5 for CT)
+- Add SetOption82 to limit the CT range for Alexa to 200..380
+
+### 8.1.0.1 20191225
+
+- Change Lights: simplified gamma correction and 10 bits internal computation
+- Fix Sonoff Bridge, Sc, L1, iFan03 and CSE7766 serial interface to forced speed, config and disable logging
+- Fix Serial initialization regression from previous fix
+- Fix commands ``Display`` and ``Counter`` from overruling command processing (#7322)
+- Fix ``White`` added to light status (#7142)
+- Add command ``SetOption79 0/1`` to enable reset of counters at teleperiod time by Andre Thomas (#7355)
+- Add SerialConfig to ``Status 1``
+- Add WifiPower to ``Status 5``
+- Add support for DS1624, DS1621 Temperature sensor by Leonid Myravjev
+- Add Zigbee attribute decoder for Xiaomi Aqara Cube
+
+## Released
+
+### 8.1.0 20191225
+
+- Release
+
+### 8.0.0.3 20191224
+
+- Version bump due to internal Settings change
+
+### 8.0.0.2 20191223
+
+- Changed Settings variable namings
+- Change number of ``FriendlyName``s from 4 to 8
+- Add Zigbee better support for Xiaomi Double Switch and Xiaomi Vibration sensor
+- Add support for ``AdcParam`` parameters to control ADC0 Moisture formula by Federico Leoni (#7309)
+- Add commands ``WebButton1`` until ``WebButton16`` to support user defined GUI button text (#7166)
+
 ### 8.0.0.1 20191221
 
 - Change Settings text handling allowing variable length text within a total text pool of 699 characters
 - Change Smoother ``Fade`` using 100Hz instead of 20Hz animation (#7179)
-
-## Released
+- Change number of rule ``Var``s and ``Mem``s from 5 to 16 (#4933)
+- Add support for max 150 characters in most command parameter strings (#3686, #4754)
+- Add support for GPS as NTP server by Christian Baars and Adrian Scillato
+- Add Zigbee coalesce sensor attributes into a single message
+- Add Deepsleep start delay based on Teleperiod if ``Teleperiod`` differs from 10 or 300
 
 ### 7.2.0 20191221
 
 - Release
+- Change basic version string to lite (#7291)
 - Fix Arduino IDE compile error (#7277)
 - Fix restore ShutterAccuracy, MqttLog, WifiConfig, WifiPower and SerialConfig (#7281)
 - Fix no AP on initial install (#7282)
+- Fix failing downgrade (#7285)
 
 ### 7.1.2.6 20191214
 

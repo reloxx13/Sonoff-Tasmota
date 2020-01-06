@@ -1,7 +1,7 @@
 /*
   support_wifi.ino - wifi support for Tasmota
 
-  Copyright (C) 2019  Theo Arends
+  Copyright (C) 2020  Theo Arends
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -589,6 +589,13 @@ int WifiState(void)
   if (!global_state.wifi_down) { state = WIFI_RESTART; }
   if (Wifi.config_type) { state = Wifi.config_type; }
   return state;
+}
+
+String WifiGetOutputPower(void)
+{
+  char stemp1[TOPSZ];
+  dtostrfd((float)(Settings.wifi_output_power) / 10, 1, stemp1);
+  return String(stemp1);
 }
 
 void WifiSetOutputPower(void)

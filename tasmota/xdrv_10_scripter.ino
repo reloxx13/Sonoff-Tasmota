@@ -1,7 +1,7 @@
 /*
   xdrv_10_scripter.ino - script support for Tasmota
 
-  Copyright (C) 2019  Gerhard Mutz and Theo Arends
+  Copyright (C) 2020  Gerhard Mutz and Theo Arends
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -56,7 +56,8 @@ keywords if then else endif, or, and are better readable for beginners (others m
 #define SCRIPT_MAXSSIZE 48
 #define SCRIPT_EOL '\n'
 #define SCRIPT_FLOAT_PRECISION 2
-#define SCRIPT_MAXPERM (MAX_RULE_MEMS*10)-4/sizeof(float)
+#define PMEM_SIZE sizeof(Settings.script_pram)
+#define SCRIPT_MAXPERM (PMEM_SIZE)-4/sizeof(float)
 #define MAX_SCRIPT_SIZE MAX_RULE_SIZE*MAX_RULE_SETS
 
 // offsets epoch readings by 1.1.2019 00:00:00 to fit into float with second resolution
@@ -1041,7 +1042,7 @@ char *isvar(char *lp, uint8_t *vtype,struct T_INDEX *tind,float *fp,char *sp,Jso
                 if (sp) strlcpy(sp,str_value,SCRIPT_MAXSSIZE);
                 return lp+len;
               }
-              
+
             } else {
               if (fp) {
                 if (!strncmp(vn.c_str(),"Epoch",5)) {
@@ -1575,7 +1576,7 @@ chknext:
 
       case 'r':
         if (!strncmp(vname,"ram",3)) {
-          fvar=glob_script_mem.script_mem_size+(glob_script_mem.script_size)+(MAX_RULE_MEMS*10);
+          fvar=glob_script_mem.script_mem_size+(glob_script_mem.script_size)+(PMEM_SIZE);
           goto exit;
         }
         break;
@@ -2203,8 +2204,7 @@ void Replace_Cmd_Vars(char *srcbuf,char *dstbuf,uint16_t dstsize) {
 
 void toLog(const char *str) {
   if (!str) return;
-  snprintf_P(log_data, sizeof(log_data), PSTR("%s"),str);
-  AddLog(LOG_LEVEL_INFO);
+  AddLog_P(LOG_LEVEL_INFO, str);
 }
 
 
@@ -2681,8 +2681,7 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
                     }
                     cmd[count]=*lp++;
                   }
-                  //snprintf_P(log_data, sizeof(log_data), tmp);
-                  //AddLog(LOG_LEVEL_INFO);
+                  //AddLog_P(LOG_LEVEL_INFO, tmp);
                   // replace vars in cmd
                   char *tmp=cmdmem+SCRIPT_CMDMEM/2;
                   Replace_Cmd_Vars(cmd,tmp,SCRIPT_CMDMEM/2);
@@ -2694,8 +2693,7 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
                   } else {
                     if (!sflag) {
                       tasm_cmd_activ=1;
-                      snprintf_P(log_data, sizeof(log_data), PSTR("Script: performs \"%s\""), tmp);
-                      AddLog(glob_script_mem.script_loglevel&0x7f);
+                      AddLog_P2(glob_script_mem.script_loglevel&0x7f, PSTR("Script: performs \"%s\""), tmp);
                     } else if (sflag==2) {
                       // allow recursive call
                     } else {
@@ -2995,7 +2993,7 @@ void ScripterEvery100ms(void) {
   if (fast_script==99) Run_Scripter(">F",2,0);
 }
 
-//mems[MAX_RULE_MEMS] is 50 bytes in 6.5
+//mems[5] is 50 bytes in 6.5
 // can hold 11 floats or floats + strings
 // should report overflow later
 void Scripter_save_pvars(void) {
@@ -3007,7 +3005,7 @@ void Scripter_save_pvars(void) {
     if (vtp[count].bits.is_permanent && !vtp[count].bits.is_string) {
       uint8_t index=vtp[count].index;
       mlen+=sizeof(float);
-      if (mlen>MAX_RULE_MEMS*10) {
+      if (mlen>PMEM_SIZE) {
         vtp[count].bits.is_permanent=0;
         return;
       }
@@ -3021,7 +3019,7 @@ void Scripter_save_pvars(void) {
       char *sp=glob_script_mem.glob_snp+(index*glob_script_mem.max_ssize);
       uint8_t slen=strlen(sp);
       mlen+=slen+1;
-      if (mlen>MAX_RULE_MEMS*10) {
+      if (mlen>PMEM_SIZE) {
         vtp[count].bits.is_permanent=0;
         return;
       }
@@ -3035,11 +3033,6 @@ void Scripter_save_pvars(void) {
 #ifdef USE_WEBSERVER
 
 #define WEB_HANDLE_SCRIPT "s10"
-#define D_CONFIGURE_SCRIPT "Edit script"
-#define D_SCRIPT "edit script"
-#define D_SDCARD_UPLOAD "file upload"
-#define D_SDCARD_DIR "sd card directory"
-#define D_UPL_DONE "Done"
 
 const char S_CONFIGURE_SCRIPT[] PROGMEM = D_CONFIGURE_SCRIPT;
 
@@ -3053,7 +3046,7 @@ const char HTTP_FORM_SCRIPT[] PROGMEM =
 
 const char HTTP_FORM_SCRIPT1[] PROGMEM =
     "<div style='text-align:right' id='charNum'> </div>"
-    "<input style='width:3%%;' id='c%d' name='c%d' type='checkbox'%s><b>script enable</b><br/>"
+    "<input style='width:3%%;' id='c%d' name='c%d' type='checkbox'%s><b>" D_SCRIPT_ENABLE "</b><br/>"
     "<br><textarea  id='t1' name='t1' rows='8' cols='80' maxlength='%d' style='font-size: 12pt' >";
 
 const char HTTP_FORM_SCRIPT1b[] PROGMEM =
@@ -3066,9 +3059,9 @@ const char HTTP_FORM_SCRIPT1b[] PROGMEM =
     "var ml=this.getAttribute('maxlength');"
     "var cl=this.value.length;"
     "if(cl>=ml){"
-      "eb('charNum').innerHTML='no more chars';"
+    "eb('charNum').innerHTML='" D_SCRIPT_CHARS_NO_MORE "';"
     "}else{"
-      "eb('charNum').innerHTML=ml-cl+' chars left';"
+    "eb('charNum').innerHTML=ml-cl+' " D_SCRIPT_CHARS_LEFT "';"
     "}"
 
 #if 0
@@ -3139,13 +3132,13 @@ const char HTTP_SCRIPT_FORM_END[] PROGMEM =
 
 #ifdef USE_SCRIPT_FATFS
 const char HTTP_FORM_SCRIPT1c[] PROGMEM =
-"<button name='d%d' type='submit' class='button bgrn'>Download '%s'</button>";
+    "<button name='d%d' type='submit' class='button bgrn'>" D_SCRIPT_DOWNLOAD " '%s'</button>";
 #ifdef SDCARD_DIR
 const char HTTP_FORM_SCRIPT1d[] PROGMEM =
-"<button method='post' name='upl' type='submit' class='button bgrn'>SD card directory</button>";
+    "<button method='post' name='upl' type='submit' class='button bgrn'>" D_SDCARD_DIR "</button>";
 #else
 const char HTTP_FORM_SCRIPT1d[] PROGMEM =
-"<button method='post' name='upl' type='submit' class='button bgrn'>Upload files</button>";
+    "<button method='post' name='upl' type='submit' class='button bgrn'>" D_SCRIPT_UPLOAD_FILES "</button>";
 #endif
 
 #ifdef SDCARD_DIR
@@ -3288,7 +3281,7 @@ void Script_FileUploadConfiguration(void)
   WSContentStart_P(S_SCRIPT_FILE_UPLOAD);
   WSContentSendStyle();
   WSContentSend_P(HTTP_FORM_FILE_UPLOAD,D_SDCARD_DIR);
-  WSContentSend_P(HTTP_FORM_FILE_UPG, "upload");
+  WSContentSend_P(HTTP_FORM_FILE_UPG, D_SCRIPT_UPLOAD);
 #ifdef SDCARD_DIR
   WSContentSend_P(HTTP_FORM_SDC_DIRa);
   if (glob_script_mem.script_sd_found) {
@@ -3544,8 +3537,7 @@ void ScriptSaveSettings(void) {
   if (bitRead(Settings.rule_enabled, 0)) {
     int16_t res=Init_Scripter();
     if (res) {
-      snprintf_P(log_data, sizeof(log_data), PSTR("script init error: %d"),res);
-      AddLog(LOG_LEVEL_INFO);
+      AddLog_P2(LOG_LEVEL_INFO, PSTR("script init error: %d"), res);
       return;
     }
     Run_Scripter(">B",2,0);
@@ -4754,8 +4746,8 @@ bool Xdrv10(uint8_t function)
       glob_script_mem.script_ram=Settings.rules[0];
       glob_script_mem.script_size=MAX_SCRIPT_SIZE;
       glob_script_mem.flags=0;
-      glob_script_mem.script_pram=(uint8_t*)Settings.mems[0];
-      glob_script_mem.script_pram_size=MAX_RULE_MEMS*10;
+      glob_script_mem.script_pram=(uint8_t*)Settings.script_pram[0];
+      glob_script_mem.script_pram_size=PMEM_SIZE;
 
 #ifdef USE_BUTTON_EVENT
       for (uint32_t cnt=0;cnt<MAX_KEYS;cnt++) {
