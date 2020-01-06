@@ -1,4 +1,4 @@
-set version=8.0.0.1-mod-1.71.4
+set version=8.0.0.2-mod-1.80.0
 
 mkdir %version%
 
