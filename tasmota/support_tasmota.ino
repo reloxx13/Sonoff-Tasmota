@@ -107,7 +107,7 @@ char* GetTopic_P(char *stopic, uint32_t prefix, char *topic, const char* subtopi
       fulltopic += F("/");
       fulltopic += FPSTR(MQTT_TOKEN_PREFIX);  // Need prefix for commands to handle mqtt topic loops
     }
-    for (uint32_t i = 0; i < 3; i++) {
+    for (uint32_t i = 0; i < MAX_MQTT_PREFIXES; i++) {
       if (!strlen(SettingsText(SET_MQTTPREFIX1 + i))) {
         char temp[TOPSZ];
         SettingsUpdateText(SET_MQTTPREFIX1 + i, GetTextIndexed(temp, sizeof(temp), i, kPrefixes));
@@ -144,7 +144,7 @@ char* GetFallbackTopic_P(char *stopic, const char* subtopic)
 
 char* GetStateText(uint32_t state)
 {
-  if (state > 3) {
+  if (state >= MAX_STATE_TEXT) {
     state = 1;
   }
   return SettingsText(SET_STATE_TXT1 + state);
@@ -274,6 +274,60 @@ void SetAllPower(uint32_t state, uint32_t source)
   if (publish_power) {
     MqttPublishAllPowerState();
   }
+}
+
+void SetPowerOnState(void)
+{
+  if (MOTOR == my_module_type) {
+    Settings.poweronstate = POWER_ALL_ON;   // Needs always on else in limbo!
+  }
+  if (POWER_ALL_ALWAYS_ON == Settings.poweronstate) {
+    SetDevicePower(1, SRC_RESTART);
+  } else {
+    if ((ResetReason() == REASON_DEFAULT_RST) || (ResetReason() == REASON_EXT_SYS_RST)) {
+      switch (Settings.poweronstate) {
+      case POWER_ALL_OFF:
+      case POWER_ALL_OFF_PULSETIME_ON:
+        power = 0;
+        SetDevicePower(power, SRC_RESTART);
+        break;
+      case POWER_ALL_ON:  // All on
+        power = (1 << devices_present) -1;
+        SetDevicePower(power, SRC_RESTART);
+        break;
+      case POWER_ALL_SAVED_TOGGLE:
+        power = (Settings.power & ((1 << devices_present) -1)) ^ POWER_MASK;
+        if (Settings.flag.save_state) {  // SetOption0 - Save power state and use after restart
+          SetDevicePower(power, SRC_RESTART);
+        }
+        break;
+      case POWER_ALL_SAVED:
+        power = Settings.power & ((1 << devices_present) -1);
+        if (Settings.flag.save_state) {  // SetOption0 - Save power state and use after restart
+          SetDevicePower(power, SRC_RESTART);
+        }
+        break;
+      }
+    } else {
+      power = Settings.power & ((1 << devices_present) -1);
+      if (Settings.flag.save_state) {    // SetOption0 - Save power state and use after restart
+        SetDevicePower(power, SRC_RESTART);
+      }
+    }
+  }
+
+  // Issue #526 and #909
+  for (uint32_t i = 0; i < devices_present; i++) {
+    if (!Settings.flag3.no_power_feedback) {  // SetOption63 - Don't scan relay power state at restart - #5594 and #5663
+      if ((i < MAX_RELAYS) && (pin[GPIO_REL1 +i] < 99)) {
+        bitWrite(power, i, digitalRead(pin[GPIO_REL1 +i]) ^ bitRead(rel_inverted, i));
+      }
+    }
+    if ((i < MAX_PULSETIMERS) && (bitRead(power, i) || (POWER_ALL_OFF_PULSETIME_ON == Settings.poweronstate))) {
+      SetPulseTimer(i, Settings.pulse_timer[i]);
+    }
+  }
+  blink_powersave = power;
 }
 
 void SetLedPowerIdx(uint32_t led, uint32_t state)
@@ -610,7 +664,7 @@ bool MqttShowSensor(void)
 #else
     if (pin[GPIO_SWT1 +i] < 99) {
 #endif  // USE_TM1638
-      bool swm = ((FOLLOW_INV == Settings.switchmode[i]) || (PUSHBUTTON_INV == Settings.switchmode[i]) || (PUSHBUTTONHOLD_INV == Settings.switchmode[i]));
+      bool swm = ((FOLLOW_INV == Settings.switchmode[i]) || (PUSHBUTTON_INV == Settings.switchmode[i]) || (PUSHBUTTONHOLD_INV == Settings.switchmode[i]) || (FOLLOWMULTI_INV == Settings.switchmode[i]));
       ResponseAppend_P(PSTR(",\"" D_JSON_SWITCH "%d\":\"%s\""), i +1, GetStateText(swm ^ SwitchLastState(i)));
     }
   }
@@ -643,13 +697,6 @@ void MqttPublishSensor(void)
 void PerformEverySecond(void)
 {
   uptime++;
-
-  if (ntp_synced_message) {
-    // Moved here to fix syslog UDP exception 9 during RtcSecond
-    AddLog_P2(LOG_LEVEL_DEBUG, PSTR("NTP: Drift %d, (" D_UTC_TIME ") %s, (" D_DST_TIME ") %s, (" D_STD_TIME ") %s"),
-      DriftTime(), GetTime(0).c_str(), GetTime(2).c_str(), GetTime(3).c_str());
-    ntp_synced_message = false;
-  }
 
   if (POWER_CYCLE_TIME == uptime) {
     UpdateQuickPowerCycle(false);
@@ -727,6 +774,11 @@ void Every100mSeconds(void)
 {
   // As the max amount of sleep = 250 mSec this loop will shift in time...
   power_t power_now;
+
+  if (prepped_loglevel) {
+    AddLog(prepped_loglevel);
+    prepped_loglevel = 0;
+  }
 
   if (latching_relay_pulse) {
     latching_relay_pulse--;
@@ -833,15 +885,36 @@ void Every250mSeconds(void)
           strlcpy(mqtt_data, GetOtaUrl(log_data, sizeof(log_data)), sizeof(mqtt_data));
 #ifndef FIRMWARE_MINIMAL
           if (RtcSettings.ota_loader) {
-            char *bch = strrchr(mqtt_data, '/');                        // Only consider filename after last backslash prevent change of urls having "-" in it
-            char *pch = strrchr((bch != nullptr) ? bch : mqtt_data, '-');  // Change from filename-DE.bin into filename-minimal.bin
-            char *ech = strrchr((bch != nullptr) ? bch : mqtt_data, '.');  // Change from filename.bin into filename-minimal.bin
-            if (!pch) { pch = ech; }
-            if (pch) {
-              mqtt_data[pch - mqtt_data] = '\0';
-              char *ech = strrchr(SettingsText(SET_OTAURL), '.');  // Change from filename.bin into filename-minimal.bin
-              snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s-" D_JSON_MINIMAL "%s"), mqtt_data, ech);  // Minimal filename must be filename-minimal
+            // OTA File too large so try OTA minimal version
+            // Replace tasmota                                         with tasmota-minimal
+            // Replace tasmota-DE                                      with tasmota-minimal
+            // Replace tasmota.bin                                     with tasmota-minimal.bin
+            // Replace tasmota.xyz                                     with tasmota-minimal.xyz
+            // Replace tasmota.bin.gz                                  with tasmota-minimal.bin.gz
+            // Replace tasmota.xyz.gz                                  with tasmota-minimal.xyz.gz
+            // Replace http://domus1:80/api/arduino/tasmota.bin        with http://domus1:80/api/arduino/tasmota-minimal.bin
+            // Replace http://domus1:80/api/arduino/tasmota.bin.gz     with http://domus1:80/api/arduino/tasmota-minimal.bin.gz
+            // Replace http://domus1:80/api/arduino/tasmota-DE.bin.gz  with http://domus1:80/api/arduino/tasmota-minimal.bin.gz
+            // Replace http://domus1:80/api/ard-uino/tasmota-DE.bin.gz with http://domus1:80/api/ard-uino/tasmota-minimal.bin.gz
+
+            char *bch = strrchr(mqtt_data, '/');                       // Only consider filename after last backslash prevent change of urls having "-" in it
+            if (bch == nullptr) { bch = mqtt_data; }                   // No path found so use filename only
+
+            char *ech = strrchr(bch, '.');                             // Find file type in filename (none, .bin or .gz)
+            if ((ech != nullptr) && (0 == strncasecmp_P(ech, PSTR(".GZ"), 3))) {
+              char *fch = ech;
+              *fch = '\0';
+              ech = strrchr(bch, '.');                                 // Find file type .bin.gz
+              *fch = '.';
             }
+            if (ech == nullptr) { ech = mqtt_data + strlen(mqtt_data); }
+            char ota_url_type[strlen(ech) +1];
+            strncpy(ota_url_type, ech, sizeof(ota_url_type));          // Either empty, .bin or .bin.gz
+
+            char *pch = strrchr(bch, '-');                             // Find last dash (-) and ignore remainder - handles tasmota-DE
+            if (pch == nullptr) { pch = ech; }                         // No dash so ignore filetype
+            *pch = '\0';                                               // mqtt_data = http://domus1:80/api/arduino/tasmota
+            snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s-" D_JSON_MINIMAL "%s"), mqtt_data, ota_url_type);  // Minimal filename must be filename-minimal
           }
 #endif  // FIRMWARE_MINIMAL
           AddLog_P2(LOG_LEVEL_DEBUG, PSTR(D_LOG_UPLOAD "%s"), mqtt_data);
@@ -869,8 +942,7 @@ void Every250mSeconds(void)
         Response_P(PSTR("{\"" D_CMND_UPGRADE "\":\""));
         if (ota_result) {
 //          SetFlashModeDout();      // Force DOUT for both ESP8266 and ESP8285
-          if (OtaVersion() < VERSION_COMPATIBLE) {
-            AbandonOta();
+          if (!VersionCompatible()) {
             ResponseAppend_P(PSTR(D_JSON_FAILED " " D_UPLOAD_ERR_14));
           } else {
             ResponseAppend_P(PSTR(D_JSON_SUCCESSFUL ". " D_JSON_RESTARTING));
@@ -1156,8 +1228,11 @@ void SerialInput(void)
   if (Settings.flag.mqtt_serial && serial_in_byte_counter && (millis() > (serial_polling_window + SERIAL_POLLING))) {  // CMND_SERIALSEND and CMND_SERIALLOG
     serial_in_buffer[serial_in_byte_counter] = 0;                                // Serial data completed
     char hex_char[(serial_in_byte_counter * 2) + 2];
-    Response_P(PSTR("{\"" D_JSON_SERIALRECEIVED "\":\"%s\"}"),
-      (Settings.flag.mqtt_serial_raw) ? ToHex_P((unsigned char*)serial_in_buffer, serial_in_byte_counter, hex_char, sizeof(hex_char)) : serial_in_buffer);
+    bool assume_json = (!Settings.flag.mqtt_serial_raw && (serial_in_buffer[0] == '{'));
+    Response_P(PSTR("{\"" D_JSON_SERIALRECEIVED "\":%s%s%s}"),
+      (assume_json) ? "" : """",
+      (Settings.flag.mqtt_serial_raw) ? ToHex_P((unsigned char*)serial_in_buffer, serial_in_byte_counter, hex_char, sizeof(hex_char)) : serial_in_buffer,
+      (assume_json) ? "" : """");
     MqttPublishPrefixTopic_P(RESULT_OR_TELE, PSTR(D_JSON_SERIALRECEIVED));
     XdrvRulesProcess();
     serial_in_byte_counter = 0;

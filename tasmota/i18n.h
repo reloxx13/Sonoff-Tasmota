@@ -502,6 +502,8 @@
 #define D_CMND_SHUTTER_CLOSE "Close"
 #define D_CMND_SHUTTER_UP "Up"
 #define D_CMND_SHUTTER_DOWN "Down"
+#define D_CMND_SHUTTER_TOGGLEUP "ToggleUp"
+#define D_CMND_SHUTTER_TOGGLEDOWN "ToggleDown"
 #define D_CMND_SHUTTER_STOP "Stop"
 #define D_CMND_SHUTTER_POSITION "Position"
 #define D_CMND_SHUTTER_OPENTIME "OpenDuration"
@@ -514,6 +516,8 @@
 #define D_CMND_SHUTTER_MOTORDELAY "MotorDelay"
 #define D_CMND_SHUTTER_FREQUENCY "Frequency"
 #define D_CMND_SHUTTER_BUTTON "Button"
+#define D_CMND_SHUTTER_LOCK "Lock"
+#define D_CMND_SHUTTER_ENABLEENDSTOPTIME "EnableEndStopTime"
 
 // Commands xdrv_32_hotplug.ino
 #define D_CMND_HOTPLUG "HotPlug"

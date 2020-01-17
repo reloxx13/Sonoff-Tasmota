@@ -52,17 +52,24 @@ The following binary downloads have been compiled with ESP8266/Arduino library c
 
 ## Changelog
 
-### Version 8.1.0.2
+### Version 8.1.0.4
 
 - Change Lights: simplified gamma correction and 10 bits internal computation
+- Change commands ``Prefix``, ``Ssid``, ``StateText``, ``NTPServer``, and ``FriendlyName`` displaying all items
+- Change IRremoteESP8266 library updated to v2.7.2
 - Fix Sonoff Bridge, Sc, L1, iFan03 and CSE7766 serial interface to forced speed, config and disable logging
 - Fix commands ``Display`` and ``Counter`` from overruling command processing (#7322)
 - Fix ``White`` added to light status (#7142)
 - Fix Improved fade linearity with gamma correction
 - Fix LCD line and column positioning (#7387)
 - Fix Display handling of hexadecimal escape characters (#7387)
+- Fix ``WakeUp <x>`` ignores provided value (#7473)
+- Fix exception 9 restart on log message in Ticker interrupt service routines NTP, Wemos and Hue emulation (#7496)
+- Fix ``PowerDelta`` zero power detection (#7515)
 - Add command ``SetOption79 0/1`` to enable reset of counters at teleperiod time by Andre Thomas (#7355)
+- Add command ``SetOption82 0/1`` to limit the CT range for Alexa to 200..380
 - Add command ``ShutterButton <parameters>`` to control shutter(s) by to-scho (#7403)
+- Add ``SwitchMode 8`` ToggleMulti, ``SwitchMode 9`` FollowMulti and ``SwitchMode 10`` FollowMultiInverted (#7522)
 - Add SerialConfig to ``Status 1``
 - Add WifiPower to ``Status 5``
 - Add support for DS1624, DS1621 Temperature sensor by Leonid Myravjev
@@ -71,3 +78,5 @@ The following binary downloads have been compiled with ESP8266/Arduino library c
 - Add optional support for Prometheus using file xsns_91_prometheus.ino (#7216)
 - Add experimental support for NRF24L01 as BLE-bridge for Mijia Bluetooth sensors by Christian Baars (#7394)
 - Add support to BMP driver to enter reset state (sleep enable) when deep sleep is used in Tasmota
+- Add support for gzipped binaries
+- Add web page sliders when ``SetOption37 128`` is active allowing control of white(s)

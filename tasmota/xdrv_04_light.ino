@@ -1336,11 +1336,15 @@ void LightUpdateColorMapping(void)
   //AddLog_P2(LOG_LEVEL_DEBUG, PSTR("%d colors: %d %d %d %d %d") ,Settings.param[P_RGB_REMAP], Light.color_remap[0],Light.color_remap[1],Light.color_remap[2],Light.color_remap[3],Light.color_remap[4]);
 }
 
+uint8_t LightGetDimmer(uint8_t dimmer) {
+  return light_state.getDimmer(dimmer);
+}
+
 void LightSetDimmer(uint8_t dimmer) {
   light_controller.changeDimmer(dimmer);
 }
 
-uint32_t LightGetHSB(uint16_t *hue,uint8_t  *sat, uint8_t *bri) {
+void LightGetHSB(uint16_t *hue, uint8_t *sat, uint8_t *bri) {
   light_state.getHSB(hue, sat, bri);
 }
 
@@ -1612,13 +1616,21 @@ void LightCycleColor(int8_t direction)
   if (0 == direction) {
     if (Light.random == Light.wheel) {
       Light.random = random(255);
+
+      uint8_t my_dir = (Light.random < Light.wheel -128) ? 1 :
+                       (Light.random < Light.wheel     ) ? 0 :
+                       (Light.random > Light.wheel +128) ? 0 : 1;  // Increment or Decrement and roll-over
+      Light.random = (Light.random & 0xFE) | my_dir;
+
+//      AddLog_P2(LOG_LEVEL_DEBUG, PSTR("LGT: random %d"), Light.random);
     }
-    direction = (Light.random < Light.wheel) ? -1 : 1;
+//    direction = (Light.random < Light.wheel) ? -1 : 1;
+    direction = (Light.random &0x01) ? 1 : -1;
   }
   Light.wheel += direction;
   uint16_t hue = changeUIntScale(Light.wheel, 0, 255, 0, 359);  // Scale to hue to keep amount of steps low (max 255 instead of 359)
 
-//  AddLog_P2(LOG_LEVEL_DEBUG, PSTR("DBG: random %d, wheel %d, hue %d"), Light.random, Light.wheel, hue);
+//  AddLog_P2(LOG_LEVEL_DEBUG, PSTR("LGT: random %d, wheel %d, hue %d"), Light.random, Light.wheel, hue);
 
   uint8_t sat;
   light_state.getHSB(nullptr, &sat, nullptr);  // Allow user control over Saturation
@@ -1964,9 +1976,9 @@ void LightSetOutputs(const uint16_t *cur_col_10) {
       }
     }
   }
-  char msg[24];
-  AddLog_P2(LOG_LEVEL_DEBUG, PSTR("LGT: Channels %s"),
-            ToHex_P((const unsigned char *)cur_col_10, 10, msg, sizeof(msg)));
+
+//  char msg[24];
+//  AddLog_P2(LOG_LEVEL_DEBUG, PSTR("LGT: Channels %s"), ToHex_P((const unsigned char *)cur_col_10, 10, msg, sizeof(msg)));
 
   uint8_t cur_col[LST_MAX];
   for (uint32_t i = 0; i < LST_MAX; i++) {
@@ -2241,31 +2253,31 @@ void CmndHsbColor(void)
     bool validHSB = (XdrvMailbox.data_len > 0);
     if (validHSB) {
       uint16_t HSB[3];
-      if (strstr(XdrvMailbox.data, ",") != nullptr) {  // Command with 3 comma separated parameters, Hue (0<H<360), Saturation (0<S<100) AND Brightness (0<B<100)
-        for (uint32_t i = 0; i < 3; i++) {
-          char *substr;
+      uint16_t c_hue;
+      uint8_t  c_sat;
 
-          if (0 == i) {
-            substr = strtok(XdrvMailbox.data, ",");
-          } else {
-            substr = strtok(nullptr, ",");
-          }
-          if (substr != nullptr) {
-            HSB[i] = atoi(substr);
-            if (0 < i) {
-              HSB[i] = changeUIntScale(HSB[i], 0, 100, 0, 255); // change sat and bri to 0..255
-            }
-          } else {
-            validHSB = false;
+      light_state.getHSB(&c_hue, &c_sat, nullptr);
+      HSB[0] = c_hue;
+      HSB[1] = c_sat;
+      HSB[2] = light_state.getBriRGB();
+
+      char *substr = strstr(XdrvMailbox.data, ",");
+      if (substr != nullptr) { // Command with comma separated parameters, Hue (0<H<360), Saturation (0<S<100) AND optional Brightness (0<B<100)
+        HSB[0] = atoi(XdrvMailbox.data);
+
+        for (uint32_t i = 1; i < 3; i++) {
+          substr++;
+          HSB[i] = atoi(substr);
+          HSB[i] = changeUIntScale(HSB[i], 0, 100, 0, 255); // change sat and bri to 0..255
+          substr = strstr(substr, ",");
+          if (substr == nullptr) {
+            break;
           }
         }
+        if (substr != nullptr) {
+          validHSB = false;
+        }
       } else {  // Command with only 1 parameter, Hue (0<H<360), Saturation (0<S<100) OR Brightness (0<B<100)
-        uint16_t c_hue;
-        uint8_t  c_sat;
-        light_state.getHSB(&c_hue, &c_sat, nullptr);
-        HSB[0] = c_hue;
-        HSB[1] = c_sat;
-        HSB[2] = light_state.getBri();
 
         if (1 == XdrvMailbox.index) {
           HSB[0] = XdrvMailbox.payload;
@@ -2317,7 +2329,7 @@ void CmndScheme(void)
 void CmndWakeup(void)
 {
   if ((XdrvMailbox.payload >= 0) && (XdrvMailbox.payload <= 100)) {
-    Settings.light_dimmer = XdrvMailbox.payload;
+    light_controller.changeDimmer(XdrvMailbox.payload);
   }
   Light.wakeup_active = 3;
   Settings.light_scheme = LS_WAKEUP;
@@ -2339,7 +2351,7 @@ void CmndColorTemperature(void)
       }
     }
     if ((XdrvMailbox.payload >= CT_MIN) && (XdrvMailbox.payload <= CT_MAX)) {  // https://developers.meethue.com/documentation/core-concepts
-      light_controller.changeCTB(XdrvMailbox.payload, light_state.getBri());
+      light_controller.changeCTB(XdrvMailbox.payload, light_state.getBriCT());
       LightPreparePower(2);
     } else {
       ResponseCmndNumber(ct);
