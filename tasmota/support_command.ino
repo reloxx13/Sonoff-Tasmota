@@ -30,6 +30,9 @@ const char kTasmotaCommands[] PROGMEM = "|"  // No prefix
 #ifdef USE_I2C
   D_CMND_I2CSCAN "|" D_CMND_I2CDRIVER "|"
 #endif
+#ifdef USE_DEVICE_GROUPS
+  D_CMND_DEVGROUP_SHARE "|"
+#endif  // USE_DEVICE_GROUPS
   D_CMND_SENSOR "|" D_CMND_DRIVER;
 
 void (* const TasmotaCommand[])(void) PROGMEM = {
@@ -45,6 +48,9 @@ void (* const TasmotaCommand[])(void) PROGMEM = {
 #ifdef USE_I2C
   &CmndI2cScan, CmndI2cDriver,
 #endif
+#ifdef USE_DEVICE_GROUPS
+  &CmndDevGroupShare,
+#endif  // USE_DEVICE_GROUPS
   &CmndSensor, &CmndDriver };
 
 const char kWifiConfig[] PROGMEM =
@@ -338,7 +344,8 @@ void CmndStatus(void)
   char stemp2[TOPSZ];
 
   // Workaround MQTT - TCP/IP stack queueing when SUB_PREFIX = PUB_PREFIX
-  if (!strcmp(SettingsText(SET_MQTTPREFIX1), SettingsText(SET_MQTTPREFIX2)) && (!payload)) { option++; }  // TELE
+  // Commented on 20200118 as it seems to be no longer needed
+//  if (!strcmp(SettingsText(SET_MQTTPREFIX1), SettingsText(SET_MQTTPREFIX2)) && (!payload)) { option++; }  // TELE
 
   if ((!Settings.flag.mqtt_enabled) && (6 == payload)) { payload = 99; }  // SetOption3 - Enable MQTT
   if (!energy_flg && (9 == payload)) { payload = 99; }
@@ -377,10 +384,10 @@ void CmndStatus(void)
   if ((0 == payload) || (1 == payload)) {
     Response_P(PSTR("{\"" D_CMND_STATUS D_STATUS1_PARAMETER "\":{\"" D_JSON_BAUDRATE "\":%d,\"" D_CMND_SERIALCONFIG "\":\"%s\",\"" D_CMND_GROUPTOPIC "\":\"%s\",\"" D_CMND_OTAURL "\":\"%s\",\""
                           D_JSON_RESTARTREASON "\":\"%s\",\"" D_JSON_UPTIME "\":\"%s\",\"" D_JSON_STARTUPUTC "\":\"%s\",\"" D_CMND_SLEEP "\":%d,\""
-                          D_JSON_CONFIG_HOLDER "\":%d,\"" D_JSON_BOOTCOUNT "\":%d,\"" D_JSON_SAVECOUNT "\":%d,\"" D_JSON_SAVEADDRESS "\":\"%X\"}}"),
+                          D_JSON_CONFIG_HOLDER "\":%d,\"" D_JSON_BOOTCOUNT "\":%d,\"BCResetTime\":\"%s\",\"" D_JSON_SAVECOUNT "\":%d,\"" D_JSON_SAVEADDRESS "\":\"%X\"}}"),
                           Settings.baudrate * 300, GetSerialConfig().c_str(), SettingsText(SET_MQTT_GRP_TOPIC), SettingsText(SET_OTAURL),
                           GetResetReason().c_str(), GetUptime().c_str(), GetDateAndTime(DT_RESTART).c_str(), Settings.sleep,
-                          Settings.cfg_holder, Settings.bootcount, Settings.save_flag, GetSettingsAddress());
+                          Settings.cfg_holder, Settings.bootcount, GetDateAndTime(DT_BOOTCOUNT).c_str(), Settings.save_flag, GetSettingsAddress());
     MqttPublishPrefixTopic_P(option, PSTR(D_CMND_STATUS "1"));
   }
 
@@ -410,10 +417,10 @@ void CmndStatus(void)
   if ((0 == payload) || (4 == payload)) {
     Response_P(PSTR("{\"" D_CMND_STATUS D_STATUS4_MEMORY "\":{\"" D_JSON_PROGRAMSIZE "\":%d,\"" D_JSON_FREEMEMORY "\":%d,\"" D_JSON_HEAPSIZE "\":%d,\""
                           D_JSON_PROGRAMFLASHSIZE "\":%d,\"" D_JSON_FLASHSIZE "\":%d,\"" D_JSON_FLASHCHIPID "\":\"%06X\",\"" D_JSON_FLASHMODE "\":%d,\""
-                          D_JSON_FEATURES "\":[\"%08X\",\"%08X\",\"%08X\",\"%08X\",\"%08X\",\"%08X\"]"),
+                          D_JSON_FEATURES "\":[\"%08X\",\"%08X\",\"%08X\",\"%08X\",\"%08X\",\"%08X\",\"%08X\"]"),
                           ESP.getSketchSize()/1024, ESP.getFreeSketchSpace()/1024, ESP.getFreeHeap()/1024,
                           ESP.getFlashChipSize()/1024, ESP.getFlashChipRealSize()/1024, ESP.getFlashChipId(), ESP.getFlashChipMode(),
-                          LANGUAGE_LCID, feature_drv1, feature_drv2, feature_sns1, feature_sns2, feature5);
+                          LANGUAGE_LCID, feature_drv1, feature_drv2, feature_sns1, feature_sns2, feature5, feature6);
     XsnsDriverState();
     ResponseAppend_P(PSTR(",\"Sensors\":"));
     XsnsSensorState();
@@ -448,13 +455,13 @@ void CmndStatus(void)
 #if defined(USE_TIMERS) && defined(USE_SUNRISE)
     Response_P(PSTR("{\"" D_CMND_STATUS D_STATUS7_TIME "\":{\"" D_JSON_UTC_TIME "\":\"%s\",\"" D_JSON_LOCAL_TIME "\":\"%s\",\"" D_JSON_STARTDST "\":\"%s\",\""
                           D_JSON_ENDDST "\":\"%s\",\"" D_CMND_TIMEZONE "\":%s,\"" D_JSON_SUNRISE "\":\"%s\",\"" D_JSON_SUNSET "\":\"%s\"}}"),
-                          GetTime(0).c_str(), GetTime(1).c_str(), GetTime(2).c_str(),
-                          GetTime(3).c_str(), stemp, GetSun(0).c_str(), GetSun(1).c_str());
+                          GetDateAndTime(DT_UTC).c_str(), GetDateAndTime(DT_LOCALNOTZ).c_str(), GetDateAndTime(DT_DST).c_str(),
+                          GetDateAndTime(DT_STD).c_str(), stemp, GetSun(0).c_str(), GetSun(1).c_str());
 #else
     Response_P(PSTR("{\"" D_CMND_STATUS D_STATUS7_TIME "\":{\"" D_JSON_UTC_TIME "\":\"%s\",\"" D_JSON_LOCAL_TIME "\":\"%s\",\"" D_JSON_STARTDST "\":\"%s\",\""
                           D_JSON_ENDDST "\":\"%s\",\"" D_CMND_TIMEZONE "\":%s}}"),
-                          GetTime(0).c_str(), GetTime(1).c_str(), GetTime(2).c_str(),
-                          GetTime(3).c_str(), stemp);
+                          GetDateAndTime(DT_UTC).c_str(), GetDateAndTime(DT_LOCALNOTZ).c_str(), GetDateAndTime(DT_DST).c_str(),
+                          GetDateAndTime(DT_STD).c_str(), stemp);
 #endif  // USE_TIMERS and USE_SUNRISE
     MqttPublishPrefixTopic_P(option, PSTR(D_CMND_STATUS "7"));
   }
@@ -1452,6 +1459,7 @@ void CmndReset(void)
     break;
   case 99:
     Settings.bootcount = 0;
+    Settings.bootcount_reset_time = 0;
     ResponseCmndDone();
     break;
   default:
@@ -1661,6 +1669,17 @@ void CmndI2cDriver(void)
   ResponseJsonEnd();
 }
 #endif  // USE_I2C
+
+#ifdef USE_DEVICE_GROUPS
+void CmndDevGroupShare(void)
+{
+  uint32_t parm[2] = { Settings.device_group_share_in, Settings.device_group_share_out };
+  ParseParameters(2, parm);
+  Settings.device_group_share_in = parm[0];
+  Settings.device_group_share_out = parm[1];
+  Response_P(PSTR("{\"" D_CMND_DEVGROUP_SHARE "\":{\"In\":\"%X\",\"Out\":\"%X\"}}"), Settings.device_group_share_in, Settings.device_group_share_out);
+}
+#endif  // USE_DEVICE_GROUPS
 
 void CmndSensor(void)
 {

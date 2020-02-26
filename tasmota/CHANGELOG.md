@@ -1,10 +1,60 @@
 ## Unreleased (development)
 
+### 8.1.0.9 20200220
+
+- Revert most wifi connectivity changes introduced in 8.1.0.5 (#7746, #7602, #7621)
+- Fix Zigbee auto-increment transaction number (#7757)
+- Add initial support for Sensors AHT10 and AHT15 by Martin Wagner (#7596)
+- Add support for Wemos Motor Shield V1 by Denis Sborets (#7764)
+- Add Zigbee enhanced commands decoding, added ``ZbPing``
+- Add commands ``SetOption85 0/1`` and ``DevGroupShare`` supporting UDP Group command using ``GroupTopic`` without MQTT by Paul Diem (#7790)
+
+### 8.1.0.8 20200212
+
+- Change MQTT message size with additional 200 characters
+- Change some wifi code to attempt faster connection (#7621)
+- Change display of some date and time messages from "Wed Feb 19 10:45:12 2020" to "2020-02-19T10:45:12"
+- Fix relation between RSSI and signal strength
+- Add another new DHT driver based on ESPEasy. The old driver can still be used using define USE_DHT_OLD. The previous new driver can be used with define USE_DHT_V2 (#7717)
+
+### 8.1.0.7 20200210
+
+- Add new DHT driver. The old driver can still be used using define USE_DHT_OLD (#7468)
+- Fix wrong encoding of Zigbee persistent data
+
+### 8.1.0.6 20200205
+
+- Fix Hass sensor discovery part 1/4 by Federico Leoni (#7582, #7548)
+- Fix MaxPower functionality (#7647)
+- Add support for sensors DS18x20 and DHT family on Shelly 1 and Shelly 1PM using Shelly Add-On adapter (#7469)
+- Add commands ``SwitchMode 11`` PushHoldMulti and ``SwitchMode 12`` PushHoldInverted (#7603)
+- Add command ``Buzzer -1`` for infinite mode and command ``Buzzer -2`` for following led mode (#7623)
+- Add support for MI-BLE sensors using HM-10 Bluetooth 4.0 module by Christian Staars (#7683)
+- Add BootCount Reset Time as BCResetTime to ``Status 1``
+- Add ``ZbZNPReceived``and ``ZbZCLReceived`` being published to MQTT when ``SetOption66 1``
+- Add optional Wifi AccessPoint passphrase define WIFI_AP_PASSPHRASE in my_user_config.h (#7690)
+- Add support for FiF LE-01MR energy meter by saper-2 (#7584)
+
+### 8.1.0.5 20200126
+
+- Change wifi connectivity stability (#7602)
+- Change IRremoteESP8266 library updated to v2.7.3
+- Fix PWM flickering at low levels (#7415)
+- Add ``SetOption84 1`` sends AWS IoT device shadow updates (alternative to retained)
+- Add ``ZbBind`` (experimental) and bug fixes
+
 ### 8.1.0.4 20200116
 
+- Change Zigbee command prefix from ``Zigbee*`` to ``Zb*``
 - Fix ``PowerDelta`` zero power detection (#7515)
 - Fix OTA minimal gzipped detection regression from 8.1.0.3
+- Fix ``RGBWWTable`` ignored (#7572)
 - Add web page sliders when ``SetOption37 128`` is active allowing control of white(s)
+- Add Zigbee persistence and friendly names
+- Add most SetOptions as defines to my_user_config.h
+- Add SoftwareSerial to CSE7766 driver allowing different GPIOs (#7563)
+- Add optional parameter <startcolor> to command ``Scheme <scheme>, <startcolor>`` to control initial start color
+- Add rule trigger on one level deeper using syntax with two ``#`` like ``on zigbeereceived#vibration_sensor#aqaracubeside=0 do ...``
 
 ### 8.1.0.3 20200106
 

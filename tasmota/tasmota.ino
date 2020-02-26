@@ -19,7 +19,7 @@
 /*====================================================
   Prerequisites:
     - Change libraries/PubSubClient/src/PubSubClient.h
-        #define MQTT_MAX_PACKET_SIZE 1000
+        #define MQTT_MAX_PACKET_SIZE 1200
 
     - Select IDE Tools - Flash Mode: "DOUT"
     - Select IDE Tools - Flash Size: "1M (no SPIFFS)"
@@ -68,8 +68,6 @@
 // Structs
 #include "settings.h"
 
-const char kCodeImage[] PROGMEM = "tasmota|minimal|sensors|knx|lite|display|ir";
-
 /*********************************************************************************************\
  * Global variables
 \*********************************************************************************************/
@@ -81,6 +79,7 @@ unsigned long feature_drv2;                 // Compiled driver feature map
 unsigned long feature_sns1;                 // Compiled sensor feature map
 unsigned long feature_sns2;                 // Compiled sensor feature map
 unsigned long feature5;                     // Compiled feature map
+unsigned long feature6;                     // Compiled feature map
 unsigned long serial_polling_window = 0;    // Serial polling window
 unsigned long state_second = 0;             // State second timer
 unsigned long state_50msecond = 0;          // State 50msecond timer
@@ -110,12 +109,13 @@ float global_temperature = 9999;            // Provide a global temperature to b
 float global_humidity = 0;                  // Provide a global humidity to be used by some sensors
 float global_pressure = 0;                  // Provide a global pressure to be used by some sensors
 uint16_t tele_period = 9999;                // Tele period timer
-uint16_t mqtt_cmnd_publish = 0;             // ignore flag for publish command
 uint16_t blink_counter = 0;                 // Number of blink cycles
 uint16_t seriallog_timer = 0;               // Timer to disable Seriallog
 uint16_t syslog_timer = 0;                  // Timer to re-enable syslog_level
 int16_t save_data_counter;                  // Counter and flag for config save to Flash
 RulesBitfield rules_flag;                   // Rule state flags (16 bits)
+uint8_t mqtt_cmnd_blocked = 0;              // Ignore flag for publish command
+uint8_t mqtt_cmnd_blocked_reset = 0;        // Count down to reset if needed
 uint8_t state_250mS = 0;                    // State 250msecond per second flag
 uint8_t latching_relay_pulse = 0;           // Latching relay pulse timer
 uint8_t sleep;                              // Current copy of Settings.sleep
@@ -201,10 +201,9 @@ void setup(void)
   }
 
   snprintf_P(my_version, sizeof(my_version), PSTR("%s-" MOD_VERSION_STRING), my_version); //reloxx13: add mod version
-
-  char code_image[20];
-  snprintf_P(my_image, sizeof(my_image), PSTR("(%s)"), GetTextIndexed(code_image, sizeof(code_image), CODE_IMAGE, kCodeImage));
-  //snprintf_P(my_image, sizeof(my_image), PSTR("(%s)"), "");
+  
+  // Thehackbox inserts "release" or "commit number" before compiling using sed -i -e 's/PSTR("(%s)")/PSTR("(85cff52-%s)")/g' tasmota.ino
+  snprintf_P(my_image, sizeof(my_image), PSTR("(%s)"), CODE_IMAGE_STR);  // Results in (85cff52-tasmota) or (release-tasmota)
 
   SettingsLoad();
   SettingsDelta();
@@ -333,6 +332,9 @@ void loop(void)
 #ifdef ROTARY_V1
   RotaryLoop();
 #endif
+#ifdef USE_DEVICE_GROUPS
+  DeviceGroupsLoop();
+#endif  // USE_DEVICE_GROUPS
   BacklogLoop();
 
   if (TimeReached(state_50msecond)) {

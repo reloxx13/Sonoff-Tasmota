@@ -34,7 +34,7 @@ uint16_t messwerte[5] = {30,50,70,90,100};
 uint16_t last_execute_step;
 
 enum ShutterModes { SHT_OFF_OPEN__OFF_CLOSE, SHT_OFF_ON__OPEN_CLOSE, SHT_PULSE_OPEN__PULSE_CLOSE, SHT_OFF_ON__OPEN_CLOSE_STEPPER,};
-enum ShutterButtonStates { SHT_NOT_PRESSED, SHT_PRESSED_MULTI, SHT_PRESSED_HOLD, SHT_PRESSED_IMMEDIATE, SHT_SHT_PRESSED_MULTI_SIMULTANEOUS, SHT_PRESSED_EXT_HOLD_SIMULTANEOUS,};
+enum ShutterButtonStates { SHT_NOT_PRESSED, SHT_PRESSED_MULTI, SHT_PRESSED_HOLD, SHT_PRESSED_IMMEDIATE, SHT_PRESSED_MULTI_SIMULTANEOUS, SHT_PRESSED_HOLD_SIMULTANEOUS, SHT_PRESSED_EXT_HOLD_SIMULTANEOUS,};
 
 const char kShutterCommands[] PROGMEM = D_PRFX_SHUTTER "|"
   D_CMND_SHUTTER_OPEN "|" D_CMND_SHUTTER_CLOSE "|" D_CMND_SHUTTER_STOP "|" D_CMND_SHUTTER_POSITION  "|"
@@ -48,7 +48,8 @@ void (* const ShutterCommand[])(void) PROGMEM = {
   &CmndShutterSetHalfway, &CmndShutterSetClose, &CmndShutterInvert, &CmndShutterCalibration , &CmndShutterMotorDelay,
   &CmndShutterFrequency, &CmndShutterButton, &CmndShutterLock, &CmndShutterEnableEndStopTime};
 
-const char JSON_SHUTTER_POS[] PROGMEM = "\"" D_PRFX_SHUTTER "%d\":{\"Position\":%d,\"Direction\":%d}";
+  const char JSON_SHUTTER_POS[] PROGMEM = "\"" D_PRFX_SHUTTER "%d\":{\"Position\":%d,\"Direction\":%d,\"Target\":%d}";
+  const char JSON_SHUTTER_BUTTON[] PROGMEM = "\"" D_PRFX_SHUTTER "%d\":{\"Button%d\":%d}";
 
 #include <Ticker.h>
 
@@ -69,7 +70,7 @@ struct SHUTTER {
   int8_t  direction[MAX_SHUTTERS];        // 1 == UP , 0 == stop; -1 == down
   uint8_t mode = 0;                       // operation mode definition. see enum type above SHT_OFF_OPEN__OFF_CLOSE, SHT_OFF_ON__OPEN_CLOSE, SHT_PULSE_OPEN__PULSE_CLOSE
   int16_t motordelay[MAX_SHUTTERS];       // initial motorstarttime in 0.05sec.
-  int16_t pwm_frequency;                 // frequency of PWN for stepper motors
+  int16_t pwm_frequency[MAX_SHUTTERS];    // frequency of PWN for stepper motors
   uint16_t max_pwm_frequency = 1000;      // maximum of PWM frequency for openig the shutter. depend on the motor and drivers
   uint16_t max_close_pwm_frequency[MAX_SHUTTERS];// maximum of PWM frequency for closeing the shutter. depend on the motor and drivers
   uint8_t skip_relay_change;                 // avoid overrun at endstops
@@ -81,17 +82,18 @@ void ShutterLogPos(uint32_t i)
   char stemp2[10];
   dtostrfd((float)Shutter.time[i] / steps_per_second, 2, stemp2);
   AddLog_P2(LOG_LEVEL_INFO, PSTR("SHT: Shutter%d Real %d, Start %d, Stop %d, Dir %d, Delay %d, Rtc %s [s], Freq %d"),
-    i+1, Shutter.real_position[i], Shutter.start_position[i], Shutter.target_position[i], Shutter.direction[i], Shutter.motordelay[i], stemp2, Shutter.pwm_frequency);
+    i+1, Shutter.real_position[i], Shutter.start_position[i], Shutter.target_position[i], Shutter.direction[i], Shutter.motordelay[i], stemp2, Shutter.pwm_frequency[i]);
 }
 
 void ShutterRtc50mS(void)
 {
-  for (uint32_t i = 0; i < shutters_present; i++) {
+  for (uint8_t i = 0; i < shutters_present; i++) {
     Shutter.time[i]++;
     if (Shutter.accelerator[i]) {
-      Shutter.pwm_frequency += Shutter.accelerator[i];
-      Shutter.pwm_frequency = tmax(0,tmin(Shutter.direction[i]==1 ? Shutter.max_pwm_frequency : Shutter.max_close_pwm_frequency[i],Shutter.pwm_frequency));
-      analogWriteFreq(Shutter.pwm_frequency);
+      //AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SHT: accelerator i=%d ->  %d"),i, Shutter.accelerator[i]);
+      Shutter.pwm_frequency[i] += Shutter.accelerator[i];
+      Shutter.pwm_frequency[i] = tmax(0,tmin(Shutter.direction[i]==1 ? Shutter.max_pwm_frequency : Shutter.max_close_pwm_frequency[i],Shutter.pwm_frequency[i]));
+      analogWriteFreq(Shutter.pwm_frequency[i]);
       analogWrite(pin[GPIO_PWM1+i], 50);
     }
   }
@@ -198,8 +200,9 @@ void ShutterInit(void)
         Shutter.mode = SHT_OFF_ON__OPEN_CLOSE;
         if ((pin[GPIO_PWM1+i] < 99) && (pin[GPIO_CNTR1+i] < 99)) {
           Shutter.mode = SHT_OFF_ON__OPEN_CLOSE_STEPPER;
-          Shutter.pwm_frequency = 0;
-          analogWriteFreq(Shutter.pwm_frequency);
+          Shutter.pwm_frequency[i] = 0;
+          Shutter.accelerator[i] = 0;
+          analogWriteFreq(Shutter.pwm_frequency[i]);
           analogWrite(pin[GPIO_PWM1+i], 50);
         }
       }
@@ -228,7 +231,7 @@ void ShutterInit(void)
 
       Shutter.real_position[i] = ShutterPercentToRealPosition(Settings.shutter_position[i], i);
       //Shutter.real_position[i] =   Settings.shutter_position[i] <= 5 ?  Settings.shuttercoeff[2][i] * Settings.shutter_position[i] : Settings.shuttercoeff[1][i] * Settings.shutter_position[i] + Settings.shuttercoeff[0,i];
-      Shutter.start_position[i] = Shutter.real_position[i];
+      Shutter.start_position[i] = Shutter.target_position[i] = Shutter.real_position[i];
       Shutter.motordelay[i] = Settings.shutter_motordelay[i];
 
       char shutter_open_chr[10];
@@ -244,36 +247,31 @@ void ShutterInit(void)
       // terminate loop at first INVALID shutter.
       break;
     }
-
+    ShutterLimitRealAndTargetPositions(i);
     Settings.shutter_accuracy = 1;
   }
 }
 
 void ShutterReportPosition(bool always)
 {
-  uint32_t shutter_moving = 0;
   Response_P(PSTR("{"));
+  rules_flag.shutter_moving = 0;
   for (uint32_t i = 0; i < shutters_present; i++) {
     //AddLog_P2(LOG_LEVEL_INFO, PSTR("SHT: Shutter %d: Real Pos: %d"), i+1,Shutter.real_position[i]);
     uint32_t position = ShutterRealToPercentPosition(Shutter.real_position[i], i);
     if (Shutter.direction[i] != 0) {
-      shutter_moving = 1;
+      rules_flag.shutter_moving = 1;
       ShutterLogPos(i);
     }
     if (i) { ResponseAppend_P(PSTR(",")); }
-    ResponseAppend_P(JSON_SHUTTER_POS, i+1, (Settings.shutter_options[i] & 1) ? 100-position : position, Shutter.direction[i]);
+    ResponseAppend_P(JSON_SHUTTER_POS, i+1, (Settings.shutter_options[i] & 1) ? 100-position : position, Shutter.direction[i], ShutterRealToPercentPosition(Shutter.target_position[i], i));
   }
   ResponseJsonEnd();
-  if (always || (1 == shutter_moving)) {
+  if (always || (rules_flag.shutter_moving)) {
     MqttPublishPrefixTopic_P(RESULT_OR_STAT, PSTR(D_PRFX_SHUTTER));
   }
-  if (rules_flag.shutter_moving > shutter_moving) {
-    rules_flag.shutter_moved = 1;
-  } else {
-    rules_flag.shutter_moved = 0;
-  }
-  rules_flag.shutter_moving = shutter_moving;
-  //AddLog_P2(LOG_LEVEL_DEBUG_MORE, PSTR("SHT: rules_flag.shutter_moving: %d, moved %d"), rules_flag.shutter_moving, rules_flag.shutter_moved);
+  //AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SHT: rules_flag.shutter_moving: %d, moved %d"), rules_flag.shutter_moving, rules_flag.shutter_moved);
+
 }
 
 void ShutterLimitRealAndTargetPositions(uint32_t i) {
@@ -299,22 +297,27 @@ void ShutterUpdatePosition(void)
 
         int32_t  max_frequency = Shutter.direction[i] == 1 ? Shutter.max_pwm_frequency : Shutter.max_close_pwm_frequency[i];
         int32_t  max_freq_change_per_sec =  Shutter.max_pwm_frequency*steps_per_second / (Shutter.motordelay[i]>0 ? Shutter.motordelay[i] : 1);
-        int32_t  min_runtime_ms = Shutter.pwm_frequency*1000 / max_freq_change_per_sec;
+        int32_t  min_runtime_ms = Shutter.pwm_frequency[i]*1000 / max_freq_change_per_sec;
         int32_t  velocity = Shutter.direction[i] == 1 ? 100 : Shutter.close_velocity[i];
-        int32_t  minstopway = min_runtime_ms * velocity / 100 * Shutter.pwm_frequency / max_frequency  * Shutter.direction[i] ;
+        int32_t  minstopway = min_runtime_ms * velocity / 100 * Shutter.pwm_frequency[i] / max_frequency * Shutter.direction[i] ;
 
         int32_t  next_possible_stop = Shutter.real_position[i] + minstopway ;
-        stop_position_delta =200 * Shutter.pwm_frequency/max_frequency + Shutter.direction[i] * (next_possible_stop - Shutter.target_position[i]);
+        stop_position_delta =200 * Shutter.pwm_frequency[i]/max_frequency + Shutter.direction[i] * (next_possible_stop - Shutter.target_position[i]);
+        if (Shutter.time[i] == 1) {
+          ShutterReportPosition(true);
+          rules_flag.shutter_moving = 1;
+          XdrvRulesProcess();
+        }
         //Shutter.accelerator[i] = tmin(tmax(max_freq_change_per_sec*(100-(Shutter.direction[i]*(Shutter.target_position[i]-next_possible_stop)    ))/2000 , max_freq_change_per_sec*9/200), max_freq_change_per_sec*11/200);
         //int32_t act_freq_change = max_freq_change_per_sec/20;
         AddLog_P2(LOG_LEVEL_DEBUG_MORE, PSTR("SHT: time: %d, velocity %d, minstopway %d,cur_freq %d, max_frequency %d, act_freq_change %d, min_runtime_ms %d, act.pos %d, next_stop %d, target: %d"),Shutter.time[i],velocity,minstopway,
-                                      Shutter.pwm_frequency,max_frequency, Shutter.accelerator[i],min_runtime_ms,Shutter.real_position[i], next_possible_stop,Shutter.target_position[i]);
+                                      Shutter.pwm_frequency[i],max_frequency, Shutter.accelerator[i],min_runtime_ms,Shutter.real_position[i], next_possible_stop,Shutter.target_position[i]);
 
-        if (Shutter.accelerator[i] < 0 || next_possible_stop * Shutter.direction[i] > Shutter.target_position[i] * Shutter.direction[i] ) {
+        if (Shutter.accelerator[i] < 0 || next_possible_stop * Shutter.direction[i] > (Shutter.target_position[i]- (100 * Shutter.direction[i])) * Shutter.direction[i] ) {
 
-            Shutter.accelerator[i] = - tmin(tmax(max_freq_change_per_sec*(100-(Shutter.direction[i]*(Shutter.target_position[i]-next_possible_stop)    ))/2000 , max_freq_change_per_sec*9/200), max_freq_change_per_sec*12/200);
+            Shutter.accelerator[i] = - tmin(tmax(max_freq_change_per_sec*(100-(Shutter.direction[i]*(Shutter.target_position[i]-next_possible_stop)    ))/2000 , max_freq_change_per_sec*9/200), max_freq_change_per_sec*11/200);
             //AddLog_P2(LOG_LEVEL_DEBUG_MORE, PSTR("SHT: Ramp down: acc: %d"),   Shutter.accelerator[i]);
-        } else if (  Shutter.accelerator[i] > 0 && Shutter.pwm_frequency ==  max_frequency) {
+        } else if (  Shutter.accelerator[i] > 0 && Shutter.pwm_frequency[i] ==  max_frequency) {
           Shutter.accelerator[i] = 0;
         }
       } else {
@@ -338,19 +341,19 @@ void ShutterUpdatePosition(void)
           case SHT_OFF_ON__OPEN_CLOSE_STEPPER:
             missing_steps = ((Shutter.target_position[i]-Shutter.start_position[i])*Shutter.direction[i]*Shutter.max_pwm_frequency/2000) - RtcSettings.pulse_counter[i];
             //prepare for stop PWM
-            AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SHT: Remain steps %d, counter %d, freq %d"), missing_steps, RtcSettings.pulse_counter[i] ,Shutter.pwm_frequency);
+            AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SHT: Remain steps %d, counter %d, freq %d"), missing_steps, RtcSettings.pulse_counter[i] ,Shutter.pwm_frequency[i]);
             Shutter.accelerator[i] = 0;
-            Shutter.pwm_frequency = Shutter.pwm_frequency > 250 ? 250 : Shutter.pwm_frequency;
-            analogWriteFreq(Shutter.pwm_frequency);
+            Shutter.pwm_frequency[i] = Shutter.pwm_frequency[i] > 250 ? 250 : Shutter.pwm_frequency[i];
+            analogWriteFreq(Shutter.pwm_frequency[i]);
             analogWrite(pin[GPIO_PWM1+i], 50);
-            Shutter.pwm_frequency = 0;
-            analogWriteFreq(Shutter.pwm_frequency);
+            Shutter.pwm_frequency[i] = 0;
+            analogWriteFreq(Shutter.pwm_frequency[i]);
             while (RtcSettings.pulse_counter[i] < (uint32_t)(Shutter.target_position[i]-Shutter.start_position[i])*Shutter.direction[i]*Shutter.max_pwm_frequency/2000) {
               delay(1);
             }
             analogWrite(pin[GPIO_PWM1+i], 0);
             Shutter.real_position[i] = ShutterCounterBasedPosition(i);
-            AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SHT:Real %d, pulsecount %d, start %d"), Shutter.real_position[i],RtcSettings.pulse_counter[i], Shutter.start_position[i]);
+            AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SHT: Real %d, pulsecount %d, start %d"), Shutter.real_position[i],RtcSettings.pulse_counter[i], Shutter.start_position[i]);
 
             if ((1 << (Settings.shutter_startrelay[i]-1)) & power) {
               ExecuteCommandPower(Settings.shutter_startrelay[i], 0, SRC_SHUTTER);
@@ -386,6 +389,7 @@ void ShutterUpdatePosition(void)
 
         Shutter.direction[i] = 0;
         ShutterReportPosition(true);
+        rules_flag.shutter_moved = 1;
         XdrvRulesProcess();
       }
     }
@@ -408,8 +412,8 @@ void ShutterStartInit(uint32_t i, int32_t direction, int32_t target_pos)
     Shutter.skip_relay_change = 1;
   } else {
     if (Shutter.mode == SHT_OFF_ON__OPEN_CLOSE_STEPPER) {
-      Shutter.pwm_frequency = 0;
-      analogWriteFreq(Shutter.pwm_frequency);
+      Shutter.pwm_frequency[i] = 0;
+      analogWriteFreq(Shutter.pwm_frequency[i]);
       analogWrite(pin[GPIO_PWM1+i], 0);
       // can be operated without counter, but then not that acurate.
       if (pin[GPIO_CNTR1+i] < 99) {
@@ -423,6 +427,8 @@ void ShutterStartInit(uint32_t i, int32_t direction, int32_t target_pos)
     Shutter.time[i] = 0;
     Shutter.skip_relay_change = 0;
     Shutter.direction[i] = direction;
+    rules_flag.shutter_moving = 1;
+    rules_flag.shutter_moved  = 0;
     //AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SHT: real %d, start %d, counter %d, max_freq %d, dir %d, freq %d"),Shutter.real_position[i], Shutter.start_position[i] ,RtcSettings.pulse_counter[i],Shutter.max_pwm_frequency , Shutter.direction[i] ,Shutter.max_pwm_frequency );
   }
   //AddLog_P2(LOG_LEVEL_INFO,  PSTR("SHT: Start shutter: %d from %d to %d in directin %d"), i, Shutter.start_position[i], Shutter.target_position[i], Shutter.direction[i]);
@@ -434,10 +440,11 @@ void ShutterWaitForMotorStop(uint32_t i)
   if ((SHT_OFF_ON__OPEN_CLOSE == Shutter.mode) || (SHT_OFF_ON__OPEN_CLOSE_STEPPER == Shutter.mode)) {
     if (SHT_OFF_ON__OPEN_CLOSE_STEPPER == Shutter.mode) {
       //AddLog_P2(LOG_LEVEL_INFO, PSTR("SHT: Frequency change %d"), Shutter.pwm_frequency);
-      while (Shutter.pwm_frequency > 0) {
-        Shutter.accelerator[i] = 0;
-        Shutter.pwm_frequency = tmax(Shutter.pwm_frequency-((Shutter.direction[i] == 1 ? Shutter.max_pwm_frequency : Shutter.max_close_pwm_frequency[i])/(Shutter.motordelay[i]+1)) , 0);
-        analogWriteFreq(Shutter.pwm_frequency);
+      while (Shutter.pwm_frequency[i] > 0) {
+        //AddLog_P2(LOG_LEVEL_DEBUG_MORE, PSTR("SHT: Frequency: %ld, delta: %d"), Shutter.pwm_frequency[i], (int32_t)((Shutter.direction[i] == 1 ? Shutter.max_pwm_frequency : Shutter.max_close_pwm_frequency[i])/(Shutter.motordelay[i]+1)) );
+        Shutter.pwm_frequency[i] = tmax(Shutter.pwm_frequency[i]-((Shutter.direction[i] == 1 ? Shutter.max_pwm_frequency : Shutter.max_close_pwm_frequency[i])/(Shutter.motordelay[i]+1)) , 0);
+        //AddLog_P2(LOG_LEVEL_DEBUG_MORE, PSTR("SHT: Frequency: %ld"),  Shutter.pwm_frequency[i]);
+        analogWriteFreq(Shutter.pwm_frequency[i]);
         analogWrite(pin[GPIO_PWM1+i], 50);
         delay(50);
       }
@@ -508,11 +515,11 @@ void ShutterRelayChanged(void)
 	}
 }
 
-bool ShutterButtonIsSimultaneousHold(uint32_t button_index) {
+bool ShutterButtonIsSimultaneousHold(uint32_t button_index, uint32_t shutter_index) {
   // check for simultaneous shutter button hold
   uint32 min_shutterbutton_hold_timer = -1;
   for (uint32_t i = 0; i < MAX_KEYS; i++) {
-    if ((Settings.shutter_button[i] & (1<<31)) && (Button.hold_timer[i] < min_shutterbutton_hold_timer))
+    if ((Settings.shutter_button[i] & (1<<31)) && ((Settings.shutter_button[i] & 0x03) == shutter_index) && (Button.hold_timer[i] < min_shutterbutton_hold_timer))
       min_shutterbutton_hold_timer = Button.hold_timer[i];
   }
   return (min_shutterbutton_hold_timer > (Button.hold_timer[button_index]>>1));
@@ -527,7 +534,6 @@ void ShutterButtonHandler(void)
   uint8_t shutter_index = Settings.shutter_button[button_index] & 0x03;
 
   uint16_t loops_per_second = 1000 / Settings.button_debounce;  // ButtonDebounce (50)
-
   if ((PRESSED == button) && (NOT_PRESSED == Button.last_state[button_index])) {
     if (Settings.flag.button_single) {                   // SetOption13 (0) - Allow only single button press for immediate action
         buttonState = SHT_PRESSED_MULTI;
@@ -537,9 +543,10 @@ void ShutterButtonHandler(void)
         buttonState = SHT_PRESSED_IMMEDIATE;
         press_index = 1;
         Button.press_counter[button_index] = 99; // Remember to discard further action for press & hold within button timings
-      } else
+      } else {
         Button.press_counter[button_index] = (Button.window_timer[button_index]) ? Button.press_counter[button_index] +1 : 1;
-      Button.window_timer[button_index] = loops_per_second / 2;  // 0.5 second multi press window
+        Button.window_timer[button_index] = loops_per_second / 2;  // 0.5 second multi press window
+      }
     }
     blinks = 201;
   }
@@ -556,28 +563,27 @@ void ShutterButtonHandler(void)
         }
       }
       if ((Button.press_counter[button_index]<99) && (Button.hold_timer[button_index] == loops_per_second * Settings.param[P_HOLD_TIME] / 10)) {  // press still valid && SetOption32 (40) - Button hold
-        if (!Settings.flag.button_restrict) { // no SetOption1 (0)
-          // check for simultaneous shutter button hold
-          if (ShutterButtonIsSimultaneousHold(button_index)) {
-            // simultaneous shutter button hold detected
-            for (uint32_t i = 0; i < MAX_KEYS; i++)
-              if (Settings.shutter_button[i] & (1<<31))
-                Button.press_counter[i] = 99; // Remember to discard further action for press & hold within button timings
-          }
+        // check for simultaneous shutter button hold
+        if (ShutterButtonIsSimultaneousHold(button_index, shutter_index)) {
+          // simultaneous shutter button hold detected
+          for (uint32_t i = 0; i < MAX_KEYS; i++)
+            if ((Settings.shutter_button[i] & (1<<31)) && ((Settings.shutter_button[i] & 0x03) == shutter_index))
+              Button.press_counter[i] = 99; // Remember to discard further action for press & hold within button timings
+          press_index = 0;
+          buttonState = SHT_PRESSED_HOLD_SIMULTANEOUS;
         }
-        if (Button.press_counter[button_index]<99)
+        if (Button.press_counter[button_index]<99) {
+          press_index = 0;
           buttonState = SHT_PRESSED_HOLD;
+        }
         Button.press_counter[button_index] = 0;
       }
-      if ((!Settings.flag.button_restrict) && (Button.press_counter[button_index]==0) && (Button.hold_timer[button_index] == loops_per_second * IMMINENT_RESET_FACTOR * Settings.param[P_HOLD_TIME] / 10)) {  // no SetOption1 (0) && SetOption32 (40) - Button held for factor times longer
+      if ((Button.press_counter[button_index]==0) && (Button.hold_timer[button_index] == loops_per_second * IMMINENT_RESET_FACTOR * Settings.param[P_HOLD_TIME] / 10)) {  // SetOption32 (40) - Button held for factor times longer
         // check for simultaneous shutter button extend hold
-        if (ShutterButtonIsSimultaneousHold(button_index)) {
+        if (ShutterButtonIsSimultaneousHold(button_index, shutter_index)) {
           // simultaneous shutter button extend hold detected
-          char scmnd[20];
+          press_index = 0;
           buttonState = SHT_PRESSED_EXT_HOLD_SIMULTANEOUS;
-          snprintf_P(scmnd, sizeof(scmnd), PSTR(D_CMND_RESET " 1"));
-          ExecuteCommand(scmnd, SRC_BUTTON);
-          return;
         }
       }
     }
@@ -589,29 +595,28 @@ void ShutterButtonHandler(void)
     } else {
       if (!restart_flag && !Button.hold_timer[button_index] && (Button.press_counter[button_index] > 0)) {
         if (Button.press_counter[button_index]<99) {
-          if ((!Settings.flag.button_restrict) && (Button.press_counter[button_index]>=5)) { // no SetOption1 (0) && 5x or more presses
-            // check for simultaneous shutter button press >3
-            uint32 min_shutterbutton_press_counter = -1;
-            for (uint32_t i = 0; i < MAX_KEYS; i++) {
-              if ((Settings.shutter_button[i] & (1<<31)) && (Button.press_counter[i] < min_shutterbutton_press_counter))
-                min_shutterbutton_press_counter = Button.press_counter[i];
+          // check for simultaneous shutter button press
+          uint32 min_shutterbutton_press_counter = -1;
+          for (uint32_t i = 0; i < MAX_KEYS; i++) {
+            AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SHT: Settings.shutter_button[i] %ld, shutter_index %d, Button.press_counter[i] %d, min_shutterbutton_press_counter %d, i %d"), Settings.shutter_button[i], shutter_index, Button.press_counter[i] , min_shutterbutton_press_counter, i);
+            if ((Settings.shutter_button[i] & (1<<31)) && ((Settings.shutter_button[i] & 0x03) == shutter_index) && (i != button_index) && (Button.press_counter[i] < min_shutterbutton_press_counter)) {
+              min_shutterbutton_press_counter = Button.press_counter[i];
+              AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SHT: min_shutterbutton_press_counter %d"), min_shutterbutton_press_counter);
             }
-            if (min_shutterbutton_press_counter >= Button.press_counter[button_index]-2) {
-              char scmnd[20];
-              // simultaneous shutter button press >3 detected
-              press_index = Button.press_counter[button_index];
-              for (uint32_t i = 0; i < MAX_KEYS; i++)
-                if (Settings.shutter_button[i] & (1<<31))
-                  Button.press_counter[i] = 99; // Remember to discard further action for press & hold within button timings
-              buttonState = SHT_SHT_PRESSED_MULTI_SIMULTANEOUS;
-              GetTextIndexed(scmnd, sizeof(scmnd), press_index -3, kCommands);
-              ExecuteCommand(scmnd, SRC_BUTTON);
-              return;
-            }
+
           }
-          press_index = Button.press_counter[button_index];
-          if ((buttonState == SHT_NOT_PRESSED) && (Button.press_counter[button_index]<99)) {
+          if (min_shutterbutton_press_counter == Button.press_counter[button_index]) {
+            // simultaneous shutter button press detected
+            AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SHT: simultanous presss deteced"));
+            press_index = Button.press_counter[button_index];
+            for (uint32_t i = 0; i < MAX_KEYS; i++)
+              if ((Settings.shutter_button[i] & (1<<31)) && ((Settings.shutter_button[i] & 0x03) != shutter_index))
+                Button.press_counter[i] = 99; // Remember to discard further action for press & hold within button timings
+            buttonState = SHT_PRESSED_MULTI_SIMULTANEOUS;
+          }
+          if ((buttonState != SHT_PRESSED_MULTI_SIMULTANEOUS) && (Button.press_counter[button_index]<99)) {
             // no simultaneous shutter button press >3 detected
+            press_index = Button.press_counter[button_index];
             buttonState = SHT_PRESSED_MULTI;
           }
         }
@@ -620,47 +625,69 @@ void ShutterButtonHandler(void)
     }
   }
 
-  if ((buttonState != SHT_NOT_PRESSED) && (buttonState != SHT_SHT_PRESSED_MULTI_SIMULTANEOUS) && (buttonState != SHT_PRESSED_EXT_HOLD_SIMULTANEOUS)) {
-    if (Settings.shutter_startrelay[shutter_index] && Settings.shutter_startrelay[shutter_index] <9) {
-      if (press_index>3) press_index=3;
-      press_index = (buttonState == SHT_PRESSED_HOLD) ? 3 : (press_index-1);
-      AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SHT: shutter %d, button %d = %d (single=1, double=2, tripple=3, hold=4)"), shutter_index+1, button_index+1, press_index+1);
-      XdrvMailbox.index = shutter_index +1;
-      last_source = SRC_BUTTON;
-      XdrvMailbox.data_len = 0;
-      char databuf[1] = "";
-      XdrvMailbox.data = databuf;
-      XdrvMailbox.command = NULL;
-      if (buttonState == SHT_PRESSED_IMMEDIATE) {
-        XdrvMailbox.payload = XdrvMailbox.index;
-        CmndShutterStop();
-      }
-      else {
-        uint8_t position = (Settings.shutter_button[button_index]>>(6*press_index + 2)) & 0x03f;
-        if (position) {
-          if (Shutter.direction[shutter_index]) {
-            XdrvMailbox.payload = XdrvMailbox.index;
-            CmndShutterStop();
-          } else {
-            XdrvMailbox.payload = position = (position-1)<<1;
-            CmndShutterPosition();
-            if (Settings.shutter_button[button_index] & ((0x01<<26)<<press_index)) {
-              // MQTT broadcast to grouptopic
-              char scommand[CMDSZ];
-              char stopic[TOPSZ];
-              for (uint32_t i = 0; i < MAX_SHUTTERS; i++) {
-                if ((i==shutter_index) || (Settings.shutter_button[button_index] & (0x01<<30))) {
-                  snprintf_P(scommand, sizeof(scommand),PSTR("ShutterPosition%d"), i+1);
-                  GetGroupTopic_P(stopic, scommand);
-                  Response_P("%d", position);
-                  MqttPublish(stopic, false);
-                }
-              }
-            }
-          }
-        }
-      }
+ if (buttonState != SHT_NOT_PRESSED) {
+   if (buttonState == SHT_PRESSED_MULTI_SIMULTANEOUS) {
+     if ((press_index>=5) && (press_index<=7) && (!Settings.flag.button_restrict)) { // 5x..7x && no SetOption1 (0)
+       // simultaneous shutter button press 5x, 6x, 7x detected
+       char scmnd[20];
+       GetTextIndexed(scmnd, sizeof(scmnd), press_index -3, kCommands);
+       ExecuteCommand(scmnd, SRC_BUTTON);
+       return;
+     }
+   } else if (buttonState == SHT_PRESSED_EXT_HOLD_SIMULTANEOUS) {
+     if (!Settings.flag.button_restrict) { // no SetOption1 (0)
+       char scmnd[20];
+       snprintf_P(scmnd, sizeof(scmnd), PSTR(D_CMND_RESET " 1"));
+       ExecuteCommand(scmnd, SRC_BUTTON);
+       return;
+     }
+   } else if (buttonState <= SHT_PRESSED_IMMEDIATE) {
+      if (Settings.shutter_startrelay[shutter_index] && Settings.shutter_startrelay[shutter_index] <9) {
+        uint8_t pos_press_index = (buttonState == SHT_PRESSED_HOLD) ? 3 : (press_index-1);
+        if (pos_press_index>3) pos_press_index=3;
+        AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SHT: shutter %d, button %d = %d (single=1, double=2, tripple=3, hold=4)"), shutter_index+1, button_index+1, pos_press_index+1);
+        XdrvMailbox.index = shutter_index +1;
+        last_source = SRC_BUTTON;
+        XdrvMailbox.data_len = 0;
+        char databuf[1] = "";
+        XdrvMailbox.data = databuf;
+        XdrvMailbox.command = NULL;
+        if (buttonState == SHT_PRESSED_IMMEDIATE) {
+          XdrvMailbox.payload = XdrvMailbox.index;
+          CmndShutterStop();
+        } else {
+          uint8_t position = (Settings.shutter_button[button_index]>>(6*pos_press_index + 2)) & 0x03f;
+          if (position) {
+            if (Shutter.direction[shutter_index]) {
+              XdrvMailbox.payload = XdrvMailbox.index;
+              CmndShutterStop();
+            } else {
+              XdrvMailbox.payload = position = (position-1)<<1;
+              CmndShutterPosition();
+              if (Settings.shutter_button[button_index] & ((0x01<<26)<<pos_press_index)) {
+                // MQTT broadcast to grouptopic
+                char scommand[CMDSZ];
+                char stopic[TOPSZ];
+                for (uint32_t i = 0; i < MAX_SHUTTERS; i++) {
+                  if ((i==shutter_index) || (Settings.shutter_button[button_index] & (0x01<<30))) {
+                    snprintf_P(scommand, sizeof(scommand),PSTR("ShutterPosition%d"), i+1);
+                    GetGroupTopic_P(stopic, scommand);
+                    Response_P("%d", position);
+                    MqttPublish(stopic, false);
+                  }
+                } // for (uint32_t)
+              } // if (Settings.shutter)
+            } // ende else
+          } // if (position)
+        } // end else
+      } // if   if (Settings.shutter_startrelay[shutter_index]
     }
+    Response_P(PSTR("{"));
+    ResponseAppend_P(JSON_SHUTTER_BUTTON, shutter_index+1, (buttonState <= SHT_PRESSED_IMMEDIATE) ? (button_index+1) : 0, press_index);
+    ResponseJsonEnd();
+    MqttPublishPrefixTopic_P(RESULT_OR_STAT, PSTR(D_PRFX_SHUTTER));
+    XdrvRulesProcess();
+
   }
 }
 
@@ -735,6 +762,7 @@ void CmndShutterPosition(void)
       AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SHT: Pos. in: payload %s (%d), payload %d, idx %d, src %d"), XdrvMailbox.data , XdrvMailbox.data_len, XdrvMailbox.payload , XdrvMailbox.index, last_source );
 
       // value 0 with data_len > 0 can mean Open
+      // special handling fo UP,DOWN,TOGGLE,STOP command comming with payload -99
       if ((XdrvMailbox.data_len > 1) && (XdrvMailbox.payload <= 0)) {
         //UpperCase(XdrvMailbox.data, XdrvMailbox.data);
         if (!strcasecmp(XdrvMailbox.data,D_CMND_SHUTTER_UP) || !strcasecmp(XdrvMailbox.data,D_CMND_SHUTTER_OPEN) || ((Shutter.direction[index]==0) && !strcasecmp(XdrvMailbox.data,D_CMND_SHUTTER_TOGGLEUP))) {
@@ -752,23 +780,21 @@ void CmndShutterPosition(void)
         }
       }
 
-      int8_t target_pos_percent = (XdrvMailbox.payload < 0) ? 0 : ((XdrvMailbox.payload > 100) ? 100 : XdrvMailbox.payload);
+      int8_t target_pos_percent = (XdrvMailbox.payload < 0) ? (XdrvMailbox.payload == -99 ? ShutterRealToPercentPosition(Shutter.real_position[index], index) : 0) : ((XdrvMailbox.payload > 100) ? 100 : XdrvMailbox.payload);
       // webgui still send also on inverted shutter the native position.
       target_pos_percent = ((Settings.shutter_options[index] & 1) && (SRC_WEBGUI != last_source)) ? 100 - target_pos_percent : target_pos_percent;
       if (XdrvMailbox.payload != -99) {
         //target_pos_percent = (Settings.shutter_options[index] & 1) ? 100 - target_pos_percent : target_pos_percent;
-        if (0 == target_pos_percent) {
-          Shutter.target_position[index] = (Settings.shutter_options[index] & 4) ? (-1 * 2000) : 0;
-        } else if (100 == target_pos_percent) {
-          Shutter.target_position[index] = (Settings.shutter_options[index] & 4) ? (Shutter.open_max[index] + 1 * 2000) : Shutter.open_max[index];
-      	} else {
-          Shutter.target_position[index] = ShutterPercentToRealPosition(target_pos_percent, index);
-        }
-        Shutter.accelerator[index] = Shutter.max_pwm_frequency / ((Shutter.motordelay[index] > 0) ? Shutter.motordelay[index] : 1);
+        Shutter.target_position[index] = ShutterPercentToRealPosition(target_pos_percent, index);
+        //Shutter.accelerator[index] = Shutter.max_pwm_frequency / ((Shutter.motordelay[index] > 0) ? Shutter.motordelay[index] : 1);
         //Shutter.target_position[index] = XdrvMailbox.payload < 5 ?  Settings.shuttercoeff[2][index] * XdrvMailbox.payload : Settings.shuttercoeff[1][index] * XdrvMailbox.payload + Settings.shuttercoeff[0,index];
         AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SHT: lastsource %d:, real %d, target %d, payload %d"), last_source, Shutter.real_position[index] ,Shutter.target_position[index],target_pos_percent);
       }
       if ( (target_pos_percent >= 0) && (target_pos_percent <= 100) && abs(Shutter.target_position[index] - Shutter.real_position[index] ) / Shutter.close_velocity[index] > 2) {
+        if (Settings.shutter_options[index] & 4) {
+          if (0   == target_pos_percent) Shutter.target_position[index] -= 1 * 2000;
+          if (100 == target_pos_percent) Shutter.target_position[index] += 1 * 2000;
+        }
         int8_t new_shutterdirection = Shutter.real_position[index] < Shutter.target_position[index] ? 1 : -1;
         if (Shutter.direction[index] == -new_shutterdirection) {
           // direction need to be changed. on momentary switches first stop the Shutter
@@ -789,26 +815,32 @@ void CmndShutterPosition(void)
             ShutterWaitForMotorStop(index);
             ExecuteCommandPower(Settings.shutter_startrelay[index], 0, SRC_SHUTTER);
             ShutterStartInit(index, new_shutterdirection, Shutter.target_position[index]);
-            // Code for shutters with circuit safe configuration, switch the direction Relay
-            ExecuteCommandPower(Settings.shutter_startrelay[index] +1, new_shutterdirection == 1 ? 0 : 1, SRC_SHUTTER);
-            // power on
-            ExecuteCommandPower(Settings.shutter_startrelay[index], 1, SRC_SHUTTER);
+            if (Shutter.skip_relay_change == 0) {
+              // Code for shutters with circuit safe configuration, switch the direction Relay
+              ExecuteCommandPower(Settings.shutter_startrelay[index] +1, new_shutterdirection == 1 ? 0 : 1, SRC_SHUTTER);
+              // power on
+              ExecuteCommandPower(Settings.shutter_startrelay[index], 1, SRC_SHUTTER);
+            }
           } else {
             // now start the motor for the right direction, work for momentary and normal shutters.
             AddLog_P2(LOG_LEVEL_INFO, PSTR("SHT: Start in dir %d"), Shutter.direction[index]);
             ShutterStartInit(index, new_shutterdirection, Shutter.target_position[index]);
-            ExecuteCommandPower(Settings.shutter_startrelay[index] + (new_shutterdirection == 1 ? 0 : 1), 1, SRC_SHUTTER);
+            if (Shutter.skip_relay_change == 0) {
+              ExecuteCommandPower(Settings.shutter_startrelay[index] + (new_shutterdirection == 1 ? 0 : 1), 1, SRC_SHUTTER);
+            }
             //AddLog_P2(LOG_LEVEL_DEBUG, PSTR("SHT: Delay6 5s, xdrv %d"), XdrvMailbox.payload);
           }
           Shutter.switched_relay = 0;
         }
       } else {
         target_pos_percent = ShutterRealToPercentPosition(Shutter.real_position[index], index);
+        ShutterReportPosition(true);
       }
       XdrvMailbox.index = index +1;  // Fix random index for ShutterClose
       if (XdrvMailbox.command)
         ResponseCmndIdxNumber((Settings.shutter_options[index] & 1) ? 100 - target_pos_percent : target_pos_percent);
     } else {
+      ShutterReportPosition(true);
       if (XdrvMailbox.command)
         ResponseCmndIdxChar("Locked");
     }

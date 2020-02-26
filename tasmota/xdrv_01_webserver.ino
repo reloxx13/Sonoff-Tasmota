@@ -31,7 +31,7 @@
 #define WIFI_SOFT_AP_CHANNEL                  1          // Soft Access Point Channel number between 1 and 11 as used by WifiManager web GUI
 #endif
 
-const uint16_t CHUNKED_BUFFER_SIZE = 400;                // Chunk buffer size (should be smaller than half mqtt_date size)
+const uint16_t CHUNKED_BUFFER_SIZE = 400;                // Chunk buffer size (should be smaller than half mqtt_date size = MESSZ)
 
 const uint16_t HTTP_REFRESH_TIME = 2345;                 // milliseconds
 #define HTTP_RESTART_RECONNECT_TIME           9000       // milliseconds
@@ -643,7 +643,14 @@ void WifiManagerBegin(bool reset_only)
 
   int channel = WIFI_SOFT_AP_CHANNEL;
   if ((channel < 1) || (channel > 13)) { channel = 1; }
-  WiFi.softAP(my_hostname, nullptr, channel);
+
+#ifdef ARDUINO_ESP8266_RELEASE_2_3_0
+  // bool softAP(const char* ssid, const char* passphrase = NULL, int channel = 1, int ssid_hidden = 0);
+  WiFi.softAP(my_hostname, WIFI_AP_PASSPHRASE, channel, 0);
+#else
+  // bool softAP(const char* ssid, const char* passphrase = NULL, int channel = 1, int ssid_hidden = 0, int max_connection = 4);
+  WiFi.softAP(my_hostname, WIFI_AP_PASSPHRASE, channel, 0, 1);
+#endif
 
   delay(500); // Without delay I've seen the IP address blank
   /* Setup the DNS server redirecting all the domains to the apIP */
@@ -1715,16 +1722,17 @@ void HandleWifiConfiguration(void)
         //display networks in page
         for (uint32_t i = 0; i < n; i++) {
           if (-1 == indices[i]) { continue; }  // skip dups
+          int32_t rssi = WiFi.RSSI(indices[i])
           DEBUG_CORE_LOG(PSTR(D_LOG_WIFI D_SSID " %s, " D_BSSID " %s, " D_CHANNEL " %d, " D_RSSI " %d"),
-            WiFi.SSID(indices[i]).c_str(), WiFi.BSSIDstr(indices[i]).c_str(), WiFi.channel(indices[i]), WiFi.RSSI(indices[i]));
-          int quality = WifiGetRssiAsQuality(WiFi.RSSI(indices[i]));
+            WiFi.SSID(indices[i]).c_str(), WiFi.BSSIDstr(indices[i]).c_str(), WiFi.channel(indices[i]), rssi);
+          int quality = WifiGetRssiAsQuality(rssi);
           int auth = WiFi.encryptionType(indices[i]);
           char encryption[20];
           WSContentSend_P(PSTR("<div><a href='#p' onclick='c(this)'>%s</a>&nbsp;(%d)&nbsp<span class='q'>%s %d%% (%d dBm)</span></div>"),
             HtmlEscape(WiFi.SSID(indices[i])).c_str(),
             WiFi.channel(indices[i]),
             GetTextIndexed(encryption, sizeof(encryption), auth +1, kEncryptionType),
-            quality, WiFi.RSSI(indices[i])
+            quality, rssi
           );
           delay(0);
 
@@ -1877,6 +1885,7 @@ void HandleOtherConfiguration(void)
   }
 
 #ifdef USE_EMULATION
+#if defined(USE_EMULATION_WEMO) || defined(USE_EMULATION_HUE)
   WSContentSend_P(PSTR("<p></p><fieldset><legend><b>&nbsp;" D_EMULATION "&nbsp;</b></legend><p>"));  // Keep close to Friendlynames so do not use <br>
   for (uint32_t i = 0; i < EMUL_MAX; i++) {
 #ifndef USE_EMULATION_WEMO
@@ -1894,6 +1903,7 @@ void HandleOtherConfiguration(void)
     }
   }
   WSContentSend_P(PSTR("</p></fieldset>"));
+#endif  // USE_EMULATION_WEMO || USE_EMULATION_HUE
 #endif  // USE_EMULATION
 
   WSContentSend_P(HTTP_FORM_END);
@@ -1912,8 +1922,10 @@ void OtherSaveSettings(void)
   SettingsUpdateText(SET_WEBPWD, (!strlen(tmp)) ? "" : (strchr(tmp,'*')) ? SettingsText(SET_WEBPWD) : tmp);
   Settings.flag.mqtt_enabled = WebServer->hasArg("b1");  // SetOption3 - Enable MQTT
 #ifdef USE_EMULATION
+#if defined(USE_EMULATION_WEMO) || defined(USE_EMULATION_HUE)
   WebGetArg("b2", tmp, sizeof(tmp));
   Settings.flag2.emulation = (!strlen(tmp)) ? 0 : atoi(tmp);
+#endif  // USE_EMULATION_WEMO || USE_EMULATION_HUE
 #endif  // USE_EMULATION
 
   snprintf_P(message, sizeof(message), PSTR(D_LOG_OTHER D_MQTT_ENABLE " %s, " D_CMND_EMULATION " %d, " D_CMND_FRIENDLYNAME), GetStateText(Settings.flag.mqtt_enabled), Settings.flag2.emulation);
@@ -2063,7 +2075,8 @@ void HandleInformation(void)
     WSContentSend_P(PSTR("}1" D_FRIENDLY_NAME " %d}2%s"), i +1, SettingsText(SET_FRIENDLYNAME1 +i));
   }
   WSContentSend_P(PSTR("}1}2&nbsp;"));  // Empty line
-  WSContentSend_P(PSTR("}1" D_AP "%d " D_SSID " (" D_RSSI ")}2%s (%d%%, %d dBm)"), Settings.sta_active +1, SettingsText(SET_STASSID1 + Settings.sta_active), WifiGetRssiAsQuality(WiFi.RSSI()), WiFi.RSSI());
+  int32_t rssi = WiFi.RSSI();
+  WSContentSend_P(PSTR("}1" D_AP "%d " D_SSID " (" D_RSSI ")}2%s (%d%%, %d dBm)"), Settings.sta_active +1, SettingsText(SET_STASSID1 + Settings.sta_active), WifiGetRssiAsQuality(rssi), rssi);
   WSContentSend_P(PSTR("}1" D_HOSTNAME "}2%s%s"), my_hostname, (Wifi.mdns_begun) ? ".local" : "");
 #if LWIP_IPV6
     String ipv6_addr = WifiGetIPv6();
@@ -2818,6 +2831,7 @@ void (* const WebCommand[])(void) PROGMEM = {
 #ifdef USE_EMULATION
 void CmndEmulation(void)
 {
+#if defined(USE_EMULATION_WEMO) || defined(USE_EMULATION_HUE)
 #if defined(USE_EMULATION_WEMO) && defined(USE_EMULATION_HUE)
   if ((XdrvMailbox.payload >= EMUL_NONE) && (XdrvMailbox.payload < EMUL_MAX)) {
 #else
@@ -2831,6 +2845,7 @@ void CmndEmulation(void)
     Settings.flag2.emulation = XdrvMailbox.payload;
     restart_flag = 2;
   }
+#endif
   ResponseCmndNumber(Settings.flag2.emulation);
 }
 #endif  // USE_EMULATION
@@ -2964,7 +2979,11 @@ bool Xdrv01(uint8_t function)
     case FUNC_LOOP:
       PollDnsWebserver();
 #ifdef USE_EMULATION
+#ifdef USE_DEVICE_GROUPS
+      if (Settings.flag2.emulation || Settings.flag4.device_groups_enabled) { PollUdp(); }
+#else // USE_DEVICE_GROUPS
       if (Settings.flag2.emulation) { PollUdp(); }
+#endif // USE_DEVICE_GROUPS
 #endif  // USE_EMULATION
       break;
     case FUNC_COMMAND:
