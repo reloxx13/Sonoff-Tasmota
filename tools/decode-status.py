@@ -93,7 +93,7 @@ a_setoption = [[
     "IR Unknown threshold",
     "CSE7766 invalid power margin",
     "Ignore hold time (s)",
-    "(not used) Number of Tuya MCU relays",
+    "Gratuitous ARP repeat time",
     "Over temperature threshold (celsius)",
     "(not used) Tuya MCU max dimmer value",
     "(not used) Tuya MCU voltage Id",
@@ -126,7 +126,7 @@ a_setoption = [[
     "Enable Weekend Energy Tariff",
     "Select different Modbus registers for Active Energy",
     "Enable hardware energy total counter as reference",
-    "Enable HTTP CORS",
+    "Detach buttons from relays and enable MQTT action state for multipress",
     "Enable internal pullup for single DS18x20 sensor",
     "GroupTopic replaces %topic% (0) or fixed topic cmnd/grouptopic (1)",
     "Enable incrementing bootcount when deepsleep is enabled",
@@ -139,9 +139,14 @@ a_setoption = [[
     "Reduced CT range for Alexa",
     "Use FriendlyNames instead of ShortAddresses when possible",
     "(AWS IoT) publish MQTT state to a device shadow",
-    "",
-    "","","","",
-    "","","","",
+    "Enable Device Groups",
+    "PWM Dimmer Turn brightness LED's off 5 seconds after last change",
+    "PWM Dimmer Turn red LED on when powered off",
+    "PWM Dimmer Buttons control remote devices",
+    "Distinct MQTT topics per device for Zigbee",
+    "Disable non-json MQTT response",
+    "Enable light fading at start/power on",
+    "Set PWM Mode from regular PWM to ColorTemp control","",
     "","","","",
     "","","","",
     "","","","",
@@ -193,16 +198,16 @@ a_features = [[
     "USE_ARDUINO_SLAVE","USE_HIH6","USE_HPMA","USE_TSL2591",
     "USE_DHT12","USE_DS1624","USE_GPS","USE_HOTPLUG",
     "USE_NRF24","USE_MIBLE","USE_HM10","USE_LE01MR",
-    "USE_AHT1x","USE_WEMOS_MOTOR_V1","",""
+    "USE_AHT1x","USE_WEMOS_MOTOR_V1","USE_DEVICE_GROUPS","USE_PWM_DIMMER"
     ],[
+    "USE_KEELOQ","USE_HRXL","USE_SONOFF_D1","USE_HDC1080",
+    "USE_IAQ","USE_DISPLAY_SEVENSEG","USE_AS3935","USE_PING",
+    "USE_WINDMETER","USE_OPENTHERM","USE_THERMOSTAT","",
     "","","","",
     "","","","",
     "","","","",
     "","","","",
-    "","","","",
-    "","","","",
-    "","","","",
-    "","","",""
+    "","","","USE_WEBCAM"
     ]]
 
 usage = "usage: decode-status {-d | -f} arg"
@@ -236,7 +241,7 @@ else:
         obj = json.load(fp)
 
 def StartDecode():
-    print ("\n*** decode-status.py v20200222 by Theo Arends and Jacek Ziolkowski ***")
+    print ("\n*** decode-status.py v20200507 by Theo Arends and Jacek Ziolkowski ***")
 
 #    print("Decoding\n{}".format(obj))
 

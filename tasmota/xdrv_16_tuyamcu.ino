@@ -36,6 +36,7 @@
 #define TUYA_CMD_SET_DP        0x06
 #define TUYA_CMD_STATE         0x07
 #define TUYA_CMD_QUERY_STATE   0x08
+#define TUYA_CMD_SET_TIME      0x1C
 
 #define TUYA_LOW_POWER_CMD_WIFI_STATE   0x02
 #define TUYA_LOW_POWER_CMD_WIFI_RESET   0x03
@@ -68,6 +69,7 @@ struct TUYA {
   int byte_counter = 0;                  // Index in serial receive buffer
   bool low_power_mode = false;           // Normal or Low power mode protocol
   bool send_success_next_second = false; // Second command success in low power mode
+  uint32_t ignore_dimmer_cmd_timeout = 0;// Time until which received dimmer commands should be ignored
 } Tuya;
 
 
@@ -366,6 +368,7 @@ bool TuyaSetPower(void)
 
   if (source != SRC_SWITCH && TuyaSerial) {  // ignore to prevent loop from pushing state from faceplate interaction
     TuyaSendBool(dpid, bitRead(rpower, active_device-1) ^ bitRead(rel_inverted, active_device-1));
+    delay(20); // Hack when power is off and dimmer is set then both commands go too soon to Serial out.
     status = true;
   }
   return status;
@@ -374,7 +377,7 @@ bool TuyaSetPower(void)
 bool TuyaSetChannels(void)
 {
   LightSerialDuty(((uint8_t*)XdrvMailbox.data)[0]);
-  delay(20); // Hack when power is off and dimmer is set then both commands go too soon to Serial out.
+  //delay(20); // Hack when power is off and dimmer is set then both commands go too soon to Serial out.
   return true;
 }
 
@@ -386,6 +389,7 @@ void LightSerialDuty(uint16_t duty)
     if (duty < Settings.dimmer_hw_min) { duty = Settings.dimmer_hw_min; }  // dimming acts odd below 25(10%) - this mirrors the threshold set on the faceplate itself
     if (Tuya.new_dim != duty) {
       AddLog_P2(LOG_LEVEL_DEBUG, PSTR("TYA: Send dim value=%d (id=%d)"), duty, dpid);
+      Tuya.ignore_dimmer_cmd_timeout = millis() + 250; // Ignore serial received dim commands for the next 250ms
       TuyaSendValue(dpid, duty);
     }
   } else if (dpid > 0) {
@@ -456,12 +460,14 @@ void TuyaProcessStatePacket(void) {
         if (fnId == TUYA_MCU_FUNC_DIMMER) {
           AddLog_P2(LOG_LEVEL_DEBUG, PSTR("TYA: RX Dim State=%d"), packetValue);
           Tuya.new_dim = changeUIntScale(packetValue, 0, Settings.dimmer_hw_max, 0, 100);
-          if ((power || Settings.flag3.tuya_apply_o20) &&  // SetOption54 - Apply SetOption20 settings to Tuya device
-              (Tuya.new_dim > 0) && (abs(Tuya.new_dim - Settings.light_dimmer) > 1)) {
-            Tuya.ignore_dim = true;
+          if (Tuya.ignore_dimmer_cmd_timeout < millis()) {
+            if ((power || Settings.flag3.tuya_apply_o20) &&  // SetOption54 - Apply SetOption20 settings to Tuya device
+                (Tuya.new_dim > 0) && (abs(Tuya.new_dim - Settings.light_dimmer) > 1)) {
+              Tuya.ignore_dim = true;
 
-            snprintf_P(scmnd, sizeof(scmnd), PSTR(D_CMND_DIMMER " %d"), Tuya.new_dim );
-            ExecuteCommand(scmnd, SRC_SWITCH);
+              snprintf_P(scmnd, sizeof(scmnd), PSTR(D_CMND_DIMMER "3 %d"), Tuya.new_dim );
+              ExecuteCommand(scmnd, SRC_SWITCH);
+            }
           }
         }
 
@@ -534,6 +540,9 @@ void TuyaNormalPowerModePacketProcess(void)
       if (Tuya.buffer[6] == 0) {
         AddLog_P(LOG_LEVEL_DEBUG, PSTR("TYA: Detected MCU restart"));
         Tuya.wifi_state = -2;
+        #ifdef USE_TUYA_TIME
+        TuyaSetTime();
+        #endif
       }
       break;
 
@@ -560,7 +569,7 @@ void TuyaNormalPowerModePacketProcess(void)
         uint8_t key1_gpio = Tuya.buffer[7];
         bool key1_set = false;
         bool led1_set = false;
-        for (uint32_t i = 0; i < sizeof(Settings.my_gp); i++) {
+        for (uint32_t i = 0; i < ARRAY_SIZE(Settings.my_gp.io); i++) {
           if (Settings.my_gp.io[i] == GPIO_LED1) led1_set = true;
           else if (Settings.my_gp.io[i] == GPIO_KEY1) key1_set = true;
         }
@@ -587,9 +596,9 @@ void TuyaNormalPowerModePacketProcess(void)
 
 bool TuyaModuleSelected(void)
 {
-  if (!(pin[GPIO_TUYA_RX] < 99) || !(pin[GPIO_TUYA_TX] < 99)) {  // fallback to hardware-serial if not explicitly selected
-    pin[GPIO_TUYA_TX] = 1;
-    pin[GPIO_TUYA_RX] = 3;
+  if (!PinUsed(GPIO_TUYA_RX) || !PinUsed(GPIO_TUYA_TX)) {  // fallback to hardware-serial if not explicitly selected
+    SetPin(1, GPIO_TUYA_TX);
+    SetPin(3, GPIO_TUYA_RX);
     Settings.my_gp.io[1] = GPIO_TUYA_TX;
     Settings.my_gp.io[3] = GPIO_TUYA_RX;
     restart_flag = 2;
@@ -634,7 +643,7 @@ void TuyaInit(void)
 {
   Tuya.buffer = (char*)(malloc(TUYA_BUFFER_SIZE));
   if (Tuya.buffer != nullptr) {
-    TuyaSerial = new TasmotaSerial(pin[GPIO_TUYA_RX], pin[GPIO_TUYA_TX], 2);
+    TuyaSerial = new TasmotaSerial(Pin(GPIO_TUYA_RX), Pin(GPIO_TUYA_TX), 2);
     if (TuyaSerial->begin(9600)) {
       if (TuyaSerial->hardwareSerial()) { ClaimSerial(); }
       // Get MCU Configuration
@@ -791,6 +800,24 @@ void TuyaSetWifiLed(void)
     TuyaSendCmd(TUYA_CMD_WIFI_STATE, &Tuya.wifi_state, 1);
   }
 }
+
+#ifdef USE_TUYA_TIME
+void TuyaSetTime(void)
+{
+  uint16_t payload_len = 8;
+  uint8_t payload_buffer[8];
+  payload_buffer[0] = 0x01;
+  payload_buffer[1] = (uint8_t)RtcTime.year;
+  payload_buffer[2] = RtcTime.month;
+  payload_buffer[3] = RtcTime.day_of_month;
+  payload_buffer[4] = RtcTime.hour;
+  payload_buffer[5] = RtcTime.minute;
+  payload_buffer[6] = RtcTime.second;
+  payload_buffer[7] = RtcTime.day_of_week;
+
+  TuyaSendCmd(TUYA_CMD_SET_TIME, payload_buffer, payload_len);
+}
+#endif //USE_TUYA_TIME
 
 #ifdef USE_ENERGY_SENSOR
 /*********************************************************************************************\

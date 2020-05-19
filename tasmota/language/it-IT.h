@@ -687,7 +687,6 @@
 #define D_UNIT_ANGLE      "°"
 #define D_TOTAL_ACTIVE    "Total Active"
 
-#define D_MODIFIED "modified"
 //SOLAXX1
 #define D_PV1_VOLTAGE     "PV1 Voltaggio"
 #define D_PV1_CURRENT     "PV1 Corrente"
@@ -724,5 +723,7 @@
 #define D_SCRIPT_ENABLE        "script enable"
 #define D_SCRIPT_UPLOAD        "Upload"
 #define D_SCRIPT_UPLOAD_FILES  "Upload files"
+
+#define D_MODIFIED "modified"
 
 #endif  // _LANGUAGE_IT_IT_H_

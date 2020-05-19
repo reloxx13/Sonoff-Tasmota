@@ -110,7 +110,8 @@ void DomoticzUpdateFanState(void)
 void MqttPublishDomoticzPowerState(uint8_t device)
 {
   if (Settings.flag.mqtt_enabled) {  // SetOption3 - Enable MQTT
-    if ((device < 1) || (device > devices_present)) { device = 1; }
+    if (device < 1) { device = 1; }
+    if ((device > devices_present) || (device > MAX_DOMOTICZ_IDX)) { return; }
     if (Settings.domoticz_relay_idx[device -1]) {
 #ifdef USE_SHUTTER
       if (domoticz_is_shutter) {
@@ -390,9 +391,8 @@ bool DomoticzSendKey(uint8_t key, uint8_t device, uint8_t state, uint8_t svalflg
  *
 \*********************************************************************************************/
 
-uint8_t DomoticzHumidityState(char *hum)
+uint8_t DomoticzHumidityState(float h)
 {
-  uint8_t h = atoi(hum);
   return (!h) ? 0 : (h < 40) ? 2 : (h > 70) ? 3 : 1;
 }
 
@@ -428,18 +428,25 @@ void DomoticzSensor(uint8_t idx, uint32_t value)
   DomoticzSensor(idx, data);
 }
 
-void DomoticzTempHumSensor(char *temp, char *hum)
+//void DomoticzTempHumPressureSensor(float temp, float hum, float baro = -1);
+void DomoticzTempHumPressureSensor(float temp, float hum, float baro)
 {
-  char data[16];
-  snprintf_P(data, sizeof(data), PSTR("%s;%s;%d"), temp, hum, DomoticzHumidityState(hum));
-  DomoticzSensor(DZ_TEMP_HUM, data);
-}
+  char temperature[FLOATSZ];
+  dtostrfd(temp, 2, temperature);
+  char humidity[FLOATSZ];
+  dtostrfd(hum, 2, humidity);
 
-void DomoticzTempHumPressureSensor(char *temp, char *hum, char *baro)
-{
   char data[32];
-  snprintf_P(data, sizeof(data), PSTR("%s;%s;%d;%s;5"), temp, hum, DomoticzHumidityState(hum), baro);
-  DomoticzSensor(DZ_TEMP_HUM_BARO, data);
+  if (baro > -1) {
+    char pressure[FLOATSZ];
+    dtostrfd(baro, 2, pressure);
+
+    snprintf_P(data, sizeof(data), PSTR("%s;%s;%d;%s;5"), temperature, humidity, DomoticzHumidityState(hum), pressure);
+    DomoticzSensor(DZ_TEMP_HUM_BARO, data);
+  } else {
+    snprintf_P(data, sizeof(data), PSTR("%s;%s;%d"), temperature, humidity, DomoticzHumidityState(hum));
+    DomoticzSensor(DZ_TEMP_HUM, data);
+  }
 }
 
 void DomoticzSensorPowerEnergy(int power, char *energy)
@@ -553,7 +560,7 @@ void HandleDomoticzConfiguration(void)
 
   AddLog_P(LOG_LEVEL_DEBUG, S_LOG_HTTP, S_CONFIGURE_DOMOTICZ);
 
-  if (WebServer->hasArg("save")) {
+  if (Webserver->hasArg("save")) {
     DomoticzSaveSettings();
     WebRestart(1);
     return;
@@ -570,7 +577,7 @@ void HandleDomoticzConfiguration(void)
         i +1, i, Settings.domoticz_relay_idx[i],
         i +1, i, Settings.domoticz_key_idx[i]);
     }
-    if (pin[GPIO_SWT1 +i] < 99) {
+    if (PinUsed(GPIO_SWT1, i)) {
       WSContentSend_P(HTTP_FORM_DOMOTICZ_SWITCH,
         i +1, i, Settings.domoticz_switch_idx[i]);
     }
@@ -645,7 +652,7 @@ bool Xdrv07(uint8_t function)
         WSContentSend_P(HTTP_BTN_MENU_DOMOTICZ);
         break;
       case FUNC_WEB_ADD_HANDLER:
-        WebServer->on("/" WEB_HANDLE_DOMOTICZ, HandleDomoticzConfiguration);
+        Webserver->on("/" WEB_HANDLE_DOMOTICZ, HandleDomoticzConfiguration);
         break;
 #endif  // USE_WEBSERVER
       case FUNC_MQTT_SUBSCRIBE:

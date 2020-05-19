@@ -19,6 +19,10 @@
 
 #ifdef USE_ZIGBEE
 
+/*********************************************************************************************\
+ * ZCL Command Structures
+\*********************************************************************************************/
+
 typedef struct Z_CommandConverter {
   const char * tasmota_cmd;
   uint16_t     cluster;
@@ -36,74 +40,121 @@ typedef struct Z_XYZ_Var {    // Holds values for vairables X, Y and Z
   uint8_t     z_type = 0;
 } Z_XYZ_Var;
 
-// list of post-processing directives
-const Z_CommandConverter Z_Commands[] = {
+ZF(AddGroup) ZF(ViewGroup) ZF(GetGroup) ZF(GetAllGroups) ZF(RemoveGroup) ZF(RemoveAllGroups)
+ZF(AddScene) ZF(ViewScene) ZF(RemoveScene) ZF(RemoveAllScenes) ZF(RecallScene) ZF(StoreScene) ZF(GetSceneMembership)
+//ZF(Power) ZF(Dimmer) 
+ZF(DimmerUp) ZF(DimmerDown) ZF(DimmerStop)
+ZF(ResetAlarm) ZF(ResetAllAlarms)
+//ZF(Hue) ZF(Sat) ZF(CT)
+ZF(HueSat) ZF(Color)
+ZF(ShutterOpen) ZF(ShutterClose) ZF(ShutterStop) ZF(ShutterLift) ZF(ShutterTilt) ZF(Shutter)
+//ZF(Occupancy)
+ZF(DimmerMove) ZF(DimmerStep) ZF(DimmerStepUp) ZF(DimmerStepDown)
+ZF(HueMove) ZF(HueStep) ZF(HueStepUp) ZF(HueStepDown) ZF(SatMove) ZF(SatStep) ZF(ColorMove) ZF(ColorStep) ZF(ColorTempStep) ZF(ColorTempStepUp) ZF(ColorTempStepDown) 
+ZF(ArrowClick) ZF(ArrowHold) ZF(ArrowRelease) ZF(ZoneStatusChange)
+
+ZF(xxxx00) ZF(xxxx) ZF(01xxxx) ZF(03xxxx) ZF(00) ZF(01) ZF() ZF(xxxxyy) ZF(00190200) ZF(01190200) ZF(xxyyyy) ZF(xx)
+ZF(xx000A00) ZF(xx0A00) ZF(xxyy0A00) ZF(xxxxyyyy0A00) ZF(xxxx0A00) ZF(xx0A)
+ZF(xx190A00) ZF(xx19) ZF(xx190A) ZF(xxxxyyyy) ZF(xxxxyyzz) ZF(xxyyzzzz) ZF(xxyyyyzz)
+ZF(00xx0A00) ZF(01xx0A00) ZF(03xx0A00) ZF(01xxxx0A0000000000) ZF(03xxxx0A0000000000) ZF(xxyyyy0A0000000000)
+
+// Cluster specific commands
+// Note: the table is both for sending commands, but also displaying received commands
+// - tasmota_cmd: the human-readable name of the command as entered or displayed, use '|' to split into multiple commands when displayed
+// - cluster: cluster number of the command
+// - cmd: the command number, of 0xFF if it's actually a variable to be assigned from 'xx'
+// - direction: the direction of the command (bit field). 0x01=from client to server (coord to device), 0x02= from server to client (response), 0x80=needs specific decoding
+// - param: the paylod template, x/y/z are substituted with arguments, little endian. For command display, payload must match until x/y/z character or until the end of the paylod. '??' means ignore.
+const Z_CommandConverter Z_Commands[] PROGMEM = {
   // Group adress commands
-  { "AddGroup",       0x0004, 0x00, 0x01,   "xxxx00" },       // Add group id, group name is not supported
-  { "ViewGroup",      0x0004, 0x01, 0x01,   "xxxx" },         // Ask for the group name
-  { "GetGroup",       0x0004, 0x02, 0x01,   "01xxxx" },       // Get one group membership
-  { "GetAllGroups",   0x0004, 0x02, 0x01,   "00" },           // Get all groups membership
-  { "RemoveGroup",    0x0004, 0x03, 0x01,   "xxxx" },         // Remove one group
-  { "RemoveAllGroups",0x0004, 0x04, 0x01,   "" },             // Remove all groups
+  { Z(AddGroup),       0x0004, 0x00, 0x01,   Z(xxxx00) },       // Add group id, group name is not supported
+  { Z(ViewGroup),      0x0004, 0x01, 0x01,   Z(xxxx) },         // Ask for the group name
+  { Z(GetGroup),       0x0004, 0x02, 0x01,   Z(01xxxx) },       // Get one group membership
+  { Z(GetAllGroups),   0x0004, 0x02, 0x01,   Z(00) },           // Get all groups membership
+  { Z(RemoveGroup),    0x0004, 0x03, 0x01,   Z(xxxx) },         // Remove one group
+  { Z(RemoveAllGroups),0x0004, 0x04, 0x01,   Z() },             // Remove all groups
+  // Scenes
+  //{ "AddScene",       0x0005, 0x00, 0x01,   "xxxxyy0100" },
+  { Z(ViewScene),      0x0005, 0x01, 0x01,   Z(xxxxyy) },
+  { Z(RemoveScene),    0x0005, 0x02, 0x01,   Z(xxxxyy) },
+  { Z(RemoveAllScenes),0x0005, 0x03, 0x01,   Z(xxxx) },
+  { Z(RecallScene),    0x0005, 0x05, 0x01,   Z(xxxxyy) },
+  { Z(GetSceneMembership),0x0005, 0x06, 0x01,   Z(xxxx) },
   // Light & Shutter commands
-  { "Power",          0x0006, 0xFF, 0x01,   "" },             // 0=Off, 1=On, 2=Toggle
-  { "Dimmer",         0x0008, 0x04, 0x01,   "xx0A00" },       // Move to Level with On/Off, xx=0..254 (255 is invalid)
-  { "Dimmer+",        0x0008, 0x06, 0x01,   "001902" },       // Step up by 10%, 0.2 secs
-  { "Dimmer-",        0x0008, 0x06, 0x01,   "011902" },       // Step down by 10%, 0.2 secs
-  { "DimmerStop",     0x0008, 0x03, 0x01,   "" },             // Stop any Dimmer animation
-  { "ResetAlarm",     0x0009, 0x00, 0x01,   "xxyyyy" },       // Reset alarm (alarm code + cluster identifier)
-  { "ResetAllAlarms", 0x0009, 0x01, 0x01,   "" },             // Reset all alarms
-  { "Hue",            0x0300, 0x00, 0x01,   "xx000A00" },     // Move to Hue, shortest time, 1s
-  { "Sat",            0x0300, 0x03, 0x01,   "xx0A00" },       // Move to Sat
-  { "HueSat",         0x0300, 0x06, 0x01,   "xxyy0A00" },     // Hue, Sat
-  { "Color",          0x0300, 0x07, 0x01,   "xxxxyyyy0A00" }, // x, y (uint16)
-  { "CT",             0x0300, 0x0A, 0x01,   "xxxx0A00" },     // Color Temperature Mireds (uint16)
-  { "ShutterOpen",    0x0102, 0x00, 0x01,   "" },
-  { "ShutterClose",   0x0102, 0x01, 0x01,   "" },
-  { "ShutterStop",    0x0102, 0x02, 0x01,   "" },
-  { "ShutterLift",    0x0102, 0x05, 0x01,   "xx" },            // Lift percentage, 0%=open, 100%=closed
-  { "ShutterTilt",    0x0102, 0x08, 0x01,   "xx" },            // Tilt percentage
-  { "Shutter",        0x0102, 0xFF, 0x01,   "" },
+  { Z(Power),          0x0006, 0xFF, 0x01,   Z() },             // 0=Off, 1=On, 2=Toggle
+  { Z(Dimmer),         0x0008, 0x04, 0x01,   Z(xx0A00) },       // Move to Level with On/Off, xx=0..254 (255 is invalid)
+  { Z(DimmerUp),       0x0008, 0x06, 0x01,   Z(00190200) },       // Step up by 10%, 0.2 secs
+  { Z(DimmerDown),     0x0008, 0x06, 0x01,   Z(01190200) },       // Step down by 10%, 0.2 secs
+  { Z(DimmerStop),     0x0008, 0x03, 0x01,   Z() },             // Stop any Dimmer animation
+  { Z(ResetAlarm),     0x0009, 0x00, 0x01,   Z(xxyyyy) },       // Reset alarm (alarm code + cluster identifier)
+  { Z(ResetAllAlarms), 0x0009, 0x01, 0x01,   Z() },             // Reset all alarms
+  { Z(Hue),            0x0300, 0x00, 0x01,   Z(xx000A00) },     // Move to Hue, shortest time, 1s
+  { Z(Sat),            0x0300, 0x03, 0x01,   Z(xx0A00) },       // Move to Sat
+  { Z(HueSat),         0x0300, 0x06, 0x01,   Z(xxyy0A00) },     // Hue, Sat
+  { Z(Color),          0x0300, 0x07, 0x01,   Z(xxxxyyyy0A00) }, // x, y (uint16)
+  { Z(CT),             0x0300, 0x0A, 0x01,   Z(xxxx0A00) },     // Color Temperature Mireds (uint16)
+  { Z(ShutterOpen),    0x0102, 0x00, 0x01,   Z() },
+  { Z(ShutterClose),   0x0102, 0x01, 0x01,   Z() },
+  { Z(ShutterStop),    0x0102, 0x02, 0x01,   Z() },
+  { Z(ShutterLift),    0x0102, 0x05, 0x01,   Z(xx) },            // Lift percentage, 0%=open, 100%=closed
+  { Z(ShutterTilt),    0x0102, 0x08, 0x01,   Z(xx) },            // Tilt percentage
+  { Z(Shutter),        0x0102, 0xFF, 0x01,   Z() },
   // Blitzwolf PIR
-  { "Occupancy",      0xEF00, 0x01, 0x01,   "xx"},                // Specific decoder for Blitzwolf PIR, empty name means special treatment
+  { Z(Occupancy),      0xEF00, 0x01, 0x82,   Z()},                // Specific decoder for Blitzwolf PIR, empty name means special treatment
   // Decoders only - normally not used to send, and names may be masked by previous definitions
-  { "Dimmer",         0x0008, 0x00, 0x01,   "xx" },
-  { "DimmerMove",     0x0008, 0x01, 0x01,   "xx0A" },
-  { "DimmerStep",     0x0008, 0x02, 0x01,   "xx190A00" },
-  { "DimmerMove",     0x0008, 0x05, 0x01,   "xx0A" },
-  { "Dimmer+",        0x0008, 0x06, 0x01,   "00" },
-  { "Dimmer-",        0x0008, 0x06, 0x01,   "01" },
-  { "DimmerStop",     0x0008, 0x07, 0x01,   "" },
-  { "HueMove",        0x0300, 0x01, 0x01,   "xx19" },
-  { "HueStep",        0x0300, 0x02, 0x01,   "xx190A00" },
-  { "SatMove",        0x0300, 0x04, 0x01,   "xx19" },
-  { "SatStep",        0x0300, 0x05, 0x01,   "xx190A" },
-  { "ColorMove",      0x0300, 0x08, 0x01,   "xxxxyyyy" },
-  { "ColorStep",      0x0300, 0x09, 0x01,   "xxxxyyyy0A00" },
+  { Z(Dimmer),         0x0008, 0x00, 0x01,   Z(xx) },
+  { Z(DimmerMove),     0x0008, 0x01, 0x01,   Z(xx0A) },
+  { Z(DimmerStepUp),   0x0008, 0x02, 0x01,   Z(00xx0A00) },
+  { Z(DimmerStepDown), 0x0008, 0x02, 0x01,   Z(01xx0A00) },
+  { Z(DimmerStep),     0x0008, 0x02, 0x01,   Z(xx190A00) },
+  { Z(DimmerMove),     0x0008, 0x05, 0x01,   Z(xx0A) },
+  { Z(DimmerUp),       0x0008, 0x06, 0x01,   Z(00) },
+  { Z(DimmerDown),     0x0008, 0x06, 0x01,   Z(01) },
+  { Z(DimmerStop),     0x0008, 0x07, 0x01,   Z() },
+  { Z(HueMove),        0x0300, 0x01, 0x01,   Z(xx19) },
+  { Z(HueStepUp),      0x0300, 0x02, 0x01,   Z(01xx0A00) },
+  { Z(HueStepDown),    0x0300, 0x02, 0x01,   Z(03xx0A00) },
+  { Z(HueStep),        0x0300, 0x02, 0x01,   Z(xx190A00) },
+  { Z(SatMove),        0x0300, 0x04, 0x01,   Z(xx19) },
+  { Z(SatStep),        0x0300, 0x05, 0x01,   Z(xx190A) },
+  { Z(ColorMove),      0x0300, 0x08, 0x01,   Z(xxxxyyyy) },
+  { Z(ColorStep),      0x0300, 0x09, 0x01,   Z(xxxxyyyy0A00) },
+  { Z(ColorTempStepUp),  0x0300, 0x4C, 0x01,   Z(01xxxx0A0000000000) },     //xxxx = step
+  { Z(ColorTempStepDown),0x0300, 0x4C, 0x01,   Z(03xxxx0A0000000000) },     //xxxx = step
+  { Z(ColorTempStep),  0x0300, 0x4C, 0x01,   Z(xxyyyy0A0000000000) },     //xx = 0x01 up, 0x03 down, yyyy = step
   // Tradfri
-  { "ArrowClick",     0x0005, 0x07, 0x01,   "xx" },         // xx == 0x01 = left, 0x00 = right
-  { "ArrowHold",      0x0005, 0x08, 0x01,   "xx" },         // xx == 0x01 = left, 0x00 = right
-  { "ArrowRelease",   0x0005, 0x09, 0x01,   "" },
+  { Z(ArrowClick),     0x0005, 0x07, 0x01,   Z(xx) },         // xx == 0x01 = left, 0x00 = right
+  { Z(ArrowHold),      0x0005, 0x08, 0x01,   Z(xx) },         // xx == 0x01 = left, 0x00 = right
+  { Z(ArrowRelease),   0x0005, 0x09, 0x01,   Z() },
   // IAS - Intruder Alarm System + leak/fire detection
-  { "ZoneStatusChange",0x0500, 0x00, 0x02,  "xxxxyyzz" },   // xxxx = zone status, yy = extended status, zz = zone id, Delay is ignored
+  { Z(ZoneStatusChange),0x0500, 0x00, 0x82,  Z(xxxxyyzz) },   // xxxx = zone status, yy = extended status, zz = zone id, Delay is ignored
   // responses for Group cluster commands
-  { "AddGroupResp",   0x0004, 0x00, 0x02,   "xxyyyy" },       // xx = status, yy = group id
-  { "ViewGroupResp",  0x0004, 0x01, 0x02,   "xxyyyy" },       // xx = status, yy = group id, name ignored
-  { "GetGroupResp",   0x0004, 0x02, 0x02,   "xxyyzzzz" },     // xx = capacity, yy = count, zzzz = first group id, following groups ignored
-  { "RemoveGroup",    0x0004, 0x03, 0x02,   "xxyyyy" },       // xx = status, yy = group id
+  { Z(AddGroup),       0x0004, 0x00, 0x82,   Z(xxyyyy) },       // xx = status, yy = group id
+  { Z(ViewGroup),      0x0004, 0x01, 0x82,   Z(xxyyyy) },       // xx = status, yy = group id, name ignored
+  { Z(GetGroup),       0x0004, 0x02, 0x82,   Z(xxyyzzzz) },     // xx = capacity, yy = count, zzzz = first group id, following groups ignored
+  { Z(RemoveGroup),    0x0004, 0x03, 0x82,   Z(xxyyyy) },       // xx = status, yy = group id
+  // responses for Scene cluster commands
+  { Z(AddScene),       0x0005, 0x00, 0x82,   Z(xxyyyyzz) },     // xx = status, yyyy = group id, zz = scene id
+  { Z(ViewScene),      0x0005, 0x01, 0x82,   Z(xxyyyyzz) },     // xx = status, yyyy = group id, zz = scene id
+  { Z(RemoveScene),    0x0005, 0x02, 0x82,   Z(xxyyyyzz) },     // xx = status, yyyy = group id, zz = scene id
+  { Z(RemoveAllScenes),0x0005, 0x03, 0x82,   Z(xxyyyy) },     // xx = status, yyyy = group id
+  { Z(StoreScene),     0x0005, 0x04, 0x82,   Z(xxyyyyzz) },     // xx = status, yyyy = group id, zz = scene id
+  { Z(GetSceneMembership),0x0005, 0x06, 0x82,Z(xxyyzzzz) },     // specific
 };
 
-
+/*********************************************************************************************\
+ * ZCL Read Light status based on cluster number
+\*********************************************************************************************/
 #define ZLE(x) ((x) & 0xFF), ((x) >> 8)     // Little Endian
 
 // Below are the attributes we wand to read from each cluster
 const uint8_t CLUSTER_0006[] = { ZLE(0x0000) };    // Power
 const uint8_t CLUSTER_0008[] = { ZLE(0x0000) };    // CurrentLevel
 const uint8_t CLUSTER_0009[] = { ZLE(0x0000) };    // AlarmCount
-const uint8_t CLUSTER_0300[] = { ZLE(0x0000), ZLE(0x0001), ZLE(0x0003), ZLE(0x0004), ZLE(0x0007) };    // Hue, Sat, X, Y, CT
+const uint8_t CLUSTER_0300[] = { ZLE(0x0000), ZLE(0x0001), ZLE(0x0003), ZLE(0x0004), ZLE(0x0007), ZLE(0x0008) };    // Hue, Sat, X, Y, CT, ColorMode
 
 // This callback is registered after a cluster specific command and sends a read command for the same cluster
-int32_t Z_ReadAttrCallback(uint16_t shortaddr, uint16_t cluster, uint16_t endpoint, uint32_t value) {
+int32_t Z_ReadAttrCallback(uint16_t shortaddr, uint16_t groupaddr, uint16_t cluster, uint8_t endpoint, uint32_t value) {
   size_t         attrs_len = 0;
   const uint8_t* attrs = nullptr;
 
@@ -126,12 +177,23 @@ int32_t Z_ReadAttrCallback(uint16_t shortaddr, uint16_t cluster, uint16_t endpoi
       break;
   }
   if (attrs) {
-    ZigbeeZCLSend(shortaddr, cluster, endpoint, ZCL_READ_ATTRIBUTES, false, attrs, attrs_len, true /* we do want a response */, zigbee_devices.getNextSeqNumber(shortaddr));
+    if (groupaddr) {
+      shortaddr = BAD_SHORTADDR;   // if group address, don't send to device
+    }
+    ZigbeeZCLSend_Raw(shortaddr, groupaddr, cluster, endpoint, ZCL_READ_ATTRIBUTES, false, 0, attrs, attrs_len, true /* we do want a response */, zigbee_devices.getNextSeqNumber(shortaddr));
+  }
+}
+
+
+// This callback is registered after a an attribute read command was made to a light, and fires if we don't get any response after 1000 ms
+int32_t Z_Unreachable(uint16_t shortaddr, uint16_t groupaddr, uint16_t cluster, uint8_t endpoint, uint32_t value) {
+  if (BAD_SHORTADDR != shortaddr) {
+    zigbee_devices.setReachable(shortaddr, false);     // mark device as reachable
   }
 }
 
 // set a timer to read back the value in the future
-void zigbeeSetCommandTimer(uint16_t shortaddr, uint16_t cluster, uint16_t endpoint) {
+void zigbeeSetCommandTimer(uint16_t shortaddr, uint16_t groupaddr, uint16_t cluster, uint8_t endpoint) {
   uint32_t wait_ms = 0;
 
   switch (cluster) {
@@ -148,7 +210,10 @@ void zigbeeSetCommandTimer(uint16_t shortaddr, uint16_t cluster, uint16_t endpoi
       break;
   }
   if (wait_ms) {
-    zigbee_devices.setTimer(shortaddr, wait_ms, cluster, endpoint, 0 /* value */, &Z_ReadAttrCallback);
+    zigbee_devices.setTimer(shortaddr, groupaddr, wait_ms, cluster, endpoint, Z_CAT_NONE, 0 /* value */, &Z_ReadAttrCallback);
+    if (BAD_SHORTADDR != shortaddr) {      // reachability test is not possible for group addresses, since we don't know the list of devices in the group
+      zigbee_devices.setTimer(shortaddr, groupaddr, wait_ms + Z_CAT_REACHABILITY_TIMEOUT, cluster, endpoint, Z_CAT_REACHABILITY, 0 /* value */, &Z_Unreachable);
+    }
   }
 }
 
@@ -224,7 +289,46 @@ void parseXYZ(const char *model, const SBuffer &payload, struct Z_XYZ_Var *xyz) 
 //  - cluster number
 //  - command number or 0xFF if command is part of the variable part
 //  - the payload in the form of a HEX string with x/y/z variables
+void sendHueUpdate(uint16_t shortaddr, uint16_t groupaddr, uint16_t cluster, uint8_t cmd, bool direction) {
+  if (direction) { return; }    // no need to update if server->client
 
+  int32_t z_cat = -1;
+  uint32_t wait_ms = 0;
+
+  switch (cluster) {
+    case 0x0006:
+      z_cat = Z_CAT_READ_0006;
+      wait_ms = 200;    // wait 0.2 s
+      break;
+    case 0x0008:
+      z_cat = Z_CAT_READ_0008;
+      wait_ms = 1050;   // wait 1.0 s
+      break;
+    case 0x0102:
+      z_cat = Z_CAT_READ_0102;
+      wait_ms = 10000;   // wait 10.0 s
+      break;
+    case 0x0300:
+      z_cat = Z_CAT_READ_0300;
+      wait_ms = 1050;   // wait 1.0 s
+      break;
+    default:
+      break;
+  }
+  if (z_cat >= 0) {
+    uint8_t endpoint = 0;
+    if (BAD_SHORTADDR != shortaddr) {
+      endpoint = zigbee_devices.findFirstEndpoint(shortaddr);
+    }
+    if ((BAD_SHORTADDR == shortaddr) || (endpoint)) {   // send if group address or endpoint is known
+      zigbee_devices.setTimer(shortaddr, groupaddr, wait_ms, cluster, endpoint, z_cat, 0 /* value */, &Z_ReadAttrCallback);
+      if (BAD_SHORTADDR != shortaddr) {      // reachability test is not possible for group addresses, since we don't know the list of devices in the group
+        zigbee_devices.setTimer(shortaddr, groupaddr, wait_ms + Z_CAT_REACHABILITY_TIMEOUT, cluster, endpoint, Z_CAT_REACHABILITY, 0 /* value */, &Z_Unreachable);
+      }
+
+    }
+  }
+}
 
 
 // Parse a cluster specific command, and try to convert into human readable
@@ -235,16 +339,20 @@ void convertClusterSpecific(JsonObject& json, uint16_t cluster, uint8_t cmd, boo
   ToHex_P((unsigned char*)payload.getBuffer(), payload.len(), hex_char, hex_char_len);
 
   const __FlashStringHelper* command_name = nullptr;
+  uint8_t conv_direction;
   Z_XYZ_Var xyz;
 
 //AddLog_P2(LOG_LEVEL_INFO, PSTR(">>> len = %d - %02X%02X%02X"), payload.len(), payload.get8(0), payload.get8(1), payload.get8(2));
   for (uint32_t i = 0; i < sizeof(Z_Commands) / sizeof(Z_Commands[0]); i++) {
     const Z_CommandConverter *conv = &Z_Commands[i];
-    if (conv->cluster == cluster) {
+    uint16_t conv_cluster = pgm_read_word(&conv->cluster);
+    if (conv_cluster == cluster) {
       // cluster match
-      if ((0xFF == conv->cmd) || (cmd == conv->cmd)) {
+      uint8_t conv_cmd = pgm_read_byte(&conv->cmd);
+      conv_direction = pgm_read_byte(&conv->direction);
+      if ((0xFF == conv_cmd) || (cmd == conv_cmd)) {
           // cmd match
-        if ((direction && (conv->direction & 0x02)) || (!direction && (conv->direction & 0x01))) {
+        if ((direction && (conv_direction & 0x02)) || (!direction && (conv_direction & 0x01))) {
           // check if we have a match for params too
           // Match if:
           //  - payload exactly matches conv->param (conv->param may be longer)
@@ -271,7 +379,7 @@ void convertClusterSpecific(JsonObject& json, uint16_t cluster, uint8_t cmd, boo
           if (match) {
             command_name = (const __FlashStringHelper*) conv->tasmota_cmd;
             parseXYZ(conv->param, payload, &xyz);
-            if (0xFF == conv->cmd) {
+            if (0xFF == conv_cmd) {
               // shift all values
               xyz.z = xyz.y;
               xyz.z_type = xyz.y_type;
@@ -296,31 +404,89 @@ void convertClusterSpecific(JsonObject& json, uint16_t cluster, uint8_t cmd, boo
   free(hex_char);
 
   if (command_name) {
-    if (0 == xyz.x_type) {
-      json[command_name] = true;    // no parameter
-    } else if (0 == xyz.y_type) {
-      json[command_name] = xyz.x;       // 1 parameter
+    // Now try to transform into a human readable format
+    // if (direction & 0x80) then specific transform
+    if (conv_direction & 0x80) {
+      // TODO need to create a specific command
+      // IAS
+      String command_name2 = String(command_name);
+      if ((cluster == 0x0500) && (cmd == 0x00)) {
+        // "ZoneStatusChange"
+        json[command_name] = xyz.x;
+        json[command_name2 + F("Ext")] = xyz.y;
+        json[command_name2 + F("Zone")] = xyz.z;
+      } else if ((cluster == 0x0004) && ((cmd == 0x00) || (cmd == 0x01) || (cmd == 0x03))) {
+        // AddGroupResp or ViewGroupResp (group name ignored) or RemoveGroup
+        json[command_name] = xyz.y;
+        json[command_name2 + F("Status")] = xyz.x;
+        json[command_name2 + F("StatusMsg")] = getZigbeeStatusMessage(xyz.x);
+      } else if ((cluster == 0x0004) && (cmd == 0x02)) {
+        // GetGroupResp
+        json[command_name2 + F("Capacity")] = xyz.x;
+        json[command_name2 + F("Count")] = xyz.y;
+        JsonArray &arr = json.createNestedArray(command_name);
+        for (uint32_t i = 0; i < xyz.y; i++) {
+          arr.add(payload.get16(2 + 2*i));
+        }
+      } else if ((cluster == 0x0005) && ((cmd == 0x00) || (cmd == 0x02) || (cmd == 0x03))) {
+        // AddScene or RemoveScene or StoreScene
+        json[command_name2 + F("Status")] = xyz.x;
+        json[command_name2 + F("StatusMsg")] = getZigbeeStatusMessage(xyz.x);
+        json[F("GroupId")] = xyz.y;
+        json[F("SceneId")] = xyz.z;
+      } else if ((cluster == 0x0005) && (cmd == 0x01)) {
+        // ViewScene
+        json[command_name2 + F("Status")] = xyz.x;
+        json[command_name2 + F("StatusMsg")] = getZigbeeStatusMessage(xyz.x);
+        json[F("GroupId")] = xyz.y;
+        json[F("SceneId")] = xyz.z;
+        String scene_payload = json[attrid_str];
+        json[F("ScenePayload")] = scene_payload.substring(8); // remove first 8 characters
+      } else if ((cluster == 0x0005) && (cmd == 0x03)) {
+        // RemoveAllScenes
+        json[command_name2 + F("Status")] = xyz.x;
+        json[command_name2 + F("StatusMsg")] = getZigbeeStatusMessage(xyz.x);
+        json[F("GroupId")] = xyz.y;
+      } else if ((cluster == 0x0005) && (cmd == 0x06)) {
+        // GetSceneMembership
+        json[command_name2 + F("Status")] = xyz.x;
+        json[command_name2 + F("StatusMsg")] = getZigbeeStatusMessage(xyz.x);
+        json[F("Capacity")] = xyz.y;
+        json[F("GroupId")] = xyz.z;
+        String scene_payload = json[attrid_str];
+        json[F("ScenePayload")] = scene_payload.substring(8); // remove first 8 characters
+      }
     } else {
-      // multiple answers, create an array
-      JsonArray &arr = json.createNestedArray(command_name);
-      arr.add(xyz.x);
-      arr.add(xyz.y);
-      if (xyz.z_type) {
-        arr.add(xyz.z);
+      if (0 == xyz.x_type) {
+        json[command_name] = true;    // no parameter
+      } else if (0 == xyz.y_type) {
+        json[command_name] = xyz.x;       // 1 parameter
+      } else {
+        // multiple answers, create an array
+        JsonArray &arr = json.createNestedArray(command_name);
+        arr.add(xyz.x);
+        arr.add(xyz.y);
+        if (xyz.z_type) {
+          arr.add(xyz.z);
+        }
       }
     }
   }
 }
 
 // Find the command details by command name
+// Only take commands outgoing, i.e. direction == 0
 // If not found:
 //  - returns nullptr
 const __FlashStringHelper* zigbeeFindCommand(const char *command, uint16_t *cluster, uint16_t *cmd) {
   for (uint32_t i = 0; i < sizeof(Z_Commands) / sizeof(Z_Commands[0]); i++) {
     const Z_CommandConverter *conv = &Z_Commands[i];
-    if (0 == strcasecmp_P(command, conv->tasmota_cmd)) {
-      *cluster = conv->cluster;
-      *cmd = conv->cmd;
+    uint8_t conv_direction = pgm_read_byte(&conv->direction);
+    uint8_t conv_cmd = pgm_read_byte(&conv->cmd);
+    uint16_t conv_cluster = pgm_read_word(&conv->cluster);
+    if ((conv_direction & 0x01) && (0 == strcasecmp_P(command, conv->tasmota_cmd))) {
+      *cluster = conv_cluster;
+      *cmd = conv_cmd;
       return (const __FlashStringHelper*) conv->param;
     }
   }
