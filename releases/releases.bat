@@ -1,4 +1,4 @@
-set version=8.1.0.5-mod-1.81.2
+set version=8.3.1.1-mod-1.83.11
 
 mkdir %version%
 
@@ -20,6 +20,7 @@ copy ..\.pioenvs\tasmota-PL\firmware.bin %version%\PL-firmware-%version%.bin
 copy ..\.pioenvs\tasmota-PT\firmware.bin %version%\PT-firmware-%version%.bin
 copy ..\.pioenvs\tasmota-RU\firmware.bin %version%\RU-firmware-%version%.bin
 copy ..\.pioenvs\tasmota-UK\firmware.bin %version%\UK-firmware-%version%.bin
+copy ..\.pioenvs\tasmota-RO\firmware.bin %version%\RO-firmware-%version%.bin
 copy ..\.pioenvs\tasmota-SK\firmware.bin %version%\SK-firmware-%version%.bin
 copy ..\.pioenvs\tasmota-SE\firmware.bin %version%\SE-firmware-%version%.bin
 copy ..\.pioenvs\tasmota-TR\firmware.bin %version%\TR-firmware-%version%.bin
