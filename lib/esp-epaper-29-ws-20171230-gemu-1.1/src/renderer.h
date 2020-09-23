@@ -30,7 +30,7 @@ public:
 
   virtual void DisplayOnff(int8_t on);
   virtual void DisplayInit(int8_t p,int8_t size,int8_t rot,int8_t font);
-  virtual int16_t Begin(int16_t p1,int16_t p2,int16_t p3);
+  virtual void Begin(int16_t p1,int16_t p2,int16_t p3);
   virtual void Updateframe();
   virtual void dim(uint8_t contrast);
   virtual void pushColors(uint16_t *data, uint8_t len, boolean first);
@@ -46,9 +46,23 @@ private:
   uint8_t font;
 };
 
+typedef union {
+  uint8_t data;
+  struct {
+    uint8_t spare0 : 1;
+    uint8_t spare1 : 1;
+    uint8_t spare2 : 1;
+    uint8_t spare3 : 1;
+    uint8_t disable : 1;
+    uint8_t on_off : 1;
+    uint8_t is_pushbutton : 1;
+    uint8_t is_virtual : 1;
+  };
+} TButton_State;
+
 class VButton : public Adafruit_GFX_Button {
   public:
-  uint8_t vpower;
+  TButton_State vpower;
   void xdrawButton(bool inverted);
 };
 

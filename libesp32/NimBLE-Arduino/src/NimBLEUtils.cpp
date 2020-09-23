@@ -3,7 +3,7 @@
  *
  *  Created: on Jan 25 2020
  *      Author H2zero
- * 
+ *
  */
 
 #include "sdkconfig.h"
@@ -11,39 +11,16 @@
 
 #include "NimBLEUtils.h"
 #include "NimBLELog.h"
+#include "nimconfig.h"
 
-static const char* LOG_TAG = "NimBLEUtils"; 
+static const char* LOG_TAG = "NimBLEUtils";
+
 
 /**
- * @brief Copy memory from source to target but in reverse order.
- *
- * When we move memory from one location it is normally:
- *
- * ```
- * [0][1][2]...[n] -> [0][1][2]...[n]
- * ```
- *
- * with this function, it is:
- *
- * ```
- * [0][1][2]...[n] -> [n][n-1][n-2]...[0]
- * ```
- *
- * @param [in] target The target of the copy
- * @param [in] source The source of the copy
- * @param [in] size The number of bytes to copy
+ * @brief A function for checking validity of connection parameters.
+ * @param [in] params A pointer to the structure containing the parameters to check.
+ * @return valid == 0 or error code.
  */
-void NimBLEUtils::memrcpy(uint8_t* target, uint8_t* source, uint32_t size) {
-    assert(size > 0);
-    target += (size - 1); // Point target to the last byte of the target data
-    while (size > 0) {
-        *target = *source;
-        target--;
-        source++;
-        size--;
-    }
-} // memrcpy
-
 int NimBLEUtils::checkConnParams(ble_gap_conn_params* params) {
     /* Check connection interval min */
     if ((params->itvl_min < BLE_HCI_CONN_ITVL_MIN) ||
@@ -77,7 +54,13 @@ int NimBLEUtils::checkConnParams(ble_gap_conn_params* params) {
 }
 
 
+/**
+ * @brief Converts a return code from the NimBLE stack to a text string.
+ * @param [in] rc The return code to convert.
+ * @return A string representation of the return code.
+ */
 const char* NimBLEUtils::returnCodeToString(int rc) {
+#if defined(CONFIG_NIMBLE_CPP_ENABLE_RETURN_CODE_TEXT)
     switch(rc) {
         case 0:
             return "SUCCESS";
@@ -355,19 +338,22 @@ const char* NimBLEUtils::returnCodeToString(int rc) {
             return "Pairing over the LE transport failed - Pairing Request sent over the BR/EDR transport in process.";
         case  (0x0500+BLE_SM_ERR_CROSS_TRANS ):
             return "BR/EDR Link Key generated on the BR/EDR transport cannot be used to derive and distribute keys for the LE transport.";
-            
         default:
             return "Unknown";
     }
-}   
+#else // #if defined(CONFIG_NIMBLE_CPP_ENABLE_RETURN_CODE_TEXT)
+    return "";
+#endif // #if defined(CONFIG_NIMBLE_CPP_ENABLE_RETURN_CODE_TEXT)
+}
+
 
 /**
- * @brief Convert the BLE Advertising Data flags to a string.
- * @param adFlags The flags to convert
- * @return std::string A string representation of the advertising flags.
+ * @brief Convert the advertising type flag to a string.
+ * @param advType The type to convert.
+ * @return A string representation of the advertising flags.
  */
- 
 const char* NimBLEUtils::advTypeToString(uint8_t advType) {
+#if defined(CONFIG_NIMBLE_CPP_ENABLE_ADVERTISMENT_TYPE_TEXT)
     switch(advType) {
         case BLE_HCI_ADV_TYPE_ADV_IND :                     //0
             return "Undirected - Connectable / Scannable";
@@ -382,19 +368,21 @@ const char* NimBLEUtils::advTypeToString(uint8_t advType) {
         default:
             return "Unknown flag";
     }
-    
+#else // #if defined(CONFIG_NIMBLE_CPP_ENABLE_ADVERTISMENT_TYPE_TEXT)
+    return "";
+#endif // #if defined(CONFIG_NIMBLE_CPP_ENABLE_ADVERTISMENT_TYPE_TEXT)
 } // adFlagsToString
 
 
 /**
  * @brief Create a hex representation of data.
  *
- * @param [in] target Where to write the hex string.  If this is null, we malloc storage.
+ * @param [in] target Where to write the hex string. If this is null, we malloc storage.
  * @param [in] source The start of the binary data.
  * @param [in] length The length of the data to convert.
  * @return A pointer to the formatted buffer.
  */
-char* NimBLEUtils::buildHexData(uint8_t* target, uint8_t* source, uint8_t length) {
+char* NimBLEUtils::buildHexData(uint8_t* target, const uint8_t* source, uint8_t length) {
     // Guard against too much data.
     if (length > 100) length = 100;
 
@@ -422,280 +410,102 @@ char* NimBLEUtils::buildHexData(uint8_t* target, uint8_t* source, uint8_t length
 } // buildHexData
 
 
-
+/**
+ * @brief Utility function to log the gap event info.
+ * @param [in] event A pointer to the gap event structure.
+ * @param [in] arg Unused.
+ */
 void NimBLEUtils::dumpGapEvent(ble_gap_event *event, void *arg){
+#if defined(CONFIG_NIMBLE_CPP_ENABLE_GAP_EVENT_CODE_TEXT)
     NIMBLE_LOGD(LOG_TAG, "Received a GAP event: %s", gapEventToString(event->type));
+#endif
 }
 
+
 /**
- * @brief Convert a BT GAP event type to a string representation.
+ * @brief Convert a GAP event type to a string representation.
  * @param [in] eventType The type of event.
  * @return A string representation of the event type.
  */
 const char* NimBLEUtils::gapEventToString(uint8_t eventType) {
+#if defined(CONFIG_NIMBLE_CPP_ENABLE_GAP_EVENT_CODE_TEXT)
     switch (eventType) {
         case BLE_GAP_EVENT_CONNECT :                    //0
             return "BLE_GAP_EVENT_CONNECT ";
-            
+
         case BLE_GAP_EVENT_DISCONNECT:                  //1
             return "BLE_GAP_EVENT_DISCONNECT";
-            
+
         case BLE_GAP_EVENT_CONN_UPDATE:                 //3
             return "BLE_GAP_EVENT_CONN_UPDATE";
-            
-        case BLE_GAP_EVENT_CONN_UPDATE_REQ:             //4   
+
+        case BLE_GAP_EVENT_CONN_UPDATE_REQ:             //4
             return "BLE_GAP_EVENT_CONN_UPDATE_REQ";
-            
-        case BLE_GAP_EVENT_L2CAP_UPDATE_REQ:            //5     
+
+        case BLE_GAP_EVENT_L2CAP_UPDATE_REQ:            //5
             return "BLE_GAP_EVENT_L2CAP_UPDATE_REQ";
-            
+
         case BLE_GAP_EVENT_TERM_FAILURE:                //6
             return "BLE_GAP_EVENT_TERM_FAILURE";
-            
+
         case BLE_GAP_EVENT_DISC:                        //7
             return "BLE_GAP_EVENT_DISC";
-            
-        case BLE_GAP_EVENT_DISC_COMPLETE:               //8                 
+
+        case BLE_GAP_EVENT_DISC_COMPLETE:               //8
             return "BLE_GAP_EVENT_DISC_COMPLETE";
-            
-        case BLE_GAP_EVENT_ADV_COMPLETE:                //9            
+
+        case BLE_GAP_EVENT_ADV_COMPLETE:                //9
             return "BLE_GAP_EVENT_ADV_COMPLETE";
-            
-        case BLE_GAP_EVENT_ENC_CHANGE:                  //10           
+
+        case BLE_GAP_EVENT_ENC_CHANGE:                  //10
             return "BLE_GAP_EVENT_ENC_CHANGE";
-            
+
         case BLE_GAP_EVENT_PASSKEY_ACTION :             //11
             return "BLE_GAP_EVENT_PASSKEY_ACTION";
-            
+
         case BLE_GAP_EVENT_NOTIFY_RX:                   //12
             return "BLE_GAP_EVENT_NOTIFY_RX";
-            
+
         case BLE_GAP_EVENT_NOTIFY_TX :                  //13
             return "BLE_GAP_EVENT_NOTIFY_TX";
-            
+
         case BLE_GAP_EVENT_SUBSCRIBE :                  //14
             return "BLE_GAP_EVENT_SUBSCRIBE";
-            
+
         case BLE_GAP_EVENT_MTU:                         //15
             return "BLE_GAP_EVENT_MTU";
-            
+
         case BLE_GAP_EVENT_IDENTITY_RESOLVED:           //16
             return "BLE_GAP_EVENT_IDENTITY_RESOLVED";
-            
+
         case BLE_GAP_EVENT_REPEAT_PAIRING:              //17
             return "BLE_GAP_EVENT_REPEAT_PAIRING";
-            
+
         case BLE_GAP_EVENT_PHY_UPDATE_COMPLETE:         //18
             return "BLE_GAP_EVENT_PHY_UPDATE_COMPLETE";
-            
+
         case BLE_GAP_EVENT_EXT_DISC:                    //19
             return "BLE_GAP_EVENT_EXT_DISC";
 #ifdef BLE_GAP_EVENT_PERIODIC_SYNC   // IDF 4.0 does not support these
         case BLE_GAP_EVENT_PERIODIC_SYNC:               //20
             return "BLE_GAP_EVENT_PERIODIC_SYNC";
-            
+
         case BLE_GAP_EVENT_PERIODIC_REPORT:             //21
             return "BLE_GAP_EVENT_PERIODIC_REPORT";
-            
+
         case BLE_GAP_EVENT_PERIODIC_SYNC_LOST:          //22
             return "BLE_GAP_EVENT_PERIODIC_SYNC_LOST";
-            
+
         case BLE_GAP_EVENT_SCAN_REQ_RCVD:               //23
             return "BLE_GAP_EVENT_SCAN_REQ_RCVD";
-#endif            
+#endif
         default:
             NIMBLE_LOGD(LOG_TAG, "gapEventToString: Unknown event type %d 0x%.2x", eventType, eventType);
             return "Unknown event type";
     }
+#else // #if defined(CONFIG_NIMBLE_CPP_ENABLE_GAP_EVENT_CODE_TEXT)
+    return "";
+#endif // #if defined(CONFIG_NIMBLE_CPP_ENABLE_GAP_EVENT_CODE_TEXT)
 } // gapEventToString
-
-
-/**
- * Utility function to log an array of bytes.
- */
-void print_bytes(const uint8_t *bytes, int len)
-{
-    int i;
-
-    for (i = 0; i < len; i++) {
-        MODLOG_DFLT(DEBUG, "%s0x%02x", i != 0 ? ":" : "", bytes[i]);
-    }
-}
-
-void print_mbuf(const struct os_mbuf *om)
-{
-    int colon;
-
-    colon = 0;
-    while (om != NULL) {
-        if (colon) {
-            MODLOG_DFLT(DEBUG, ":");
-        } else {
-            colon = 1;
-        }
-        print_bytes(om->om_data, om->om_len);
-        om = SLIST_NEXT(om, om_next);
-    }
-}
-
-char *addr_str(const void *addr)
-{
-    static char buf[6 * 2 + 5 + 1];
-    const uint8_t *u8p;
-
-    u8p = (const uint8_t*)addr;
-    sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x",
-            u8p[5], u8p[4], u8p[3], u8p[2], u8p[1], u8p[0]);
-
-    return buf;
-}
-
-void print_uuid(const ble_uuid_t *uuid)
-{
-    char buf[BLE_UUID_STR_LEN];
-
-    MODLOG_DFLT(DEBUG, "%s", ble_uuid_to_str(uuid, buf));
-}
-
-void print_adv_fields(const struct ble_hs_adv_fields *fields)
-{
-    char s[BLE_HS_ADV_MAX_SZ];
-    const uint8_t *u8p;
-    int i;
-
-    if (fields->flags != 0) {
-        MODLOG_DFLT(DEBUG, "    flags=0x%02x\n", fields->flags);
-    }
-
-    if (fields->uuids16 != NULL) {
-        MODLOG_DFLT(DEBUG, "    uuids16(%scomplete)=",
-                    fields->uuids16_is_complete ? "" : "in");
-        for (i = 0; i < fields->num_uuids16; i++) {
-            print_uuid(&fields->uuids16[i].u);
-            MODLOG_DFLT(DEBUG, " ");
-        }
-        MODLOG_DFLT(DEBUG, "\n");
-    }
-
-    if (fields->uuids32 != NULL) {
-        MODLOG_DFLT(DEBUG, "    uuids32(%scomplete)=",
-                    fields->uuids32_is_complete ? "" : "in");
-        for (i = 0; i < fields->num_uuids32; i++) {
-            print_uuid(&fields->uuids32[i].u);
-            MODLOG_DFLT(DEBUG, " ");
-        }
-        MODLOG_DFLT(DEBUG, "\n");
-    }
-
-    if (fields->uuids128 != NULL) {
-        MODLOG_DFLT(DEBUG, "    uuids128(%scomplete)=",
-                    fields->uuids128_is_complete ? "" : "in");
-        for (i = 0; i < fields->num_uuids128; i++) {
-            print_uuid(&fields->uuids128[i].u);
-            MODLOG_DFLT(DEBUG, " ");
-        }
-        MODLOG_DFLT(DEBUG, "\n");
-    }
-
-    if (fields->name != NULL) {
-        assert(fields->name_len < sizeof s - 1);
-        memcpy(s, fields->name, fields->name_len);
-        s[fields->name_len] = '\0';
-        MODLOG_DFLT(DEBUG, "    name(%scomplete)=%s\n",
-                    fields->name_is_complete ? "" : "in", s);
-    }
-
-    if (fields->tx_pwr_lvl_is_present) {
-        MODLOG_DFLT(DEBUG, "    tx_pwr_lvl=%d\n", fields->tx_pwr_lvl);
-    }
-
-    if (fields->slave_itvl_range != NULL) {
-        MODLOG_DFLT(DEBUG, "    slave_itvl_range=");
-        print_bytes(fields->slave_itvl_range, BLE_HS_ADV_SLAVE_ITVL_RANGE_LEN);
-        MODLOG_DFLT(DEBUG, "\n");
-    }
-
-    if (fields->svc_data_uuid16 != NULL) {
-        MODLOG_DFLT(DEBUG, "    svc_data_uuid16=");
-        print_bytes(fields->svc_data_uuid16, fields->svc_data_uuid16_len);
-        MODLOG_DFLT(DEBUG, "\n");
-    }
-
-    if (fields->public_tgt_addr != NULL) {
-        MODLOG_DFLT(DEBUG, "    public_tgt_addr=");
-        u8p = fields->public_tgt_addr;
-        for (i = 0; i < fields->num_public_tgt_addrs; i++) {
-            MODLOG_DFLT(DEBUG, "public_tgt_addr=%s ", addr_str(u8p));
-            u8p += BLE_HS_ADV_PUBLIC_TGT_ADDR_ENTRY_LEN;
-        }
-        MODLOG_DFLT(DEBUG, "\n");
-    }
-
-    if (fields->appearance_is_present) {
-        MODLOG_DFLT(DEBUG, "    appearance=0x%04x\n", fields->appearance);
-    }
-
-    if (fields->adv_itvl_is_present) {
-        MODLOG_DFLT(DEBUG, "    adv_itvl=0x%04x\n", fields->adv_itvl);
-    }
-
-    if (fields->svc_data_uuid32 != NULL) {
-        MODLOG_DFLT(DEBUG, "    svc_data_uuid32=");
-        print_bytes(fields->svc_data_uuid32, fields->svc_data_uuid32_len);
-        MODLOG_DFLT(DEBUG, "\n");
-    }
-
-    if (fields->svc_data_uuid128 != NULL) {
-        MODLOG_DFLT(DEBUG, "    svc_data_uuid128=");
-        print_bytes(fields->svc_data_uuid128, fields->svc_data_uuid128_len);
-        MODLOG_DFLT(DEBUG, "\n");
-    }
-
-    if (fields->uri != NULL) {
-        MODLOG_DFLT(DEBUG, "    uri=");
-        print_bytes(fields->uri, fields->uri_len);
-        MODLOG_DFLT(DEBUG, "\n");
-    }
-
-    if (fields->mfg_data != NULL) {
-        MODLOG_DFLT(DEBUG, "    mfg_data=");
-        print_bytes(fields->mfg_data, fields->mfg_data_len);
-        MODLOG_DFLT(DEBUG, "\n");
-    }
-}
-
-
- /**
- * Logs information about a connection to the console.
- */
-void print_conn_desc(const struct ble_gap_conn_desc *desc)
-{
-    MODLOG_DFLT(DEBUG, "handle=%d our_ota_addr_type=%d our_ota_addr=%s ",
-                desc->conn_handle, desc->our_ota_addr.type,
-                addr_str(desc->our_ota_addr.val));
-    MODLOG_DFLT(DEBUG, "our_id_addr_type=%d our_id_addr=%s ",
-                desc->our_id_addr.type, addr_str(desc->our_id_addr.val));
-    MODLOG_DFLT(DEBUG, "peer_ota_addr_type=%d peer_ota_addr=%s ",
-                desc->peer_ota_addr.type, addr_str(desc->peer_ota_addr.val));
-    MODLOG_DFLT(DEBUG, "peer_id_addr_type=%d peer_id_addr=%s ",
-                desc->peer_id_addr.type, addr_str(desc->peer_id_addr.val));
-    MODLOG_DFLT(DEBUG, "conn_itvl=%d conn_latency=%d supervision_timeout=%d "
-                "encrypted=%d authenticated=%d bonded=%d",
-                desc->conn_itvl, desc->conn_latency,
-                desc->supervision_timeout,
-                desc->sec_state.encrypted,
-                desc->sec_state.authenticated,
-                desc->sec_state.bonded);
-}
-
-
-void print_addr(const void *addr)
-{
-    const uint8_t *u8p;
-
-    u8p = (uint8_t*)addr;
-    MODLOG_DFLT(INFO, "%02x:%02x:%02x:%02x:%02x:%02x",
-                u8p[5], u8p[4], u8p[3], u8p[2], u8p[1], u8p[0]);
-}
 
 #endif //CONFIG_BT_ENABLED

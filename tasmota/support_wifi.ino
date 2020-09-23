@@ -52,7 +52,6 @@ struct WIFI {
   uint8_t status;
   uint8_t config_type = 0;
   uint8_t config_counter = 0;
-  uint8_t mdns_begun = 0;                  // mDNS active
   uint8_t scan_state;
   uint8_t bssid[6];
   int8_t best_network_db;
@@ -154,14 +153,11 @@ void WiFiSetSleepMode(void)
  */
 
 // Sleep explanation: https://github.com/esp8266/Arduino/blob/3f0c601cfe81439ce17e9bd5d28994a7ed144482/libraries/ESP8266WiFi/src/ESP8266WiFiGeneric.cpp#L255
-#if defined(ARDUINO_ESP8266_RELEASE_2_4_1) || defined(ARDUINO_ESP8266_RELEASE_2_4_2)
-#else  // Enabled in 2.3.0, 2.4.0 and stage
   if (ssleep && Settings.flag3.sleep_normal) {  // SetOption60 - Enable normal sleep instead of dynamic sleep
     WiFi.setSleepMode(WIFI_LIGHT_SLEEP);        // Allow light sleep during idle times
   } else {
     WiFi.setSleepMode(WIFI_MODEM_SLEEP);        // Disable sleep (Esp8288/Arduino core and sdk default)
   }
-#endif
   WifiSetOutputPower();
 }
 
@@ -356,6 +352,9 @@ void WifiSetState(uint8_t state)
     }
   }
   global_state.wifi_down = state ^1;
+  if (!global_state.wifi_down) {
+    global_state.network_down = 0;
+  }
 }
 
 #if LWIP_IPV6
@@ -414,10 +413,7 @@ void WifiCheckIp(void)
     Wifi.status = WL_CONNECTED;
 #ifdef USE_DISCOVERY
 #ifdef WEBSERVER_ADVERTISE
-    if (2 == Wifi.mdns_begun) {
-      MDNS.update();
-      AddLog_P(LOG_LEVEL_DEBUG_MORE, D_LOG_MDNS, "MDNS.update");
-    }
+    MdnsUpdate();
 #endif  // USE_DISCOVERY
 #endif  // WEBSERVER_ADVERTISE
   } else {
@@ -533,75 +529,14 @@ void WifiCheck(uint8_t param)
       if ((WL_CONNECTED == WiFi.status()) && (static_cast<uint32_t>(WiFi.localIP()) != 0) && !Wifi.config_type) {
 #endif  // LWIP_IPV6=1
         WifiSetState(1);
-
         if (Settings.flag3.use_wifi_rescan) {  // SetOption57 - Scan wifi network every 44 minutes for configured AP's
           if (!(uptime % (60 * WIFI_RESCAN_MINUTES))) {
             Wifi.scan_state = 2;
           }
         }
-
-#ifdef FIRMWARE_MINIMAL
-        if (1 == RtcSettings.ota_loader) {
-          RtcSettings.ota_loader = 0;
-          ota_state_flag = 3;
-        }
-#endif  // FIRMWARE_MINIMAL
-
-#ifdef USE_DISCOVERY
-        if (Settings.flag3.mdns_enabled) {  // SetOption55 - Control mDNS service
-          if (!Wifi.mdns_begun) {
-//            if (mdns_delayed_start) {
-//              AddLog_P(LOG_LEVEL_INFO, PSTR(D_LOG_MDNS D_ATTEMPTING_CONNECTION));
-//              mdns_delayed_start--;
-//            } else {
-//              mdns_delayed_start = Settings.param[P_MDNS_DELAYED_START];
-              Wifi.mdns_begun = (uint8_t)MDNS.begin(my_hostname);
-              AddLog_P2(LOG_LEVEL_INFO, PSTR(D_LOG_MDNS "%s"), (Wifi.mdns_begun) ? D_INITIALIZED : D_FAILED);
-//            }
-          }
-        }
-#endif  // USE_DISCOVERY
-
-#ifdef USE_WEBSERVER
-        if (Settings.webserver) {
-          StartWebserver(Settings.webserver, WiFi.localIP());
-#ifdef USE_DISCOVERY
-#ifdef WEBSERVER_ADVERTISE
-          if (1 == Wifi.mdns_begun) {
-            Wifi.mdns_begun = 2;
-            MDNS.addService("http", "tcp", WEB_PORT);
-          }
-#endif  // WEBSERVER_ADVERTISE
-#endif  // USE_DISCOVERY
-        } else {
-          StopWebserver();
-        }
-#ifdef USE_EMULATION
-      if (Settings.flag2.emulation) { UdpConnect(); }
-#endif  // USE_EMULATION
-#endif  // USE_WEBSERVER
-#ifdef USE_DEVICE_GROUPS
-        DeviceGroupsStart();
-#endif  // USE_DEVICE_GROUPS
-#ifdef USE_KNX
-        if (!knx_started && Settings.flag.knx_enabled) {  // CMND_KNX_ENABLED
-          KNXStart();
-          knx_started = true;
-        }
-#endif  // USE_KNX
-
       } else {
         WifiSetState(0);
-#ifdef USE_EMULATION
-        UdpDisconnect();
-#endif  // USE_EMULATION
-#ifdef USE_DEVICE_GROUPS
-        DeviceGroupsStop();
-#endif  // USE_DEVICE_GROUPS
-        Wifi.mdns_begun = 0;
-#ifdef USE_KNX
-        knx_started = false;
-#endif  // USE_KNX
+        Mdns.begun = 0;
       }
     }
   }
@@ -656,6 +591,8 @@ RF_PRE_INIT()
 
 void WifiConnect(void)
 {
+  if (!Settings.flag4.network_wifi) { return; }
+
   WifiSetState(0);
   WifiSetOutputPower();
   WiFi.persistent(false);     // Solve possible wifi init errors
@@ -713,10 +650,20 @@ void EspRestart(void)
   ResetPwm();
   WifiShutdown(true);
   CrashDumpClear();           // Clear the stack dump in RTC
-  ESP_Restart();
+
+  if (restart_halt) {
+    while (1) {
+      OsWatchLoop();          // Feed OsWatch timer to prevent restart
+      SetLedLink(1);          // Wifi led on
+      delay(200);             // Satisfy SDK
+      SetLedLink(0);          // Wifi led off
+      delay(800);             // Satisfy SDK
+    }
+  } else {
+    ESP_Restart();
+  }
 }
 
-#ifndef ARDUINO_ESP8266_RELEASE_2_3_0
 //
 // Gratuitous ARP, backported from https://github.com/esp8266/Arduino/pull/6889
 //
@@ -764,4 +711,3 @@ void wifiKeepAlive(void) {
     SetNextTimeInterval(wifiTimer, wifiTimerSec * 1000);
   }
 }
-#endif  // ARDUINO_ESP8266_RELEASE_2_3_0

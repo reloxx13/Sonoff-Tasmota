@@ -23,7 +23,6 @@
 #define XDRV_13       13
 
 #include <renderer.h>
-#include <FT6236.h>
 
 Renderer *renderer;
 
@@ -45,8 +44,8 @@ uint8_t color_type = COLOR_BW;
 uint8_t auto_draw=1;
 
 const uint8_t DISPLAY_MAX_DRIVERS = 16;        // Max number of display drivers/models supported by xdsp_interface.ino
-const uint8_t DISPLAY_MAX_COLS = 44;           // Max number of columns allowed with command DisplayCols
-const uint8_t DISPLAY_MAX_ROWS = 32;           // Max number of lines allowed with command DisplayRows
+const uint8_t DISPLAY_MAX_COLS = 64;           // Max number of columns allowed with command DisplayCols
+const uint8_t DISPLAY_MAX_ROWS = 64;           // Max number of lines allowed with command DisplayRows
 
 const uint8_t DISPLAY_LOG_ROWS = 32;           // Number of lines in display log buffer
 
@@ -71,7 +70,7 @@ enum XdspFunctions { FUNC_DISPLAY_INIT_DRIVER, FUNC_DISPLAY_INIT, FUNC_DISPLAY_E
                      FUNC_DISPLAY_DRAW_HLINE, FUNC_DISPLAY_DRAW_VLINE, FUNC_DISPLAY_DRAW_LINE,
                      FUNC_DISPLAY_DRAW_CIRCLE, FUNC_DISPLAY_FILL_CIRCLE,
                      FUNC_DISPLAY_DRAW_RECTANGLE, FUNC_DISPLAY_FILL_RECTANGLE,
-                     FUNC_DISPLAY_TEXT_SIZE, FUNC_DISPLAY_FONT_SIZE, FUNC_DISPLAY_ROTATION, FUNC_DISPLAY_DRAW_STRING, FUNC_DISPLAY_ONOFF };
+                     FUNC_DISPLAY_TEXT_SIZE, FUNC_DISPLAY_FONT_SIZE, FUNC_DISPLAY_ROTATION, FUNC_DISPLAY_DRAW_STRING };
 
 enum DisplayInitModes { DISPLAY_INIT_MODE, DISPLAY_INIT_PARTIAL, DISPLAY_INIT_FULL };
 
@@ -241,8 +240,7 @@ void DisplayDrawStringAt(uint16_t x, uint16_t y, char *str, uint16_t color, uint
 
 void DisplayOnOff(uint8_t on)
 {
-  dsp_on = on;
-  XdspCall(FUNC_DISPLAY_ONOFF);
+  ExecuteCommandPower(disp_device, on, SRC_DISPLAY);
 }
 
 /*-------------------------------------------------------------------------------------------*/
@@ -435,18 +433,10 @@ void DisplayText(void)
             DisplayInit(DISPLAY_INIT_FULL);
             break;
           case 'o':
-            if (!renderer) {
-              DisplayOnOff(0);
-            } else {
-              renderer->DisplayOnff(0);
-            }
+            DisplayOnOff(0);
             break;
           case 'O':
-            if (!renderer) {
-              DisplayOnOff(1);
-            } else {
-              renderer->DisplayOnff(1);
-            }
+            DisplayOnOff(1);
             break;
           case 'x':
             // set disp_xpos
@@ -516,7 +506,7 @@ void DisplayText(void)
              }
             }
             break;
-#endif
+#endif // USE_SCRIPT_FATFS
           case 'h':
             // hor line to
             var = atoiv(cp, &temp);
@@ -634,12 +624,19 @@ void DisplayText(void)
               }
             }
             break;
-          case 'T':
+          case 'T': {
+            uint8_t param1 = RtcTime.day_of_month;
+            uint8_t param2 = RtcTime.month;
+            if (*cp=='U') {
+              cp++;
+              param1 = RtcTime.month;
+              param2 = RtcTime.day_of_month;
+            }
             if (dp < (linebuf + DISPLAY_BUFFER_COLS) -8) {
-              snprintf_P(dp, 9, PSTR("%02d" D_MONTH_DAY_SEPARATOR "%02d" D_YEAR_MONTH_SEPARATOR "%02d"), RtcTime.day_of_month, RtcTime.month, RtcTime.year%2000);
+              snprintf_P(dp, 9, PSTR("%02d" D_MONTH_DAY_SEPARATOR "%02d" D_YEAR_MONTH_SEPARATOR "%02d"), param1, param2, RtcTime.year%2000);
               dp += 8;
             }
-            break;
+            break; }
           case 'd':
             // force draw grafics buffer
             if (renderer) renderer->Updateframe();
@@ -706,7 +703,7 @@ void DisplayText(void)
               Restore_graph(temp,bbuff);
               break;
             }
-#endif
+#endif // USE_SCRIPT_FATFS
             { int16_t num,gxp,gyp,gxs,gys,dec,icol;
               float ymin,ymax;
               var=atoiv(cp,&num);
@@ -754,7 +751,7 @@ void DisplayText(void)
                 AddValue(num,temp);
               }
             break;
-#endif
+#endif // USE_GRAPH
 
 #ifdef USE_AWATCH
           case 'w':
@@ -762,11 +759,32 @@ void DisplayText(void)
               cp += var;
               DrawAClock(temp);
               break;
-#endif
+#endif // USE_AWATCH
 
 #ifdef USE_TOUCH_BUTTONS
           case 'b':
-          { int16_t num,gxp,gyp,gxs,gys,outline,fill,textcolor,textsize;
+          { int16_t num,gxp,gyp,gxs,gys,outline,fill,textcolor,textsize; uint8_t dflg=1;
+            if (*cp=='e' || *cp=='d') {
+              // enable disable
+              uint8_t dis=0;
+              if (*cp=='d') dis=1;
+              cp++;
+              var=atoiv(cp,&num);
+              num=num%MAXBUTTONS;
+              cp+=var;
+              if (buttons[num]) {
+                buttons[num]->vpower.disable=dis;
+                if (!dis) {
+                  if (buttons[num]->vpower.is_virtual) buttons[num]->xdrawButton(buttons[num]->vpower.on_off);
+                  else buttons[num]->xdrawButton(bitRead(power,num));
+                }
+              }
+              break;
+            }
+            if (*cp=='-') {
+              cp++;
+              dflg=0;
+            }
             var=atoiv(cp,&num);
             cp+=var;
             cp++;
@@ -806,22 +824,30 @@ void DisplayText(void)
             if (renderer) {
               buttons[num]= new VButton();
               if (buttons[num]) {
-                buttons[num]->vpower=bflags;
                 buttons[num]->initButtonUL(renderer,gxp,gyp,gxs,gys,renderer->GetColorFromIndex(outline),\
-                renderer->GetColorFromIndex(fill),renderer->GetColorFromIndex(textcolor),bbuff,textsize);
+                  renderer->GetColorFromIndex(fill),renderer->GetColorFromIndex(textcolor),bbuff,textsize);
                 if (!bflags) {
                   // power button
-                  buttons[num]->xdrawButton(bitRead(power,num));
+                  if (dflg) buttons[num]->xdrawButton(bitRead(power,num));
+                  buttons[num]->vpower.is_virtual=0;
                 } else {
                   // virtual button
-                  buttons[num]->vpower&=0x7f;
-                  buttons[num]->xdrawButton(buttons[num]->vpower&0x80);
+                  buttons[num]->vpower.is_virtual=1;
+                  if (bflags==2) {
+                    // push
+                    buttons[num]->vpower.is_pushbutton=1;
+                  } else {
+                    // toggle
+                    buttons[num]->vpower.is_pushbutton=0;
+                  }
+                  if (dflg) buttons[num]->xdrawButton(buttons[num]->vpower.on_off);
+                  buttons[num]->vpower.disable=!dflg;
                 }
               }
             }
           }
           break;
-#endif
+#endif // USE_TOUCH_BUTTONS
           default:
             // unknown escape
             Response_P(PSTR("Unknown Escape"));
@@ -1013,14 +1039,14 @@ void DisplayLogBufferInit(void)
     snprintf_P(buffer, sizeof(buffer), PSTR("Display mode %d"), Settings.display_mode);
     DisplayLogBufferAdd(buffer);
 
-    snprintf_P(buffer, sizeof(buffer), PSTR(D_CMND_HOSTNAME " %s"), my_hostname);
+    snprintf_P(buffer, sizeof(buffer), PSTR(D_CMND_HOSTNAME " %s"), NetworkHostname());
     DisplayLogBufferAdd(buffer);
-    snprintf_P(buffer, sizeof(buffer), PSTR(D_JSON_SSID " %s"), SettingsText(SET_STASSID1 + Settings.sta_active));
+    snprintf_P(buffer, sizeof(buffer), PSTR(D_JSON_MAC " %s"), NetworkMacAddress().c_str());
     DisplayLogBufferAdd(buffer);
-    snprintf_P(buffer, sizeof(buffer), PSTR(D_JSON_MAC " %s"), WiFi.macAddress().c_str());
+    snprintf_P(buffer, sizeof(buffer), PSTR("IP %s"), NetworkAddress().toString().c_str());
     DisplayLogBufferAdd(buffer);
     if (!global_state.wifi_down) {
-      snprintf_P(buffer, sizeof(buffer), PSTR("IP %s"), WiFi.localIP().toString().c_str());
+      snprintf_P(buffer, sizeof(buffer), PSTR(D_JSON_SSID " %s"), SettingsText(SET_STASSID1 + Settings.sta_active));
       DisplayLogBufferAdd(buffer);
       snprintf_P(buffer, sizeof(buffer), PSTR(D_JSON_RSSI " %d%%"), WifiGetRssiAsQuality(WiFi.RSSI()));
       DisplayLogBufferAdd(buffer);
@@ -1269,6 +1295,11 @@ void DisplayInitDriver(void)
 
   if (Settings.display_model) {
     devices_present++;
+    if (!PinUsed(GPIO_BACKLIGHT)) {
+      if (light_type && (4 == Settings.display_model)) {
+        devices_present--;  // Assume PWM channel is used for backlight
+      }
+    }
     disp_device = devices_present;
 
 #ifndef USE_DISPLAY_MODES1TO5
@@ -1507,11 +1538,11 @@ void CmndDisplayRows(void)
 bool jpg2rgb888(const uint8_t *src, size_t src_len, uint8_t * out, jpg_scale_t scale);
 char get_jpeg_size(unsigned char* data, unsigned int data_size, unsigned short *width, unsigned short *height);
 void rgb888_to_565(uint8_t *in, uint16_t *out, uint32_t len);
-#endif
-#endif
-
+#endif // JPEG_PICTS
+#endif // ESP32
 
 #if defined(USE_SCRIPT_FATFS) && defined(USE_SCRIPT)
+extern FS *fsp;
 #define XBUFF_LEN 128
 void Draw_RGB_Bitmap(char *file,uint16_t xp, uint16_t yp) {
   if (!renderer) return;
@@ -1527,21 +1558,20 @@ void Draw_RGB_Bitmap(char *file,uint16_t xp, uint16_t yp) {
 
   if (!strcmp(estr,"rgb")) {
     // special rgb format
-    fp=SD.open(file,FILE_READ);
+    fp=fsp->open(file,FILE_READ);
     if (!fp) return;
     uint16_t xsize;
     fp.read((uint8_t*)&xsize,2);
     uint16_t ysize;
     fp.read((uint8_t*)&ysize,2);
 #if 1
-    uint16_t xdiv=xsize/XBUFF_LEN;
     renderer->setAddrWindow(xp,yp,xp+xsize,yp+ysize);
-    for(int16_t j=0; j<ysize; j++) {
-      for(int16_t i=0; i<xsize; i+=XBUFF_LEN) {
-        uint16_t rgb[XBUFF_LEN];
-        uint16_t len=fp.read((uint8_t*)rgb,XBUFF_LEN*2);
-        if (len>=2) renderer->pushColors(rgb,len/2,true);
-      }
+    uint16_t rgb[xsize];
+    for (int16_t j=0; j<ysize; j++) {
+    //  for(int16_t i=0; i<xsize; i+=XBUFF_LEN) {
+        fp.read((uint8_t*)rgb,xsize*2);
+        renderer->pushColors(rgb,xsize,true);
+    //  }
       OsWatchLoop();
     }
     renderer->setAddrWindow(0,0,0,0);
@@ -1564,7 +1594,7 @@ void Draw_RGB_Bitmap(char *file,uint16_t xp, uint16_t yp) {
 #ifdef ESP32
 #ifdef JPEG_PICTS
     if (psramFound()) {
-      fp=SD.open(file,FILE_READ);
+      fp=fsp->open(file,FILE_READ);
       if (!fp) return;
       uint32_t size = fp.size();
       uint8_t *mem = (uint8_t *)heap_caps_malloc(size+4, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -1604,7 +1634,7 @@ void Draw_RGB_Bitmap(char *file,uint16_t xp, uint16_t yp) {
 #endif // ESP32
   }
 }
-#endif
+#endif // USE_SCRIPT_FATFS
 
 #ifdef USE_AWATCH
 #define MINUTE_REDUCT 4
@@ -1641,7 +1671,7 @@ void DrawAClock(uint16_t rad) {
     temp=((float)RtcTime.minute*(pi/30.0)-(pi/2.0));
     renderer->writeLine(disp_xpos, disp_ypos,disp_xpos+(frad-MINUTE_REDUCT)*cosf(temp),disp_ypos+(frad-MINUTE_REDUCT)*sinf(temp), fg_color);
 }
-#endif
+#endif // USE_AWATCH
 
 
 #ifdef USE_GRAPH
@@ -1850,7 +1880,9 @@ void DisplayCheckGraph() {
 
 
 #if defined(USE_SCRIPT_FATFS) && defined(USE_SCRIPT)
+#ifdef ESP32
 #include <SD.h>
+#endif
 
 void Save_graph(uint8_t num, char *path) {
   if (!renderer) return;
@@ -1858,8 +1890,8 @@ void Save_graph(uint8_t num, char *path) {
   struct GRAPH *gp=graph[index];
   if (!gp) return;
   File fp;
-  SD.remove(path);
-  fp=SD.open(path,FILE_WRITE);
+  fsp->remove(path);
+  fp=fsp->open(path,FILE_WRITE);
   if (!fp) return;
   char str[32];
   sprintf_P(str,PSTR("%d\t%d\t%d\t"),gp->xcnt,gp->xs,gp->ys);
@@ -1884,7 +1916,7 @@ void Restore_graph(uint8_t num, char *path) {
   struct GRAPH *gp=graph[index];
   if (!gp) return;
   File fp;
-  fp=SD.open(path,FILE_READ);
+  fp=fsp->open(path,FILE_READ);
   if (!fp) return;
   char vbuff[32];
   char *cp=vbuff;
@@ -1914,7 +1946,7 @@ void Restore_graph(uint8_t num, char *path) {
   fp.close();
   RedrawGraph(num,1);
 }
-#endif
+#endif // USE_SCRIPT_FATFS
 
 void RedrawGraph(uint8_t num, uint8_t flags) {
   uint16_t index=num%NUM_GRAPHS;
@@ -2022,7 +2054,145 @@ void AddValue(uint8_t num,float fval) {
     }
   }
 }
-#endif
+#endif // USE_GRAPH
+
+#ifdef USE_FT5206
+
+#include <FT5206.h>
+// touch panel controller
+#undef FT5206_address
+#define FT5206_address 0x38
+
+FT5206_Class *touchp;
+TP_Point pLoc;
+bool FT5206_found;
+
+bool Touch_Init(TwoWire &i2c) {
+  FT5206_found = false;
+  touchp = new FT5206_Class();
+  if (touchp->begin(i2c, FT5206_address)) {
+    I2cSetActiveFound(FT5206_address, "FT5206");
+    FT5206_found = true;
+  }
+  return FT5206_found;
+}
+
+uint32_t Touch_Status(uint32_t sel) {
+  if (FT5206_found) {
+    switch (sel) {
+      case 0:
+        return  touchp->touched();
+      case 1:
+        return pLoc.x;
+      case 2:
+        return pLoc.y;
+    }
+    return 0;
+  } else {
+    return 0;
+  }
+}
+
+
+#ifdef USE_TOUCH_BUTTONS
+void Touch_MQTT(uint8_t index, const char *cp) {
+  ResponseTime_P(PSTR(",\"FT5206\":{\"%s%d\":\"%d\"}}"), cp, index+1, buttons[index]->vpower.on_off);
+  MqttPublishTeleSensor();
+}
+
+void Touch_RDW_BUTT(uint32_t count, uint32_t pwr) {
+  buttons[count]->xdrawButton(pwr);
+  if (pwr) buttons[count]->vpower.on_off = 1;
+  else buttons[count]->vpower.on_off = 0;
+}
+
+// check digitizer hit
+void Touch_Check(void(*rotconvert)(int16_t *x, int16_t *y)) {
+uint16_t temp;
+uint8_t rbutt=0;
+uint8_t vbutt=0;
+
+
+  if (touchp->touched()) {
+    // did find a hit
+    pLoc = touchp->getPoint(0);
+
+    if (renderer) {
+
+      rotconvert(&pLoc.x, &pLoc.y);
+
+      //AddLog_P2(LOG_LEVEL_INFO, PSTR("touch %d - %d"), pLoc.x, pLoc.y);
+      // now must compare with defined buttons
+      for (uint8_t count=0; count<MAXBUTTONS; count++) {
+        if (buttons[count] && !buttons[count]->vpower.disable) {
+            if (buttons[count]->contains(pLoc.x, pLoc.y)) {
+                // did hit
+                buttons[count]->press(true);
+                if (buttons[count]->justPressed()) {
+                  if (!buttons[count]->vpower.is_virtual) {
+                    uint8_t pwr=bitRead(power, rbutt);
+                    if (!SendKey(KEY_BUTTON, rbutt+1, POWER_TOGGLE)) {
+                      ExecuteCommandPower(rbutt+1, POWER_TOGGLE, SRC_BUTTON);
+                      Touch_RDW_BUTT(count, !pwr);
+                    }
+                  } else {
+                    // virtual button
+                    const char *cp;
+                    if (!buttons[count]->vpower.is_pushbutton) {
+                      // toggle button
+                      buttons[count]->vpower.on_off ^= 1;
+                      cp="TBT";
+                    } else {
+                      // push button
+                      buttons[count]->vpower.on_off = 1;
+                      cp="PBT";
+                    }
+                    buttons[count]->xdrawButton(buttons[count]->vpower.on_off);
+                    Touch_MQTT(count,cp);
+                  }
+                }
+            }
+            if (!buttons[count]->vpower.is_virtual) {
+              rbutt++;
+            } else {
+              vbutt++;
+            }
+        }
+      }
+    }
+  } else {
+    // no hit
+    for (uint8_t count=0; count<MAXBUTTONS; count++) {
+      if (buttons[count]) {
+        buttons[count]->press(false);
+        if (buttons[count]->justReleased()) {
+          if (buttons[count]->vpower.is_virtual) {
+            if (buttons[count]->vpower.is_pushbutton) {
+              // push button
+              buttons[count]->vpower.on_off = 0;
+              Touch_MQTT(count,"PBT");
+              buttons[count]->xdrawButton(buttons[count]->vpower.on_off);
+            }
+          }
+        }
+        if (!buttons[count]->vpower.is_virtual) {
+          // check if power button stage changed
+          uint8_t pwr = bitRead(power, rbutt);
+          uint8_t vpwr = buttons[count]->vpower.on_off;
+          if (pwr != vpwr) {
+            Touch_RDW_BUTT(count, pwr);
+          }
+          rbutt++;
+        }
+      }
+    }
+    pLoc.x = 0;
+    pLoc.y = 0;
+  }
+}
+
+#endif // USE_TOUCH_BUTTONS
+#endif // USE_FT5206
 
 /*********************************************************************************************\
  * Interface

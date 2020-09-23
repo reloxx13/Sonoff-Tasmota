@@ -284,6 +284,7 @@ struct LIGHT {
 
   bool update = true;
   bool pwm_multi_channels = false;        // SetOption68, treat each PWM channel as an independant dimmer
+  bool virtual_ct = false;                // SetOption106, add a 5th virtual channel, only if SO106 = 1, SO68 = 0, Light is RGBW (4 channels), SO37 < 128
 
   bool     fade_initialized = false;      // dont't fade at startup
   bool     fade_running = false;
@@ -310,16 +311,6 @@ struct LIGHT {
 } Light;
 
 power_t LightPower(void)
-{
-  return Light.power;                     // Make external
-}
-
-// IRAM variant for rotary
-#ifndef ARDUINO_ESP8266_RELEASE_2_3_0      // Fix core 2.5.x ISR not in IRAM Exception
-power_t LightPowerIRAM(void) ICACHE_RAM_ATTR;
-#endif  // ARDUINO_ESP8266_RELEASE_2_3_0
-
-power_t LightPowerIRAM(void)
 {
   return Light.power;                     // Make external
 }
@@ -487,7 +478,7 @@ class LightStateClass {
       if (w) { *w = ct_channels_on  ? changeUIntScale(_ww, 0, 255, 0, _briCT) : 0; }
     }
 
-    uint8_t getChannels(uint8_t *channels) {
+    void getChannels(uint8_t *channels) {
       getActualRGBCW(&channels[0], &channels[1], &channels[2], &channels[3], &channels[4]);
     }
 
@@ -650,7 +641,7 @@ class LightStateClass {
           _ww = changeUIntScale(w, 0, max, 0, 255);
           _wc = changeUIntScale(c, 0, max, 0, 255);
         }
-        _ct = changeUIntScale(w, 0, sum, _ct_min_range, _ct_max_range);
+        _ct = changeUIntScale(w, 0, sum, CT_MIN, CT_MAX);
         addCTMode();   // activate CT mode if needed
         if (_color_mode & LCM_CT) { _briCT = free_range ? max : (sum > 255 ? 255 : sum); }
       }
@@ -895,7 +886,7 @@ void LightStateClass::XyToRgb(float x, float y, uint8_t *rr, uint8_t *rg, uint8_
                                         0.0557f, -0.2040f,  1.0570f };
   mat3x3(rgb_factors, XYZ, rgb);
   float max = (rgb[0] > rgb[1] && rgb[0] > rgb[2]) ? rgb[0] : (rgb[1] > rgb[2]) ? rgb[1] : rgb[2];
- 
+
   for (uint32_t i = 0; i < 3; i++) {
     rgb[i] = rgb[i] / max; // normalize to max == 1.0
     rgb[i] = (rgb[i] <= 0.0031308f) ? 12.92f * rgb[i] : 1.055f * POW(rgb[i], (1.0f / 2.4f)) - 0.055f; // gamma
@@ -1291,13 +1282,16 @@ bool LightModuleInit(void)
   }
 
   // post-process for lights
+  uint32_t pwm_channels = (light_type & 7) > LST_MAX ? LST_MAX : (light_type & 7);
   if (Settings.flag3.pwm_multi_channels) {  // SetOption68 - Enable multi-channels PWM instead of Color PWM
-    uint32_t pwm_channels = (light_type & 7) > LST_MAX ? LST_MAX : (light_type & 7);
     if (0 == pwm_channels) { pwm_channels = 1; }
     devices_present += pwm_channels - 1;    // add the pwm channels controls at the end
-  } else if ((Settings.param[P_RGB_REMAP] & 128) && (LST_RGBW <= (light_type & 7))) {
+  } else if ((Settings.param[P_RGB_REMAP] & 128) && (LST_RGBW <= pwm_channels)) {
     // if RGBW or RGBCW, and SetOption37 >= 128, we manage RGB and W separately, hence adding a device
     devices_present++;
+  } else if ((Settings.flag4.virtual_ct) && (LST_RGBW == pwm_channels)) {
+    Light.virtual_ct = true;    // enabled
+    light_type++;               // create an additional virtual 5th channel
   }
 
   return (light_type > LT_BASIC);
@@ -1324,6 +1318,12 @@ void LightCalcPWMRange(void) {
 
 void LightInit(void)
 {
+  // move white blend mode from deprecated `RGBWWTable` to `SetOption105`
+  if (0 == Settings.rgbwwTable[4]) {
+    Settings.flag4.white_blend_mode = true;
+    Settings.rgbwwTable[4] = 255;       // set RGBWWTable value to its default
+  }
+
   Light.device = devices_present;
   Light.subtype = (light_type & 7) > LST_MAX ? LST_MAX : (light_type & 7); // Always 0 - LST_MAX (5)
   Light.pwm_multi_channels = Settings.flag3.pwm_multi_channels;  // SetOption68 - Enable multi-channels PWM instead of Color PWM
@@ -1361,7 +1361,11 @@ void LightInit(void)
     for (uint32_t i = 0; i < light_type; i++) {
       Settings.pwm_value[i] = 0;        // Disable direct PWM control
       if (PinUsed(GPIO_PWM1, i)) {
+#ifdef ESP8266
         pinMode(Pin(GPIO_PWM1, i), OUTPUT);
+#else  // ESP32
+        analogAttach(Pin(GPIO_PWM1, i), i);
+#endif
       }
     }
     if (PinUsed(GPIO_ARIRFRCV)) {
@@ -1429,6 +1433,10 @@ void LightGetHSB(uint16_t *hue, uint8_t *sat, uint8_t *bri) {
   light_state.getHSB(hue, sat, bri);
 }
 
+void LightGetXY(float *X, float *Y) {
+  light_state.getXY(X, Y);
+}
+
 void LightHsToRgb(uint16_t hue, uint8_t sat, uint8_t *r_r, uint8_t *r_g, uint8_t *r_b) {
   light_state.HsToRgb(hue, sat, r_r, r_g, r_b);
 }
@@ -1474,12 +1482,39 @@ void LightSetBri(uint8_t device, uint8_t bri) {
   }
 }
 
+void LightColorOffset(int32_t offset) {
+  uint16_t hue;
+  uint8_t sat;
+  light_state.getHSB(&hue, &sat, nullptr);  // Allow user control over Saturation
+  hue += offset;
+  if (hue < 0) { hue += 359; }
+  if (hue > 359) { hue -= 359; }
+  if (!Light.pwm_multi_channels) {
+    light_state.setHS(hue, sat);
+  } else {
+    light_state.setHS(hue, 255);
+    light_state.setBri(255);        // If multi-channel, force bri to max, it will be later dimmed to correct value
+  }
+  light_controller.calcLevels(Light.new_color);
+}
+
+bool LightColorTempOffset(int32_t offset) {
+  int32_t ct = LightGetColorTemp();
+  if (0 == ct) { return false; }  // CT not supported
+  ct += offset;
+  if (ct < CT_MIN) { ct = CT_MIN; }
+  else if (ct > CT_MAX) { ct = CT_MAX; }
+
+  LightSetColorTemp(ct);
+  return true;
+}
+
 void LightSetColorTemp(uint16_t ct)
 {
 /* Color Temperature (https://developers.meethue.com/documentation/core-concepts)
  *
- * ct = 153 = 6500K = Cold = CCWW = FF00
- * ct = 600 = 2000K = Warm = CCWW = 00FF
+ * ct = 153 mirek = 6500K = Cold = CCWW = FF00
+ * ct = 500 mirek = 2000K = Warm = CCWW = 00FF
  */
   // don't set CT if not supported
   if ((LST_COLDWARM != Light.subtype) && (LST_RGBCW != Light.subtype)) {
@@ -1537,7 +1572,7 @@ void LightPowerOn(void)
   }
 }
 
-void LightState(uint8_t append)
+void ResponseLightState(uint8_t append)
 {
   char scolor[LIGHT_COLOR_SIZE];
   char scommand[33];
@@ -1551,10 +1586,10 @@ void LightState(uint8_t append)
   if (!Light.pwm_multi_channels) {
     if (unlinked) {
       // RGB and W are unlinked, we display the second Power/Dimmer
-      ResponseAppend_P(PSTR("\"" D_RSLT_POWER "%d\":\"%s\",\"" D_CMND_DIMMER "%d\":%d"
-                           ",\"" D_RSLT_POWER "%d\":\"%s\",\"" D_CMND_DIMMER "%d\":%d"),
-                            Light.device, GetStateText(Light.power & 1), Light.device, light_state.getDimmer(1),
-                            Light.device + 1, GetStateText(Light.power & 2 ? 1 : 0), Light.device + 1, light_state.getDimmer(2));
+      ResponseAppend_P(PSTR("\"" D_RSLT_POWER "%d\":\"%s\",\"" D_CMND_DIMMER "1\":%d"
+                           ",\"" D_RSLT_POWER "%d\":\"%s\",\"" D_CMND_DIMMER "2\":%d"),
+                            Light.device, GetStateText(Light.power & 1), light_state.getDimmer(1),
+                            Light.device + 1, GetStateText(Light.power & 2 ? 1 : 0), light_state.getDimmer(2));
     } else {
       GetPowerDevice(scommand, Light.device, sizeof(scommand), Settings.flag.device_index_enable);  // SetOption26 - Switch between POWER or POWER1
       ResponseAppend_P(PSTR("\"%s\":\"%s\",\"" D_CMND_DIMMER "\":%d"), scommand, GetStateText(Light.power & 1),
@@ -1687,7 +1722,7 @@ void LightPreparePower(power_t channels = 0xFFFFFFFF) {    // 1 = only RGB, 2 = 
   AddLog_P2(LOG_LEVEL_DEBUG, "LightPreparePower End power=%d Light.power=%d", power, Light.power);
 #endif
   Light.power = power >> (Light.device - 1);  // reset next state, works also with unlinked RGB/CT
-  LightState(0);
+  ResponseLightState(0);
 }
 
 #ifdef USE_LIGHT_PALETTE
@@ -1755,9 +1790,9 @@ void LightCycleColor(int8_t direction)
 //  AddLog_P2(LOG_LEVEL_DEBUG, PSTR("LGT: random %d, wheel %d, hue %d"), Light.random, Light.wheel, hue);
 
   if (!Light.pwm_multi_channels) {
-  uint8_t sat;
-  light_state.getHSB(nullptr, &sat, nullptr);  // Allow user control over Saturation
-  light_state.setHS(hue, sat);
+    uint8_t sat;
+    light_state.getHSB(nullptr, &sat, nullptr);  // Allow user control over Saturation
+    light_state.setHS(hue, sat);
   } else {
     light_state.setHS(hue, 255);
     light_state.setBri(255);        // If multi-channel, force bri to max, it will be later dimmed to correct value
@@ -1850,15 +1885,10 @@ void LightAnimate(void)
               Light.new_color[i] = Light.current_color[i];
             }
           } else {
-/*
-            Response_P(PSTR("{\"" D_CMND_WAKEUP "\":\"" D_JSON_DONE "\"}"));
-            MqttPublishPrefixTopic_P(TELE, PSTR(D_CMND_WAKEUP));
-*/
             Response_P(PSTR("{\"" D_CMND_WAKEUP "\":\"" D_JSON_DONE "\""));
-            LightState(1);
+            ResponseLightState(1);
             ResponseJsonEnd();
-            MqttPublishPrefixTopic_P(RESULT_OR_STAT, PSTR(D_CMND_WAKEUP));
-            XdrvRulesProcess();
+            MqttPublishPrefixTopicRulesProcess_P(RESULT_OR_STAT, PSTR(D_CMND_WAKEUP));
 
             Light.wakeup_active = 0;
             Settings.light_scheme = LS_POWER;
@@ -1915,6 +1945,7 @@ void LightAnimate(void)
 
       uint16_t cur_col_10[LST_MAX];   // 10 bits resolution
       Light.update = false;
+      bool rgbwwtable_applied = false;      // did we already applied RGBWWTable (ex: in white_blend_mode or virtual_ct)
 
       // first set 8 and 10 bits channels
       for (uint32_t i = 0; i < LST_MAX; i++) {
@@ -1930,7 +1961,7 @@ void LightAnimate(void)
 
         // Now see if we need to mix RGB and True White
         // Valid only for LST_RGBW, LST_RGBCW, rgbwwTable[4] is zero, and white is zero (see doc)
-        if ((LST_RGBW <= Light.subtype) && (0 == Settings.rgbwwTable[4]) && (0 == cur_col_10[3]+cur_col_10[4])) {
+        if ((LST_RGBW <= Light.subtype) && (Settings.flag4.white_blend_mode) && (0 == cur_col_10[3]+cur_col_10[4])) {
           uint32_t min_rgb_10 = min3(cur_col_10[0], cur_col_10[1], cur_col_10[2]);
           for (uint32_t i=0; i<3; i++) {
             // substract white and adjust according to rgbwwTable
@@ -1950,18 +1981,34 @@ void LightAnimate(void)
             cur_col_10[4] = changeUIntScale(ct, 0, 1023, 0, white_10);
             cur_col_10[3] = white_10 - cur_col_10[4];
           }
+          rgbwwtable_applied = true;
+        } else if ((Light.virtual_ct) && (0 == cur_col_10[0]+cur_col_10[1]+cur_col_10[2])) {
+          // virtual_ct is on and we don't have any RGB set
+          uint16_t sw_white = Settings.flag4.virtual_ct_cw ? cur_col_10[4] : cur_col_10[3];   // white power for virtual RGB
+          uint16_t hw_white = Settings.flag4.virtual_ct_cw ? cur_col_10[3] : cur_col_10[4];   // white for hardware LED
+          uint32_t adjust_sw = change8to10(Settings.flag4.virtual_ct_cw ? Settings.rgbwwTable[4] : Settings.rgbwwTable[3]);
+          uint32_t adjust_hw = change8to10(Settings.flag4.virtual_ct_cw ? Settings.rgbwwTable[3] : Settings.rgbwwTable[4]);
+          // set the target channels. Note: Gamma correction was arleady applied
+          cur_col_10[3] = changeUIntScale(hw_white, 0, 1023, 0, adjust_hw);
+          cur_col_10[4] = 0;          // we don't actually have a 5the channel
+          sw_white = changeUIntScale(sw_white, 0, 1023, 0, adjust_sw);          // pre-adjust virtual channel
+          for (uint32_t i=0; i<3; i++) {
+            uint32_t adjust = change8to10(Settings.rgbwwTable[i]);
+            cur_col_10[i] = changeUIntScale(sw_white, 0, 1023, 0, adjust);
+          }
+          rgbwwtable_applied = true;
         }
       }
 
-      // Apply RGBWWTable only if Settings.rgbwwTable[4] != 0
-      if (0 != Settings.rgbwwTable[4]) {
+      // Apply RGBWWTable only if not Settings.flag4.white_blend_mode
+      if (!rgbwwtable_applied) {
         for (uint32_t i = 0; i<Light.subtype; i++) {
           uint32_t adjust = change8to10(Settings.rgbwwTable[i]);
           cur_col_10[i] = changeUIntScale(cur_col_10[i], 0, 1023, 0, adjust);
         }
       }
 
-      // final adjusments for PMW, post-gamma correction
+      // final adjusments for PMW ranges, post-gamma correction
       for (uint32_t i = 0; i < LST_MAX; i++) {
         // scale from 0..1023 to 0..pwm_range, but keep any non-zero value to at least 1
         cur_col_10[i] = (cur_col_10[i] > 0) ? changeUIntScale(cur_col_10[i], 1, 1023, 1, Settings.pwm_range) : 0;
@@ -2154,7 +2201,9 @@ void LightSetOutputs(const uint16_t *cur_col_10) {
         if (!isChannelCT(i)) {   // if CT don't use pwm_min and pwm_max
           cur_col = cur_col > 0 ? changeUIntScale(cur_col, 0, Settings.pwm_range, Light.pwm_min, Light.pwm_max) : 0;   // shrink to the range of pwm_min..pwm_max
         }
-        analogWrite(Pin(GPIO_PWM1, i), bitRead(pwm_inverted, i) ? Settings.pwm_range - cur_col : cur_col);
+        if (!Settings.flag4.zerocross_dimmer) {
+          analogWrite(Pin(GPIO_PWM1, i), bitRead(pwm_inverted, i) ? Settings.pwm_range - cur_col : cur_col);
+        }
       }
     }
   }
@@ -2656,7 +2705,7 @@ void CmndHsbColor(void)
       light_controller.changeHSB(HSB[0], HSB[1], HSB[2]);
       LightPreparePower(1);
     } else {
-      LightState(0);
+      ResponseLightState(0);
     }
   }
 }
@@ -2739,6 +2788,16 @@ void CmndColorTemperature(void)
       ResponseCmndNumber(ct);
     }
   }
+}
+
+void LightDimmerOffset(uint32_t index, int32_t offset) {
+  int32_t dimmer = light_state.getDimmer(index) + offset;
+  if (dimmer < 1) { dimmer = Settings.flag3.slider_dimmer_stay_on; }  // SetOption77 - Do not power off if slider moved to far left
+  if (dimmer > 100) { dimmer = 100; }
+
+  XdrvMailbox.index = index;
+  XdrvMailbox.payload = dimmer;
+  CmndDimmer();
 }
 
 void CmndDimmer(void)

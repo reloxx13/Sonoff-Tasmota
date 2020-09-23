@@ -205,10 +205,10 @@ void HlwEverySecond(void)
     unsigned long hlw_len;
 
     if (Hlw.energy_period_counter) {
-      hlw_len = 10000 / Hlw.energy_period_counter;
+      hlw_len = 10000 * 100 / Hlw.energy_period_counter;  // Add *100 to fix rounding on loads at 3.6kW (#9160)
       Hlw.energy_period_counter = 0;
       if (hlw_len) {
-        Energy.kWhtoday_delta += ((Hlw.power_ratio * Settings.energy_power_calibration) / hlw_len) / 36;
+        Energy.kWhtoday_delta += (((Hlw.power_ratio * Settings.energy_power_calibration) / 36) * 100) / hlw_len;
         EnergyUpdateToday();
       }
     }
@@ -249,7 +249,7 @@ void HlwDrvInit(void)
 {
   Hlw.model_type = 0;                      // HLW8012
   if (PinUsed(GPIO_HJL_CF)) {
-    SetPin(Pin(GPIO_HJL_CF), GPIO_HLW_CF);
+    SetPin(Pin(GPIO_HJL_CF), AGPIO(GPIO_HLW_CF));
     Hlw.model_type = 1;                    // HJL-01/BL0937
   }
 
@@ -257,7 +257,7 @@ void HlwDrvInit(void)
 
     Hlw.ui_flag = true;                    // Voltage on high
     if (PinUsed(GPIO_NRG_SEL_INV)) {
-      SetPin(Pin(GPIO_NRG_SEL_INV), GPIO_NRG_SEL);
+      SetPin(Pin(GPIO_NRG_SEL_INV), AGPIO(GPIO_NRG_SEL));
       Hlw.ui_flag = false;                 // Voltage on low
     }
 

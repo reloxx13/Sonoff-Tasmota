@@ -99,7 +99,7 @@ void PWMModulePreInit(void)
 #ifdef USE_PWM_DIMMER_REMOTE
   // If remote device mode is enabled, set the device group count to the number of buttons
   // present.
-  if (Settings.flag4.remote_device_mode) {
+  if (Settings.flag4.multiple_device_groups) {
     Settings.flag4.device_groups_enabled = true;
 
     device_group_count = 0;
@@ -111,7 +111,7 @@ void PWMModulePreInit(void)
     if (remote_pwm_dimmer_count) {
       if ((remote_pwm_dimmers = (struct remote_pwm_dimmer *) calloc(remote_pwm_dimmer_count, sizeof(struct remote_pwm_dimmer))) == nullptr) {
         AddLog_P2(LOG_LEVEL_ERROR, PSTR("PWMDimmer: error allocating PWM dimmer array"));
-        Settings.flag4.remote_device_mode = false;
+        Settings.flag4.multiple_device_groups = false;
       }
       else {
         for (uint8_t i = 0; i < remote_pwm_dimmer_count; i++) {
@@ -309,7 +309,7 @@ void PWMDimmerHandleButton(void)
 #ifdef USE_PWM_DIMMER_REMOTE
       // If there are no other buttons pressed right now and remote mode is enabled, make the device
       // associated with this button the device we're going to control.
-      if (buttons_pressed == 1 && Settings.flag4.remote_device_mode) {
+      if (buttons_pressed == 1 && Settings.flag4.multiple_device_groups) {
         power_button_index = button_index;
         down_button_index = (button_index ? 0 : 1);
         active_device_is_local = device_groups[power_button_index].local;
@@ -552,6 +552,7 @@ void PWMDimmerHandleButton(void)
             if (button_hold_time[button_index] >= now) {
               bri_offset = (is_down_button ? -1 : 1);
               dgr_item = 255;
+              state_updated = true;
             }
 
             // If the button was held and the hold was not processed by a rule, we changed the
@@ -601,7 +602,7 @@ void PWMDimmerHandleButton(void)
     }
     if (new_bri != bri) {
 #ifdef USE_DEVICE_GROUPS
-      SendDeviceGroupMessage(power_button_index, (dgr_item ? DGR_MSGTYP_UPDATE : DGR_MSGTYP_UPDATE_MORE_TO_COME), DGR_ITEM_LIGHT_BRI, new_bri);
+      SendDeviceGroupMessage(power_button_index, DGR_MSGTYP_UPDATE_MORE_TO_COME, DGR_ITEM_LIGHT_BRI, new_bri);
 #endif  // USE_DEVICE_GROUPS
 #ifdef USE_PWM_DIMMER_REMOTE
       if (!active_device_is_local)
@@ -663,7 +664,7 @@ void PWMDimmerHandleButton(void)
 
   // If we're not changing the brightness or toggling the power and we made changes, send a group
   // update.
-  else if (dgr_item) {
+  if (dgr_item) {
 #ifdef USE_DEVICE_GROUPS
     if (dgr_item == 255) dgr_item = 0;
     SendDeviceGroupMessage(power_button_index, (dgr_more_to_come ? DGR_MSGTYP_UPDATE_MORE_TO_COME : DGR_MSGTYP_UPDATE_DIRECT), dgr_item, dgr_value);

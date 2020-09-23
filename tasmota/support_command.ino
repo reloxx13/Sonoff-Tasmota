@@ -26,8 +26,8 @@ const char kTasmotaCommands[] PROGMEM = "|"  // No prefix
   D_CMND_BUTTONDEBOUNCE "|" D_CMND_SWITCHDEBOUNCE "|" D_CMND_SYSLOG "|" D_CMND_LOGHOST "|" D_CMND_LOGPORT "|" D_CMND_SERIALSEND "|" D_CMND_BAUDRATE "|" D_CMND_SERIALCONFIG "|"
   D_CMND_SERIALDELIMITER "|" D_CMND_IPADDRESS "|" D_CMND_NTPSERVER "|" D_CMND_AP "|" D_CMND_SSID "|" D_CMND_PASSWORD "|" D_CMND_HOSTNAME "|" D_CMND_WIFICONFIG "|"
   D_CMND_DEVICENAME "|" D_CMND_FRIENDLYNAME "|" D_CMND_SWITCHMODE "|" D_CMND_INTERLOCK "|" D_CMND_TELEPERIOD "|" D_CMND_RESET "|" D_CMND_TIME "|" D_CMND_TIMEZONE "|" D_CMND_TIMESTD "|"
-  D_CMND_TIMEDST "|" D_CMND_ALTITUDE "|" D_CMND_LEDPOWER "|" D_CMND_LEDSTATE "|" D_CMND_LEDMASK "|" D_CMND_WIFIPOWER "|" D_CMND_TEMPOFFSET "|" D_CMND_HUMOFFSET "|"
-  D_CMND_SPEEDUNIT "|" D_CMND_GLOBAL_TEMP "|" D_CMND_GLOBAL_HUM "|"
+  D_CMND_TIMEDST "|" D_CMND_ALTITUDE "|" D_CMND_LEDPOWER "|" D_CMND_LEDSTATE "|" D_CMND_LEDMASK "|" D_CMND_LEDPWM_ON "|" D_CMND_LEDPWM_OFF "|" D_CMND_LEDPWM_MODE "|"
+  D_CMND_WIFIPOWER "|" D_CMND_TEMPOFFSET "|" D_CMND_HUMOFFSET "|" D_CMND_SPEEDUNIT "|" D_CMND_GLOBAL_TEMP "|" D_CMND_GLOBAL_HUM "|" D_CMND_WIFI "|"
 #ifdef USE_I2C
   D_CMND_I2CSCAN "|" D_CMND_I2CDRIVER "|"
 #endif
@@ -38,7 +38,11 @@ const char kTasmotaCommands[] PROGMEM = "|"  // No prefix
 #endif  // USE_DEVICE_GROUPS_SEND
   D_CMND_DEVGROUP_SHARE "|" D_CMND_DEVGROUPSTATUS "|"
 #endif  // USE_DEVICE_GROUPS
-  D_CMND_SENSOR "|" D_CMND_DRIVER;
+  D_CMND_SENSOR "|" D_CMND_DRIVER
+#ifdef ESP32
+   "|" D_CMND_TOUCH_CAL "|" D_CMND_TOUCH_THRES "|" D_CMND_TOUCH_NUM "|" D_CMND_CPU_FREQUENCY
+#endif //ESP32
+  ;
 
 void (* const TasmotaCommand[])(void) PROGMEM = {
   &CmndBacklog, &CmndDelay, &CmndPower, &CmndStatus, &CmndState, &CmndSleep, &CmndUpgrade, &CmndUpgrade, &CmndOtaUrl,
@@ -49,8 +53,8 @@ void (* const TasmotaCommand[])(void) PROGMEM = {
   &CmndButtonDebounce, &CmndSwitchDebounce, &CmndSyslog, &CmndLoghost, &CmndLogport, &CmndSerialSend, &CmndBaudrate, &CmndSerialConfig,
   &CmndSerialDelimiter, &CmndIpAddress, &CmndNtpServer, &CmndAp, &CmndSsid, &CmndPassword, &CmndHostname, &CmndWifiConfig,
   &CmndDevicename, &CmndFriendlyname, &CmndSwitchMode, &CmndInterlock, &CmndTeleperiod, &CmndReset, &CmndTime, &CmndTimezone, &CmndTimeStd,
-  &CmndTimeDst, &CmndAltitude, &CmndLedPower, &CmndLedState, &CmndLedMask, &CmndWifiPower, &CmndTempOffset, &CmndHumOffset,
-  &CmndSpeedUnit, &CmndGlobalTemp, &CmndGlobalHum,
+  &CmndTimeDst, &CmndAltitude, &CmndLedPower, &CmndLedState, &CmndLedMask, &CmndLedPwmOn, &CmndLedPwmOff, &CmndLedPwmMode,
+  &CmndWifiPower, &CmndTempOffset, &CmndHumOffset, &CmndSpeedUnit, &CmndGlobalTemp, &CmndGlobalHum, &CmndWifi,
 #ifdef USE_I2C
   &CmndI2cScan, CmndI2cDriver,
 #endif
@@ -61,7 +65,11 @@ void (* const TasmotaCommand[])(void) PROGMEM = {
 #endif  // USE_DEVICE_GROUPS_SEND
   &CmndDevGroupShare, &CmndDevGroupStatus,
 #endif  // USE_DEVICE_GROUPS
-  &CmndSensor, &CmndDriver };
+  &CmndSensor, &CmndDriver
+#ifdef ESP32
+  ,&CmndTouchCal, &CmndTouchThres, &CmndTouchNum, &CmndCpuFrequency
+#endif //ESP32
+  };
 
 const char kWifiConfig[] PROGMEM =
   D_WCFG_0_RESTART "||" D_WCFG_2_WIFIMANAGER "||" D_WCFG_4_RETRY "|" D_WCFG_5_WAIT "|" D_WCFG_6_SERIAL "|" D_WCFG_7_WIFIMANAGER_RESET_ONLY;
@@ -92,7 +100,7 @@ void ResponseCmndChar_P(const char* value)
 
 void ResponseCmndChar(const char* value)
 {
-  Response_P(S_JSON_COMMAND_SVALUE, XdrvMailbox.command, value);
+  Response_P(S_JSON_COMMAND_SVALUE, XdrvMailbox.command, EscapeJSONString(value).c_str());
 }
 
 void ResponseCmndStateText(uint32_t value)
@@ -107,7 +115,7 @@ void ResponseCmndDone(void)
 
 void ResponseCmndIdxChar(const char* value)
 {
-  Response_P(S_JSON_COMMAND_INDEX_SVALUE, XdrvMailbox.command, XdrvMailbox.index, value);
+  Response_P(S_JSON_COMMAND_INDEX_SVALUE, XdrvMailbox.command, XdrvMailbox.index, EscapeJSONString(value).c_str());
 }
 
 void ResponseCmndAll(uint32_t text_index, uint32_t count)
@@ -116,7 +124,7 @@ void ResponseCmndAll(uint32_t text_index, uint32_t count)
   mqtt_data[0] = '\0';
   for (uint32_t i = 0; i < count; i++) {
     if ((SET_MQTT_GRP_TOPIC == text_index) && (1 == i)) { real_index = SET_MQTT_GRP_TOPIC2 -1; }
-    ResponseAppend_P(PSTR("%c\"%s%d\":\"%s\""), (i) ? ',' : '{', XdrvMailbox.command, i +1, SettingsText(real_index +i));
+    ResponseAppend_P(PSTR("%c\"%s%d\":\"%s\""), (i) ? ',' : '{', XdrvMailbox.command, i +1, EscapeJSONString(SettingsText(real_index +i)).c_str());
   }
   ResponseJsonEnd();
 }
@@ -280,8 +288,7 @@ void CommandHandler(char* topicBuf, char* dataBuf, uint32_t data_len)
   }
 
   if (mqtt_data[0] != '\0') {
-     MqttPublishPrefixTopic_P(RESULT_OR_STAT, type);
-     XdrvRulesProcess();
+     MqttPublishPrefixTopicRulesProcess_P(RESULT_OR_STAT, type);
   }
   fallback_topic_flag = false;
 }
@@ -316,7 +323,7 @@ void CmndBacklog(void)
           backlog.add(blcommand);
         }
 #else
-        backlog[backlog_index] = String(blcommand);
+        backlog[backlog_index] = blcommand;
         backlog_index++;
         if (backlog_index >= MAX_BACKLOG) backlog_index = 0;
 #endif
@@ -362,6 +369,9 @@ void CmndPower(void)
       XdrvMailbox.payload = POWER_SHOW_STATE;
     }
     SetAllPower(XdrvMailbox.payload, SRC_IGNORE);
+    if (Settings.flag3.hass_tele_on_power) {  // SetOption59 - Send tele/%topic%/STATE in addition to stat/%topic%/RESULT
+      MqttPublishTeleState();
+    }
     mqtt_data[0] = '\0';
   }
 }
@@ -389,7 +399,7 @@ void CmndStatus(void)
 #endif  // USE_SONOFF_IFAN
     stemp[0] = '\0';
     for (uint32_t i = 0; i < maxfn; i++) {
-      snprintf_P(stemp, sizeof(stemp), PSTR("%s%s\"%s\"" ), stemp, (i > 0 ? "," : ""), SettingsText(SET_FRIENDLYNAME1 +i));
+      snprintf_P(stemp, sizeof(stemp), PSTR("%s%s\"%s\"" ), stemp, (i > 0 ? "," : ""), EscapeJSONString(SettingsText(SET_FRIENDLYNAME1 +i)).c_str());
     }
     stemp2[0] = '\0';
     for (uint32_t i = 0; i < MAX_SWITCHES; i++) {
@@ -399,7 +409,7 @@ void CmndStatus(void)
                           D_CMND_BUTTONTOPIC "\":\"%s\",\"" D_CMND_POWER "\":%d,\"" D_CMND_POWERONSTATE "\":%d,\"" D_CMND_LEDSTATE "\":%d,\""
                           D_CMND_LEDMASK "\":\"%04X\",\"" D_CMND_SAVEDATA "\":%d,\"" D_JSON_SAVESTATE "\":%d,\"" D_CMND_SWITCHTOPIC "\":\"%s\",\""
                           D_CMND_SWITCHMODE "\":[%s],\"" D_CMND_BUTTONRETAIN "\":%d,\"" D_CMND_SWITCHRETAIN "\":%d,\"" D_CMND_SENSORRETAIN "\":%d,\"" D_CMND_POWERRETAIN "\":%d}}"),
-                          ModuleNr(), SettingsText(SET_DEVICENAME), stemp, mqtt_topic,
+                          ModuleNr(), EscapeJSONString(SettingsText(SET_DEVICENAME)).c_str(), stemp, mqtt_topic,
                           SettingsText(SET_MQTT_BUTTON_TOPIC), power, Settings.poweronstate, Settings.ledstate,
                           Settings.ledmask, Settings.save_data,
                           Settings.flag.save_state,           // SetOption0 - Save power state and use after restart
@@ -436,14 +446,14 @@ void CmndStatus(void)
                           ",\"" D_JSON_BOOTVERSION "\":%d"
 #endif
                           ",\"" D_JSON_COREVERSION "\":\"" ARDUINO_CORE_RELEASE "\",\"" D_JSON_SDKVERSION "\":\"%s\","
-                          "\"Hardware\":\"%s\""
+                          "\"CpuFrequency\":%d,\"Hardware\":\"%s\""
                           "%s}}"),
                           my_version, my_image, GetBuildDateAndTime().c_str()
 #ifdef ESP8266
                           , ESP.getBootVersion()
 #endif
                           , ESP.getSdkVersion(),
-                          GetDeviceHardware().c_str(),
+                          ESP.getCpuFreqMHz(), GetDeviceHardware().c_str(),
                           GetStatistics().c_str());
     MqttPublishPrefixTopic_P(option, PSTR(D_CMND_STATUS "2"));
   }
@@ -451,25 +461,25 @@ void CmndStatus(void)
   if ((0 == payload) || (3 == payload)) {
     Response_P(PSTR("{\"" D_CMND_STATUS D_STATUS3_LOGGING "\":{\"" D_CMND_SERIALLOG "\":%d,\"" D_CMND_WEBLOG "\":%d,\"" D_CMND_MQTTLOG "\":%d,\"" D_CMND_SYSLOG "\":%d,\""
                           D_CMND_LOGHOST "\":\"%s\",\"" D_CMND_LOGPORT "\":%d,\"" D_CMND_SSID "\":[\"%s\",\"%s\"],\"" D_CMND_TELEPERIOD "\":%d,\""
-                          D_JSON_RESOLUTION "\":\"%08X\",\"" D_CMND_SETOPTION "\":[\"%08X\",\"%s\",\"%08X\",\"%08X\"]}}"),
+                          D_JSON_RESOLUTION "\":\"%08X\",\"" D_CMND_SETOPTION "\":[\"%08X\",\"%s\",\"%08X\",\"%08X\",\"%08X\"]}}"),
                           Settings.seriallog_level, Settings.weblog_level, Settings.mqttlog_level, Settings.syslog_level,
-                          SettingsText(SET_SYSLOG_HOST), Settings.syslog_port, SettingsText(SET_STASSID1), SettingsText(SET_STASSID2), Settings.tele_period,
+                          SettingsText(SET_SYSLOG_HOST), Settings.syslog_port, EscapeJSONString(SettingsText(SET_STASSID1)).c_str(), EscapeJSONString(SettingsText(SET_STASSID2)).c_str(), Settings.tele_period,
                           Settings.flag2.data, Settings.flag.data, ToHex_P((unsigned char*)Settings.param, PARAM8_SIZE, stemp2, sizeof(stemp2)),
-                          Settings.flag3.data, Settings.flag4.data);
+                          Settings.flag3.data, Settings.flag4.data, Settings.flag5.data);
     MqttPublishPrefixTopic_P(option, PSTR(D_CMND_STATUS "3"));
   }
 
   if ((0 == payload) || (4 == payload)) {
     Response_P(PSTR("{\"" D_CMND_STATUS D_STATUS4_MEMORY "\":{\"" D_JSON_PROGRAMSIZE "\":%d,\"" D_JSON_FREEMEMORY "\":%d,\"" D_JSON_HEAPSIZE "\":%d,\""
 #ifdef ESP32
-                          D_JSON_PSRMAXMEMORY "\":%d,\"" D_JSON_PSRFREEMEMORY "\":%d,"
+                          D_JSON_PSRMAXMEMORY "\":%d,\"" D_JSON_PSRFREEMEMORY "\":%d,\""
 #endif
                           D_JSON_PROGRAMFLASHSIZE "\":%d,\"" D_JSON_FLASHSIZE "\":%d"
 #ifdef ESP8266
                           ",\"" D_JSON_FLASHCHIPID "\":\"%06X\""
 #endif
-                          ",\"" D_JSON_FLASHMODE "\":%d,\""
-                          D_JSON_FEATURES "\":[\"%08X\",\"%08X\",\"%08X\",\"%08X\",\"%08X\",\"%08X\",\"%08X\"]"),
+                          ",\"FlashFrequency\":%d,\"" D_JSON_FLASHMODE "\":%d,\""
+                          D_JSON_FEATURES "\":[\"%08X\",\"%08X\",\"%08X\",\"%08X\",\"%08X\",\"%08X\",\"%08X\",\"%08X\"]"),
                           ESP_getSketchSize()/1024, ESP.getFreeSketchSpace()/1024, ESP_getFreeHeap()/1024,
 #ifdef ESP32
                           ESP.getPsramSize()/1024, ESP.getFreePsram()/1024,
@@ -478,8 +488,8 @@ void CmndStatus(void)
 #ifdef ESP8266
                           , ESP.getFlashChipId()
 #endif
-                          , ESP.getFlashChipMode(),
-                          LANGUAGE_LCID, feature_drv1, feature_drv2, feature_sns1, feature_sns2, feature5, feature6);
+                          , ESP.getFlashChipSpeed()/1000000, ESP.getFlashChipMode(),
+                          LANGUAGE_LCID, feature_drv1, feature_drv2, feature_sns1, feature_sns2, feature5, feature6, feature7);
     XsnsDriverState();
     ResponseAppend_P(PSTR(",\"Sensors\":"));
     XsnsSensorState();
@@ -491,8 +501,8 @@ void CmndStatus(void)
     Response_P(PSTR("{\"" D_CMND_STATUS D_STATUS5_NETWORK "\":{\"" D_CMND_HOSTNAME "\":\"%s\",\"" D_CMND_IPADDRESS "\":\"%s\",\"" D_JSON_GATEWAY "\":\"%s\",\""
                           D_JSON_SUBNETMASK "\":\"%s\",\"" D_JSON_DNSSERVER "\":\"%s\",\"" D_JSON_MAC "\":\"%s\",\""
                           D_CMND_WEBSERVER "\":%d,\"" D_CMND_WIFICONFIG "\":%d,\"" D_CMND_WIFIPOWER "\":%s}}"),
-                          my_hostname, WiFi.localIP().toString().c_str(), IPAddress(Settings.ip_address[1]).toString().c_str(),
-                          IPAddress(Settings.ip_address[2]).toString().c_str(), IPAddress(Settings.ip_address[3]).toString().c_str(), WiFi.macAddress().c_str(),
+                          NetworkHostname(), NetworkAddress().toString().c_str(), IPAddress(Settings.ip_address[1]).toString().c_str(),
+                          IPAddress(Settings.ip_address[2]).toString().c_str(), IPAddress(Settings.ip_address[3]).toString().c_str(), NetworkMacAddress().c_str(),
                           Settings.webserver, Settings.sta_config, WifiGetOutputPower().c_str());
     MqttPublishPrefixTopic_P(option, PSTR(D_CMND_STATUS "5"));
   }
@@ -500,8 +510,8 @@ void CmndStatus(void)
   if (((0 == payload) || (6 == payload)) && Settings.flag.mqtt_enabled) {  // SetOption3 - Enable MQTT
     Response_P(PSTR("{\"" D_CMND_STATUS D_STATUS6_MQTT "\":{\"" D_CMND_MQTTHOST "\":\"%s\",\"" D_CMND_MQTTPORT "\":%d,\"" D_CMND_MQTTCLIENT D_JSON_MASK "\":\"%s\",\""
                           D_CMND_MQTTCLIENT "\":\"%s\",\"" D_CMND_MQTTUSER "\":\"%s\",\"" D_JSON_MQTT_COUNT "\":%d,\"MAX_PACKET_SIZE\":%d,\"KEEPALIVE\":%d}}"),
-                          SettingsText(SET_MQTT_HOST), Settings.mqtt_port, SettingsText(SET_MQTT_CLIENT),
-                          mqtt_client, SettingsText(SET_MQTT_USER), MqttConnectCount(), MQTT_MAX_PACKET_SIZE, MQTT_KEEPALIVE);
+                          SettingsText(SET_MQTT_HOST), Settings.mqtt_port, EscapeJSONString(SettingsText(SET_MQTT_CLIENT)).c_str(),
+                          mqtt_client, EscapeJSONString(SettingsText(SET_MQTT_USER)).c_str(), MqttConnectCount(), MQTT_MAX_PACKET_SIZE, MQTT_KEEPALIVE);
     MqttPublishPrefixTopic_P(option, PSTR(D_CMND_STATUS "6"));
   }
 
@@ -528,9 +538,9 @@ void CmndStatus(void)
 #if defined(USE_ENERGY_SENSOR) && defined(USE_ENERGY_MARGIN_DETECTION)
   if (energy_flg) {
     if ((0 == payload) || (9 == payload)) {
-      Response_P(PSTR("{\"" D_CMND_STATUS D_STATUS9_MARGIN "\":{\"" D_CMND_POWERDELTA "\":%d,\"" D_CMND_POWERLOW "\":%d,\"" D_CMND_POWERHIGH "\":%d,\""
+      Response_P(PSTR("{\"" D_CMND_STATUS D_STATUS9_MARGIN "\":{\"" D_CMND_POWERDELTA "\":[%d,%d,%d],\"" D_CMND_POWERLOW "\":%d,\"" D_CMND_POWERHIGH "\":%d,\""
                             D_CMND_VOLTAGELOW "\":%d,\"" D_CMND_VOLTAGEHIGH "\":%d,\"" D_CMND_CURRENTLOW "\":%d,\"" D_CMND_CURRENTHIGH "\":%d}}"),
-                            Settings.energy_power_delta, Settings.energy_min_power, Settings.energy_max_power,
+                            Settings.energy_power_delta[0], Settings.energy_power_delta[1], Settings.energy_power_delta[2], Settings.energy_min_power, Settings.energy_max_power,
                             Settings.energy_min_voltage, Settings.energy_max_voltage, Settings.energy_min_current, Settings.energy_max_current);
       MqttPublishPrefixTopic_P(option, PSTR(D_CMND_STATUS "9"));
     }
@@ -563,6 +573,27 @@ void CmndStatus(void)
       MqttPublishPrefixTopic_P(option, PSTR(D_CMND_STATUS "12"));
     }
   }
+
+#ifdef USE_SHUTTER
+  if (Settings.flag3.shutter_mode) {
+    if ((0 == payload) || (13 == payload)) {
+      Response_P(PSTR("{\"" D_CMND_STATUS D_STATUS13_SHUTTER "\":"));
+      for (uint32_t i = 0; i < MAX_SHUTTERS; i++) {
+        if (0 == Settings.shutter_startrelay[i]) { break; }
+        if (i > 0) { ResponseAppend_P(PSTR(",")); }
+        ResponseAppend_P(PSTR("{\"" D_STATUS13_SHUTTER "%d\":{\"Relay1\":%d,\"Relay2\":%d,\"Open\":%d,\"Close\":%d,"
+                                    "\"50perc\":%d,\"Delay\":%d,\"Opt\":\"%s\","
+                                    "\"Calib\":\"%d:%d:%d:%d:%d\","
+                                    "\"Mode\":\"%d\"}"),
+                                    i, Settings.shutter_startrelay[i], Settings.shutter_startrelay[i] +1, Settings.shutter_opentime[i], Settings.shutter_closetime[i],
+                                    Settings.shutter_set50percent[i], Settings.shutter_motordelay[i], GetBinary(&Settings.shutter_options[i], 4).c_str(),
+                                    Settings.shuttercoeff[0][i], Settings.shuttercoeff[1][i], Settings.shuttercoeff[2][i], Settings.shuttercoeff[3][i], Settings.shuttercoeff[4][i],
+                                    Settings.shutter_mode);      }
+      ResponseJsonEnd();
+      MqttPublishPrefixTopic_P(option, PSTR(D_CMND_STATUS "13"));
+    }
+  }
+#endif
 
 #ifdef USE_SCRIPT_STATUS
   if (bitRead(Settings.rule_enabled, 0)) Run_Scripter(">U",2,mqtt_data);
@@ -618,12 +649,12 @@ void CmndGlobalTemp(void)
     if (!isnan(temperature) && Settings.flag.temperature_conversion) {    // SetOption8 - Switch between Celsius or Fahrenheit
       temperature = (temperature - 32) / 1.8;                             // Celsius
     }
-    if ((temperature >= -50.0) && (temperature <= 100.0)) {
+    if ((temperature >= -50.0f) && (temperature <= 100.0f)) {
       ConvertTemp(temperature);
       global_update = 1;  // Keep global values just entered valid
     }
   }
-  ResponseCmndFloat(global_temperature, 1);
+  ResponseCmndFloat(global_temperature_celsius, 1);
 }
 
 void CmndGlobalHum(void)
@@ -687,6 +718,11 @@ void CmndRestart(void)
   case 1:
     restart_flag = 2;
     ResponseCmndChar(D_JSON_RESTARTING);
+    break;
+  case 2:
+    restart_flag = 2;
+    restart_halt = true;
+    ResponseCmndChar(D_JSON_HALTING);
     break;
   case -1:
     CmndCrash();    // force a crash
@@ -791,7 +827,7 @@ void CmndSetoption(void)
 {
   snprintf_P(XdrvMailbox.command, CMDSZ, PSTR(D_CMND_SETOPTION));  // Rename result shortcut command SO to SetOption
 
-  if (XdrvMailbox.index < 114) {
+  if (XdrvMailbox.index < 146) {
     uint32_t ptype;
     uint32_t pindex;
     if (XdrvMailbox.index <= 31) {         // SetOption0 .. 31 = Settings.flag
@@ -806,9 +842,13 @@ void CmndSetoption(void)
       ptype = 3;
       pindex = XdrvMailbox.index -50;      // 0 .. 31
     }
-    else {                                 // SetOption82 .. 113 = Settings.flag4
+    else if (XdrvMailbox.index <= 113) {    // SetOption82 .. 113 = Settings.flag4
       ptype = 4;
       pindex = XdrvMailbox.index -82;      // 0 .. 31
+    }
+    else {                                 // SetOption114 .. 145 = Settings.flag5
+      ptype = 5;
+      pindex = XdrvMailbox.index -114;     // 0 .. 31
     }
 
     if (XdrvMailbox.payload >= 0) {
@@ -891,9 +931,18 @@ void CmndSetoption(void)
             switch (pindex) {
               case 3:                      // SetOption85 - Enable Device Groups
               case 6:                      // SetOption88 - PWM Dimmer Buttons control remote devices
+              case 15:                     // SetOption97 - Set Baud rate for TuyaMCU serial communication (0 = 9600 or 1 = 115200)
+              case 20:                     // SetOption102 - Set Baud rate for Teleinfo serial communication (0 = 1200 or 1 = 9600)
+              case 21:                     // SetOption103 - Enable TLS mode (requires TLS version)
+              case 22:                     // SetOption104 - No Retain - disable all MQTT retained messages, some brokers don't support it: AWS IoT, Losant
+              case 24:                     // SetOption106 - Virtual CT - Creates a virtual White ColorTemp for RGBW lights
+              case 25:                     // SetOption107 - Virtual CT Channel - signals whether the hardware white is cold CW (true) or warm WW (false)
                 restart_flag = 2;
                 break;
             }
+          }
+          else if (5 == ptype) {           // SetOption114 .. 145
+            bitWrite(Settings.flag5.data, pindex, XdrvMailbox.payload);
           }
         } else {
           ptype = 99;                      // Command Error
@@ -911,6 +960,9 @@ void CmndSetoption(void)
         }
         else if (4 == ptype) {
           flag = Settings.flag4.data;
+        }
+        else if (5 == ptype) {
+          flag = Settings.flag5.data;
         }
         ResponseCmndIdxChar(GetStateText(bitRead(flag, pindex)));
       }
@@ -1010,18 +1062,29 @@ void CmndModule(void)
       present = ValidTemplateModule(XdrvMailbox.payload);
     }
     if (present) {
-      Settings.last_module = Settings.module;
-      Settings.module = XdrvMailbox.payload;
-      SetModuleType();
-      if (Settings.last_module != XdrvMailbox.payload) {
-        for (uint32_t i = 0; i < ARRAY_SIZE(Settings.my_gp.io); i++) {
-          Settings.my_gp.io[i] = GPIO_NONE;
+      if (XdrvMailbox.index == 2) {
+        Settings.fallback_module = XdrvMailbox.payload;
+      } else {
+        Settings.last_module = Settings.module;
+        Settings.module = XdrvMailbox.payload;
+        SetModuleType();
+        if (Settings.last_module != XdrvMailbox.payload) {
+          for (uint32_t i = 0; i < ARRAY_SIZE(Settings.my_gp.io); i++) {
+            Settings.my_gp.io[i] = GPIO_NONE;
+          }
         }
+        restart_flag = 2;
       }
-      restart_flag = 2;
     }
   }
-  Response_P(S_JSON_COMMAND_NVALUE_SVALUE, XdrvMailbox.command, ModuleNr(), ModuleName().c_str());
+  uint8_t module_real = Settings.module;
+  uint8_t module_number = ModuleNr();
+  if (XdrvMailbox.index == 2) {
+    module_real = Settings.fallback_module;
+    module_number = (USER_MODULE == Settings.fallback_module) ? 0 : Settings.fallback_module +1;
+    strcat(XdrvMailbox.command, "2");
+  }
+  Response_P(S_JSON_COMMAND_NVALUE_SVALUE, XdrvMailbox.command, module_number, AnyModuleName(module_real).c_str());
 }
 
 void CmndModules(void)
@@ -1094,10 +1157,8 @@ void CmndGpio(void)
           }
         }
         char sindex[4] = { 0 };
-#ifdef ESP8266
-        uint32_t sensor_name_idx = sensor_type;
-#else  // ESP32
-        uint32_t sensor_name_idx = sensor_type >> 5;
+        uint32_t sensor_name_idx = BGPIO(sensor_type);
+#ifdef ESP32
         uint32_t nice_list_search = sensor_type & 0xFFE0;
         for (uint32_t j = 0; j < ARRAY_SIZE(kGpioNiceList); j++) {
           uint32_t nls_idx = pgm_read_word(kGpioNiceList + j);
@@ -1106,7 +1167,7 @@ void CmndGpio(void)
             break;
           }
         }
-#endif  // ESP8266 - ESP32
+#endif  // ESP32
         const char *sensor_names = kSensorNames;
         if (sensor_name_idx > GPIO_FIX_START) {
           sensor_name_idx = sensor_name_idx - GPIO_FIX_START -1;
@@ -1137,7 +1198,7 @@ void CmndGpios(void)
     uint32_t ridx = midx;
 #else  // ESP32
     uint32_t ridx = pgm_read_word(kGpioNiceList + i) & 0xFFE0;
-    uint32_t midx = ridx >> 5;
+    uint32_t midx = BGPIO(ridx);
 #endif  // ESP8266 - ESP32
     if ((XdrvMailbox.payload != 255) && GetUsedInModule(midx, cmodule.io)) { continue; }
     if (!jsflg) {
@@ -1219,29 +1280,31 @@ void CmndPwmfrequency(void)
 {
   if ((1 == XdrvMailbox.payload) || ((XdrvMailbox.payload >= PWM_MIN) && (XdrvMailbox.payload <= PWM_MAX))) {
     Settings.pwm_frequency = (1 == XdrvMailbox.payload) ? PWM_FREQ : XdrvMailbox.payload;
-#ifdef ESP8266
     analogWriteFreq(Settings.pwm_frequency);   // Default is 1000 (core_esp8266_wiring_pwm.c)
-#else
-    analogWriteFreqRange(0,Settings.pwm_frequency,Settings.pwm_range);
-#endif
   }
   ResponseCmndNumber(Settings.pwm_frequency);
 }
 
-void CmndPwmrange(void)
-{
+void CmndPwmrange(void) {
+  // Support only 8 (=255), 9 (=511) and 10 (=1023) bits resolution
   if ((1 == XdrvMailbox.payload) || ((XdrvMailbox.payload > 254) && (XdrvMailbox.payload < 1024))) {
-    Settings.pwm_range = (1 == XdrvMailbox.payload) ? PWM_RANGE : XdrvMailbox.payload;
+    uint32_t pwm_range = XdrvMailbox.payload;
+    uint32_t pwm_resolution = 0;
+    while (pwm_range) {
+      pwm_resolution++;
+      pwm_range >>= 1;
+    }
+    pwm_range = (1 << pwm_resolution) - 1;
+    uint32_t old_pwm_range = Settings.pwm_range;
+    Settings.pwm_range = (1 == XdrvMailbox.payload) ? PWM_RANGE : pwm_range;
     for (uint32_t i = 0; i < MAX_PWMS; i++) {
       if (Settings.pwm_value[i] > Settings.pwm_range) {
         Settings.pwm_value[i] = Settings.pwm_range;
       }
     }
-#ifdef ESP8266
-    analogWriteRange(Settings.pwm_range);      // Default is 1023 (Arduino.h)
-#else
-    analogWriteFreqRange(0,Settings.pwm_frequency,Settings.pwm_range);
-#endif
+    if (Settings.pwm_range != old_pwm_range) {  // On ESP32 this prevents loss of duty state
+      analogWriteRange(Settings.pwm_range);     // Default is 1023 (Arduino.h)
+    }
   }
   ResponseCmndNumber(Settings.pwm_range);
 }
@@ -1256,7 +1319,7 @@ void CmndButtonDebounce(void)
 
 void CmndSwitchDebounce(void)
 {
-  if ((XdrvMailbox.payload > 39) && (XdrvMailbox.payload < 1001)) {
+  if ((XdrvMailbox.payload > 39) && (XdrvMailbox.payload < 1010)) {
     Settings.switch_debounce = XdrvMailbox.payload;
   }
   ResponseCmndNumber(Settings.switch_debounce);
@@ -1316,7 +1379,7 @@ void CmndSerialConfig(void)
 
 void CmndSerialSend(void)
 {
-  if ((XdrvMailbox.index > 0) && (XdrvMailbox.index <= 5)) {
+  if ((XdrvMailbox.index > 0) && (XdrvMailbox.index <= 6)) {
     SetSeriallog(LOG_LEVEL_NONE);
     Settings.flag.mqtt_serial = 1;                                  // CMND_SERIALSEND and CMND_SERIALLOG
     Settings.flag.mqtt_serial_raw = (XdrvMailbox.index > 3) ? 1 : 0;  // CMND_SERIALSEND3
@@ -1335,6 +1398,9 @@ void CmndSerialSend(void)
       }
       else if (5 == XdrvMailbox.index) {
         SerialSendRaw(RemoveSpace(XdrvMailbox.data));               // "AA004566" as hex values
+      }
+      else if (6 == XdrvMailbox.index) {
+        SerialSendDecimal(XdrvMailbox.data);
       }
       ResponseCmndDone();
     }
@@ -1423,9 +1489,10 @@ void CmndAp(void)
     case 2:  // AP2
       Settings.sta_active = XdrvMailbox.payload -1;
     }
+    Settings.wifi_channel = 0;  // Disable stored AP
     restart_flag = 2;
   }
-  Response_P(S_JSON_COMMAND_NVALUE_SVALUE, XdrvMailbox.command, Settings.sta_active +1, SettingsText(SET_STASSID1 + Settings.sta_active));
+  Response_P(S_JSON_COMMAND_NVALUE_SVALUE, XdrvMailbox.command, Settings.sta_active +1, EscapeJSONString(SettingsText(SET_STASSID1 + Settings.sta_active)).c_str());
 }
 
 void CmndSsid(void)
@@ -1486,6 +1553,15 @@ void CmndWifiConfig(void)
   }
   char stemp1[TOPSZ];
   Response_P(S_JSON_COMMAND_NVALUE_SVALUE, XdrvMailbox.command, Settings.sta_config, GetTextIndexed(stemp1, sizeof(stemp1), Settings.sta_config, kWifiConfig));
+}
+
+void CmndWifi(void)
+{
+  if ((XdrvMailbox.payload >= 0) && (XdrvMailbox.payload <= 1)) {
+    Settings.flag4.network_wifi = XdrvMailbox.payload;
+    restart_flag = 2;
+  }
+  ResponseCmndStateText(Settings.flag4.network_wifi);
 }
 
 void CmndDevicename(void)
@@ -1598,7 +1674,8 @@ void CmndInterlock(void)
     }
     ResponseAppend_P(PSTR("\"}"));
   } else {
-    Settings.flag.interlock = 0;                                // CMND_INTERLOCK - Enable/disable interlock
+    // never ever reset interlock mode inadvertently if we forced it upon compilation
+    Settings.flag.interlock = APP_INTERLOCK_MODE;               // CMND_INTERLOCK - Enable/disable interlock
     ResponseCmndStateText(Settings.flag.interlock);
   }
 }
@@ -1641,12 +1718,12 @@ void CmndTime(void)
 // payload 1 = Time format {"Time":"2019-09-04T14:31:29"}
 // payload 2 = Time format {"Time":"2019-09-04T14:31:29","Epoch":1567600289}
 // payload 3 = Time format {"Time":1567600289}
-// payload 4 = reserved
+// payload 4 = Time format {"Time":"2019-09-04T14:31:29.123"}
 // payload 1451602800 - disable NTP and set time to epoch
 
   uint32_t format = Settings.flag2.time_format;
   if (XdrvMailbox.data_len > 0) {
-    if ((XdrvMailbox.payload > 0) && (XdrvMailbox.payload < 4)) {
+    if ((XdrvMailbox.payload > 0) && (XdrvMailbox.payload < 5)) {
       Settings.flag2.time_format = XdrvMailbox.payload -1;
       format = Settings.flag2.time_format;
     } else {
@@ -1746,8 +1823,9 @@ void CmndAltitude(void)
   ResponseCmndNumber(Settings.altitude);
 }
 
-void CmndLedPower(void)
-{
+void CmndLedPower(void) {
+  // If GPIO_LEDLINK (used for network status) then allow up to 4 GPIO_LEDx control using led_power
+  // If no GPIO_LEDLINK then allow legacy single led GPIO_LED1 control using Settings.ledstate
   if ((XdrvMailbox.index > 0) && (XdrvMailbox.index <= MAX_LEDS)) {
     if (!PinUsed(GPIO_LEDLNK)) { XdrvMailbox.index = 1; }
     if ((XdrvMailbox.payload >= 0) && (XdrvMailbox.payload <= 2)) {
@@ -1782,8 +1860,7 @@ void CmndLedPower(void)
   }
 }
 
-void CmndLedState(void)
-{
+void CmndLedState(void) {
   if ((XdrvMailbox.payload >= 0) && (XdrvMailbox.payload < MAX_LED_OPTION)) {
     Settings.ledstate = XdrvMailbox.payload;
     if (!Settings.ledstate) {
@@ -1794,14 +1871,66 @@ void CmndLedState(void)
   ResponseCmndNumber(Settings.ledstate);
 }
 
-void CmndLedMask(void)
-{
+void CmndLedMask(void) {
   if (XdrvMailbox.data_len > 0) {
     Settings.ledmask = XdrvMailbox.payload;
   }
   char stemp1[TOPSZ];
   snprintf_P(stemp1, sizeof(stemp1), PSTR("%d (0x%04X)"), Settings.ledmask, Settings.ledmask);
   ResponseCmndChar(stemp1);
+}
+
+void CmndLedPwmOff(void) {
+  if (XdrvMailbox.data_len > 0) {
+    if (XdrvMailbox.payload < 0) {
+      Settings.ledpwm_off = 0;
+    }
+    else if (XdrvMailbox.payload > 255) {
+      Settings.ledpwm_off = 255;
+    } else {
+      Settings.ledpwm_off = XdrvMailbox.payload;
+    }
+    UpdateLedPowerAll();
+  }
+  ResponseCmndNumber(Settings.ledpwm_off);
+}
+
+void CmndLedPwmOn(void) {
+  if (XdrvMailbox.data_len > 0) {
+    if (XdrvMailbox.payload < 0) {
+      Settings.ledpwm_on = 0;
+    }
+    else if (XdrvMailbox.payload > 255) {
+      Settings.ledpwm_on = 255;
+    } else {
+      Settings.ledpwm_on = XdrvMailbox.payload;
+    }
+    UpdateLedPowerAll();
+  }
+  ResponseCmndNumber(Settings.ledpwm_on);
+}
+
+void CmndLedPwmMode(void) {
+  if ((XdrvMailbox.index > 0) && (XdrvMailbox.index <= MAX_LEDS)) {
+    if (!PinUsed(GPIO_LEDLNK)) { XdrvMailbox.index = 1; }
+    if ((XdrvMailbox.payload >= 0) && (XdrvMailbox.payload <= 2)) {
+      uint32_t mask = 1 << (XdrvMailbox.index -1);        // Led to configure
+      switch (XdrvMailbox.payload) {
+      case 0: // digital
+        Settings.ledpwm_mask &= (0xFF ^ mask);
+        break;
+      case 1: // pwm
+        Settings.ledpwm_mask |= mask;
+        break;
+      case 2: // toggle
+        Settings.ledpwm_mask ^= mask;
+        break;
+      }
+      UpdateLedPowerAll();
+    }
+    bool state = bitRead(Settings.ledpwm_mask, XdrvMailbox.index -1);
+    ResponseCmndIdxChar(GetStateText(state));
+  }
 }
 
 void CmndWifiPower(void)
@@ -1890,3 +2019,49 @@ void CmndDriver(void)
 {
   XdrvCall(FUNC_COMMAND_DRIVER);
 }
+
+#ifdef ESP32
+
+void CmndCpuFrequency(void) {
+  if ((80 == XdrvMailbox.payload) || (160 == XdrvMailbox.payload) || (240 == XdrvMailbox.payload)) {
+    setCpuFrequencyMhz(XdrvMailbox.payload);
+  }
+  ResponseCmndNumber(getCpuFrequencyMhz());
+}
+
+void CmndTouchCal(void)
+{
+  if (XdrvMailbox.payload >= 0) {
+    if (XdrvMailbox.payload < MAX_KEYS + 1) TOUCH_BUTTON.calibration = bitSet(TOUCH_BUTTON.calibration, XdrvMailbox.payload);
+    if (XdrvMailbox.payload == 0) TOUCH_BUTTON.calibration = 0;
+    if (XdrvMailbox.payload == 255) TOUCH_BUTTON.calibration = 255; // all pinss
+  }
+  Response_P(PSTR("{\"" D_CMND_TOUCH_CAL "\": %u"), TOUCH_BUTTON.calibration);
+  ResponseJsonEnd();
+  AddLog_P2(LOG_LEVEL_INFO, PSTR("Button Touchvalue Hits,"));
+}
+
+void CmndTouchThres(void)
+{
+  if (XdrvMailbox.payload >= 0) {
+    if (XdrvMailbox.payload<256){
+      TOUCH_BUTTON.pin_threshold = XdrvMailbox.payload;
+    }
+  }
+  Response_P(PSTR("{\"" D_CMND_TOUCH_THRES "\": %u"), TOUCH_BUTTON.pin_threshold);
+  ResponseJsonEnd();
+}
+
+void CmndTouchNum(void)
+{
+  if (XdrvMailbox.payload >= 0) {
+    if (XdrvMailbox.payload<32){
+      TOUCH_BUTTON.hit_threshold = XdrvMailbox.payload;
+    }
+  }
+  Response_P(PSTR("{\"" D_CMND_TOUCH_NUM "\": %u"), TOUCH_BUTTON.hit_threshold);
+  ResponseJsonEnd();
+
+}
+
+#endif //ESP32

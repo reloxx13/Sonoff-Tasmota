@@ -1,18 +1,14 @@
 /*
   fr-FR.h - localization for French - France for Tasmota
-
   Copyright (C) 2020  Olivier Francais
-
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
-
   You should have received a copy of the GNU General Public License
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
@@ -28,7 +24,7 @@
  * Use online command StateText to translate ON, OFF, HOLD and TOGGLE.
  * Use online command Prefix to translate cmnd, stat and tele.
  *
- * Updated until v8.1.0.1
+ * Updated until v8.4.0.3
 \*********************************************************************/
 
 #define LANGUAGE_MODULE_NAME         // Enable to display "Module Generic" (ie Spanish), Disable to display "Generic Module" (ie English)
@@ -56,6 +52,7 @@
 #define D_AP "AP"                    // Access Point
 #define D_AS "comme"
 #define D_AUTO "AUTO"
+#define D_BATT "Batt"                // Short for Battery
 #define D_BLINK "Blink"
 #define D_BLINKOFF "BlinkOff"
 #define D_BOOT_COUNT "Nombre de boot"
@@ -83,7 +80,7 @@
 #define D_DISABLED "Désactivé"
 #define D_DISTANCE "Distance"
 #define D_DNS_SERVER "Serveur DNS"
-#define D_DONE "Fait"
+#define D_DONE "Terminé"
 #define D_DST_TIME "DST"
 #define D_ECO2 "eCO₂"
 #define D_EMULATION "Émulation"
@@ -98,8 +95,8 @@
 #define D_FILE "Fichier"
 #define D_FLOW_RATE "Débit"
 #define D_FREE_MEMORY "Mémoire libre"
-#define D_PSR_MAX_MEMORY "PS-RAM Memory"
-#define D_PSR_FREE_MEMORY "PS-RAM free Memory"
+#define D_PSR_MAX_MEMORY "Mémoire PS-RAM"
+#define D_PSR_FREE_MEMORY "Mémoire PS-RAM libre"
 #define D_FREQUENCY "Fréquence"
 #define D_GAS "Gaz"
 #define D_GATEWAY "Passerelle"
@@ -116,6 +113,7 @@
 #define D_IP_ADDRESS "Adresse IP"
 #define D_LIGHT "Lumière"
 #define D_LWT "LWT"
+#define D_LQI "LQI"                  // Zigbee Link Quality Index
 #define D_MODULE "Module"
 #define D_MOISTURE "Humidité"
 #define D_MQTT "MQTT"
@@ -302,9 +300,10 @@
 #define D_OTHER_PARAMETERS "Autres paramètres"
 #define D_TEMPLATE "Modèle"
 #define D_ACTIVATE "Activer"
-#define D_DEVICE_NAME "Device Name"
+#define D_DEVICE_NAME "Nom de l'appareil"
 #define D_WEB_ADMIN_PASSWORD "Mot de passe Web Admin"
 #define D_MQTT_ENABLE "MQTT activé"
+#define D_MQTT_TLS_ENABLE "MQTT TLS"
 #define D_FRIENDLY_NAME "Surnom"
 #define D_BELKIN_WEMO "Belkin WeMo"
 #define D_HUE_BRIDGE "Hue Bridge"
@@ -333,6 +332,7 @@
 #define D_MQTT_TOPIC "Topic MQTT"
 #define D_MQTT_GROUP_TOPIC "Groupe topic MQTT"
 #define D_MQTT_FULL_TOPIC "Topic complet MQTT"
+#define D_MQTT_NO_RETAIN "MQTT No Retain"
 #define D_MDNS_DISCOVERY "Découverte mDNS"
 #define D_MDNS_ADVERTISE "Annonce mDNS"
 #define D_ESP_CHIP_ID "ESP Chip Id"
@@ -347,6 +347,8 @@
 #define D_UPLOAD_STARTED "Téléchargement lancé"
 #define D_UPGRADE_STARTED "Mise à jour lancée"
 #define D_UPLOAD_DONE "Téléchargement terminé"
+#define D_UPLOAD_TRANSFER "Transfert ZigBee"
+#define D_TRANSFER_STARTED "Transfert lancé"
 #define D_UPLOAD_ERR_1 "Aucun fichier sélectionné"
 #define D_UPLOAD_ERR_2 "Espace insuffisant"
 #define D_UPLOAD_ERR_3 "L'octet magique n'est pas 0xE9"
@@ -445,6 +447,8 @@
 #define D_KNX_ENHANCEMENT "Amélioration de la communication"
 #define D_KNX_TX_SLOT "KNX TX"
 #define D_KNX_RX_SLOT "KNX RX"
+#define D_KNX_TX_SCENE "KNX Scène TX"
+#define D_KNX_RX_SCENE "KNX Scène RX"
 
 // xsns_03_energy.ino
 #define D_ENERGY_TODAY "Énergie aujourd'hui"
@@ -478,7 +482,7 @@
 
 // xsns_07_sht1x.ino
 #define D_SENSOR_DID_NOT_ACK_COMMAND "Le capteur n'a pas acquitté la commande"
-#define D_SHT1X_FOUND "SHT1X found"
+#define D_SHT1X_FOUND "SHT1X trouvé"
 
 // xsns_18_pms5003.ino
 #define D_STANDARD_CONCENTRATION "CF-1 PM"     // Standard Particle CF-1 Particle Matter
@@ -525,24 +529,24 @@
 #define D_TX20_WEST "O"
 
 // xsns_53_sml.ino
-#define D_TPWRIN "Energy Total-In"
-#define D_TPWROUT "Energy Total-Out"
-#define D_TPWRCURR "Active Power-In/Out"
-#define D_TPWRCURR1 "Active Power-In p1"
-#define D_TPWRCURR2 "Active Power-In p2"
-#define D_TPWRCURR3 "Active Power-In p3"
-#define D_Strom_L1 "Current L1"
-#define D_Strom_L2 "Current L2"
-#define D_Strom_L3 "Current L3"
-#define D_Spannung_L1 "Voltage L1"
-#define D_Spannung_L2 "Voltage L2"
-#define D_Spannung_L3 "Voltage L3"
-#define D_METERNR "Meter_number"
+#define D_TPWRIN "Energie totale Entrée"
+#define D_TPWROUT "Energie totale Sortie"
+#define D_TPWRCURR "Puissance active E/S"
+#define D_TPWRCURR1 "Puissance active Ent Ph1"
+#define D_TPWRCURR2 "Puissance active Ent Ph2"
+#define D_TPWRCURR3 "Puissance active Ent Ph3"
+#define D_Strom_L1 "Courant Ph1"
+#define D_Strom_L2 "Courant Ph2"
+#define D_Strom_L3 "Courant Ph3"
+#define D_Spannung_L1 "Tension Ph1"
+#define D_Spannung_L2 "Tension Ph2"
+#define D_Spannung_L3 "Tension Ph3"
+#define D_METERNR "Numéro compteur"
 #define D_METERSID "Service ID"
-#define D_GasIN "Compteur"
-#define D_H2oIN "Compteur"
-#define D_StL1L2L3 "Current L1+L2+L3"
-#define D_SpL1L2L3 "Voltage L1+L2+L3/3"
+#define D_GasIN "Compteur Gaz"
+#define D_H2oIN "Compteur Eau"
+#define D_StL1L2L3 "Courant Ph1+Ph2+Ph3"
+#define D_SpL1L2L3 "Tension (Ph1+Ph2+Ph3)/3"
 
 // tasmota_template.h - keep them as short as possible to be able to fit them in GUI drop down box
 #define D_SENSOR_NONE          "Aucun"
@@ -615,6 +619,7 @@
 #define D_SENSOR_MAX31855_CS   "MX31855 CS"
 #define D_SENSOR_MAX31855_CLK  "MX31855 CLK"
 #define D_SENSOR_MAX31855_DO   "MX31855 DO"
+#define D_SENSOR_MAX31865_CS   "MX31865 CS"
 #define D_SENSOR_NRG_SEL       "HLWBL SEL"  // Suffix "i"
 #define D_SENSOR_NRG_CF1       "HLWBL CF1"
 #define D_SENSOR_HLW_CF        "HLW8012 CF"
@@ -643,6 +648,7 @@
 #define D_SENSOR_OLED_RESET    "OLED Reset"
 #define D_SENSOR_ZIGBEE_TXD    "Zigbee TX"
 #define D_SENSOR_ZIGBEE_RXD    "Zigbee RX"
+#define D_SENSOR_ZIGBEE_RST    "Zigbee Rst"
 #define D_SENSOR_SOLAXX1_TX    "SolaxX1 TX"
 #define D_SENSOR_SOLAXX1_RX    "SolaxX1 RX"
 #define D_SENSOR_IBEACON_TX    "iBeacon TX"
@@ -663,21 +669,33 @@
 #define D_SENSOR_SM2135_DAT    "SM2135 Dat"
 #define D_SENSOR_DEEPSLEEP     "Hibernation"
 #define D_SENSOR_EXS_ENABLE    "EXS Enable"
-#define D_SENSOR_SLAVE_TX      "Esclave TX"
-#define D_SENSOR_SLAVE_RX      "Esclave RX"
-#define D_SENSOR_SLAVE_RESET   "Esclave Rst"
+#define D_SENSOR_CLIENT_TX      "Esclave TX"
+#define D_SENSOR_CLIENT_RX      "Esclave RX"
+#define D_SENSOR_CLIENT_RESET   "Esclave Rst"
 #define D_SENSOR_GPS_RX        "GPS RX"
 #define D_SENSOR_GPS_TX        "GPS TX"
 #define D_SENSOR_HM10_RX       "HM10 RX"
 #define D_SENSOR_HM10_TX       "HM10 TX"
 #define D_SENSOR_LE01MR_RX     "LE-01MR Rx"
 #define D_SENSOR_LE01MR_TX     "LE-01MR Tx"
+#define D_SENSOR_BL0940_RX     "BL0940 Rx"
 #define D_SENSOR_CC1101_GDO0   "CC1101 GDO0"
 #define D_SENSOR_CC1101_GDO2   "CC1101 GDO2"
 #define D_SENSOR_HRXL_RX       "HRXL Rx"
+#define D_SENSOR_DYP_RX        "DYP Rx"
 #define D_SENSOR_ELECTRIQ_MOODL "MOODL Tx"
 #define D_SENSOR_AS3935        "AS3935"
-#define D_SENSOR_WINDMETER_SPEED "WindMeter Spd"
+#define D_SENSOR_WINDMETER_SPEED "Anémomètre"
+#define D_SENSOR_TELEINFO_RX   "TInfo Rx"
+#define D_SENSOR_TELEINFO_ENABLE "TInfo En"
+#define D_SENSOR_LMT01_PULSE   "LMT01 Impulsion"
+#define D_SENSOR_ADC_INPUT     "ADC Entrée"
+#define D_SENSOR_ADC_TEMP      "ADC Temp"
+#define D_SENSOR_ADC_LIGHT     "ADC Lumière"
+#define D_SENSOR_ADC_BUTTON    "ADC Bouton"
+#define D_SENSOR_ADC_RANGE     "ADC Distance"
+#define D_SENSOR_ADC_CT_POWER  "ADC CT Power"
+#define D_SENSOR_ADC_JOYSTICK  "ADC Manette"
 #define D_GPIO_WEBCAM_PWDN     "CAM_PWDN"
 #define D_GPIO_WEBCAM_RESET    "CAM_RESET"
 #define D_GPIO_WEBCAM_XCLK     "CAM_XCLK"
@@ -690,7 +708,13 @@
 #define D_GPIO_WEBCAM_PSCLK    "CAM_PSCLK"
 #define D_GPIO_WEBCAM_HSD      "CAM_HSD"
 #define D_GPIO_WEBCAM_PSRCS    "CAM_PSRCS"
-
+#define D_SENSOR_ETH_PHY_POWER "ETH POWER"
+#define D_SENSOR_ETH_PHY_MDC   "ETH MDC"
+#define D_SENSOR_ETH_PHY_MDIO  "ETH MDIO"
+#define D_SENSOR_TCP_TXD       "TCP Tx"
+#define D_SENSOR_TCP_RXD       "TCP Rx"
+#define D_SENSOR_IEM3000_TX    "iEM3000 TX"
+#define D_SENSOR_IEM3000_RX    "iEM3000 RX"
 // Units
 #define D_UNIT_AMPERE "A"
 #define D_UNIT_CELSIUS "C"
@@ -730,7 +754,6 @@
 #define D_UNIT_WATT "W"
 #define D_UNIT_WATTHOUR "Wh"
 #define D_UNIT_WATT_METER_QUADRAT "W/m²"
-
 //SDM220, SDM120, LE01MR
 #define D_PHASE_ANGLE     "Angle de phase"
 #define D_IMPORT_ACTIVE   "Énergie act conso"
@@ -766,45 +789,51 @@
 #define D_SOLAX_ERROR_6   "Défaut Surchauffe"
 #define D_SOLAX_ERROR_7   "Défaut Ventilateur"
 #define D_SOLAX_ERROR_8   "Défaut Autre équipement"
-
 //xdrv_10_scripter.ino
-#define D_CONFIGURE_SCRIPT     "Edit script"
-#define D_SCRIPT               "edit script"
-#define D_SDCARD_UPLOAD        "file upload"
-#define D_SDCARD_DIR           "sd card directory"
-#define D_UPL_DONE             "Done"
-#define D_SCRIPT_CHARS_LEFT    "chars left"
-#define D_SCRIPT_CHARS_NO_MORE "no more chars"
+#define D_CONFIGURE_SCRIPT     "Éditer le script"
+#define D_SCRIPT               "édition du script"
+#define D_SDCARD_UPLOAD        "Envoi du fichier"
+#define D_SDCARD_DIR           "Dossier carte SD"
+#define D_UPL_DONE             "Terminé"
+#define D_SCRIPT_CHARS_LEFT    "car. restant"
+#define D_SCRIPT_CHARS_NO_MORE "plus de car."
 #define D_SCRIPT_DOWNLOAD      "Download"
-#define D_SCRIPT_ENABLE        "script enable"
-#define D_SCRIPT_UPLOAD        "Upload"
-#define D_SCRIPT_UPLOAD_FILES  "Upload files"
-
+#define D_SCRIPT_ENABLE        "script actif"
+#define D_SCRIPT_UPLOAD        "Envoi"
+#define D_SCRIPT_UPLOAD_FILES  "Envoi de fichiers"
 //xsns_67_as3935.ino
 #define D_AS3935_GAIN "gain:"
-#define D_AS3935_ENERGY "energy:"
+#define D_AS3935_ENERGY "energie:"
 #define D_AS3935_DISTANCE "distance:"
-#define D_AS3935_DISTURBER "disturber:"
+#define D_AS3935_DISTURBER "interférence:"
 #define D_AS3935_VRMS "µVrms:"
-#define D_AS3935_APRX "aprx.:"
-#define D_AS3935_AWAY "away"
-#define D_AS3935_LIGHT "lightning"
-#define D_AS3935_OUT "lightning out of range"
-#define D_AS3935_NOT "distance not determined"
-#define D_AS3935_ABOVE "lightning overhead"
-#define D_AS3935_NOISE "noise detected"
-#define D_AS3935_DISTDET "disturber detected"
-#define D_AS3935_INTNOEV "Interrupt with no Event!"
-#define D_AS3935_NOMESS "listening..."
-#define D_AS3935_ON "On"
-#define D_AS3935_OFF "Off"
-#define D_AS3935_INDOORS "Indoors"
-#define D_AS3935_OUTDOORS "Outdoors"
-#define D_AS3935_CAL_FAIL "calibration failed"
-#define D_AS3935_CAL_OK "calibration set to:"
-
+#define D_AS3935_APRX "approx.:"
+#define D_AS3935_AWAY "de distance"
+#define D_AS3935_LIGHT "éclair"
+#define D_AS3935_OUT "éclair éloigné"
+#define D_AS3935_NOT "distance indéterminée"
+#define D_AS3935_ABOVE "éclair trop intense"
+#define D_AS3935_NOISE "bruit détecté"
+#define D_AS3935_DISTDET "interférence détectée"
+#define D_AS3935_INTNOEV "Interruption sans évenement!"
+#define D_AS3935_FLICKER "IRQ flicker!"
+#define D_AS3935_POWEROFF "Power Off"
+#define D_AS3935_NOMESS "en écoute..."
+#define D_AS3935_ON "Actif"
+#define D_AS3935_OFF "Inactif"
+#define D_AS3935_INDOORS "Intérieur"
+#define D_AS3935_OUTDOORS "Extérieur"
+#define D_AS3935_CAL_FAIL "défaut de calibration"
+#define D_AS3935_CAL_OK "calibration établie à :"
 //xsns_68_opentherm.ino
 #define D_SENSOR_BOILER_OT_RX   "OpenTherm RX"
 #define D_SENSOR_BOILER_OT_TX   "OpenTherm TX"
-
+// xnrg_15_teleinfo Denky (Teleinfo)
+#define D_CONTRACT        "Type contrat"
+#define D_POWER_LOAD      "Charge actuelle"
+#define D_CURRENT_TARIFF  "Tarif en cours"
+#define D_TARIFF          "Tarif"
+#define D_OVERLOAD        "ADPS"
+#define D_MAX_POWER       "Puissance max"
+#define D_MAX_CURRENT     "Courant max"
 #endif  // _LANGUAGE_FR_FR_H_

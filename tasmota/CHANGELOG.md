@@ -1,11 +1,141 @@
+## Released
+
 ## Unreleased (development)
+
+### 8.5.0.1 20200907
+
+- Fix energy total counters (#9263, #9266)
+- Fix crash in ``ZbRestore``
+- Fix reset BMP sensors when executing command ``SaveData`` and define USE_DEEPSLEEP enabled (#9300)
+- Fix ``status 0`` message when using define USE_MQTT_TLS due to small log buffer (#9305)
+- Change replace ArduinoJson with JSMN for JSON parsing
+- Add command ``SetOption110 1`` to disable Zigbee auto-config when pairing new devices
+- Add command ``SetOption111 1`` to enable frequency output for buzzer GPIO (#8994)
+- Add command ``SetOption112 1`` to enable friendly name in zigbee topic (use with SetOption89)
+- Add ``#define USE_MQTT_AWS_IOT_LIGHT`` for password based AWS IoT authentication
+- Add new shutter modes (#9244)
+- Add Zigbee auto-config when pairing
+- Add support for MLX90640 IR array temperature sensor by Christian Baars
+
+### 8.5.0 20200907
+
+- Release Hannah
+
+### 8.4.0.3 20200823
+
+- Change references from http://thehackbox.org/tasmota/ to http://ota.tasmota.com/tasmota/
+- Add command ``PowerDelta1`` to ``PowerDelta3`` to trigger on up to three phases (#9134)
+- Add Zigbee web ui widget for Lights
+- Add ``SetOption109 1`` to force gen1 Alexa mode, for Echo Dot 2nd gen devices only
+- Add Zigbee web ui for power metering plugs
+- Add experimental support for ESP32 TTGO Watch and I2S Audio by Gerhard Mutz
+
+### 8.4.0.2 20200813
+
+- Remove support for direct upgrade from versions before 6.6.0.11 to versions after 8.4.0.1
+- Change White blend mode moved to using ``SetOption 105`` instead of ``RGBWWTable``
+- Fix display power control (#9114)
+- Add command ``SetOption103 0/1`` to set TLS mode when TLS is selected
+- Add command ``SetOption104 1`` to disable all MQTT retained messages
+- Add command ``SetOption106 1`` to create a virtual White ColorTemp for RGBW lights
+- Add command ``SetOption107 0/1`` to select virtual White as (0) Warm or (1) Cold
+- Add command ``SetOption108 0/1`` to enable Teleinfo telemetry into Tasmota Energy MQTT (0) or Teleinfo only (1) - Add better config corruption recovery (#9046)
+- Add virtual CT for 4 channels lights, emulating a 5th channel
+- Add support for DYP ME007 ultrasonic distance sensor by Janusz Kostorz (#9113)
+- Add Zigbee web gui widget for Temp/Humidity/Pressure sensors
+- Add Zigbee battery icon
+
+### 8.4.0.1 20200730
+
+- Fix ESP32 PWM range
+- Add Zigbee better support for IKEA Motion Sensor
+- Add ESP32 Analog input support for GPIO32 to GPIO39
+- Add Zigbee options to ``ZbSend`` ``Config`` and ``ReadCondig``
+- Add command ``Restart 2`` to halt system. Needs hardware reset or power cycle to restart (#9046)
+- Add command ``SetOption102 0/1`` to switch between Teleinfo French Metering mode, legacy 1200 bps (0) or Linky standard 9600 bps (1)
+- Change triple-mode TLS via configuration in a single firmware (TLS AWS IoT, Letsencrypt and No-TLS)
+
+### 8.4.0 20200730
+
+- Release George
+
+### 8.3.1.7 20200716
+
+- Remove Arduino ESP8266 Core support for versions before 2.7.1
+- Change to limited support of Arduino IDE as an increasing amount of features cannot be compiled with Arduino IDE
+- Change all timer references from ``Arm`` to ``Enable`` in GUI, ``Timer`` command and JSON message
+- Change Domoticz commands prefix from ``Domoticz`` to ``Dz``
+- Change ``Ping`` now reports the hostname instead of IP address (#8948)
+- Change Zigbee randomizing of parameters at first run or after Reset
+- Add command ``DzSend<type> <index>,<value1(;value2)|state>`` to send values or state to Domoticz
+- Add command ``SetOption100 0/1`` to remove Zigbee ``ZbReceived`` value from ``{"ZbReceived":{xxx:yyy}}`` JSON message
+- Add command ``SetOption101 0/1`` to add the Zigbee source endpoint as suffix to attributes, ex `Power3` instead of `Power` if sent from endpoint 3
+- Add command (``S``)``SerialSend6`` \<comma seperated values\> (#8937)
+- Add support for Sonoff Zigbee Bridge as module 75 (#8583)
+
+### 8.3.1.6 20200617
+
+- Add command ``Module2`` to configure fallback module on fast reboot (#8464)
+- Add command ``SetOption97 0/1`` to switch between Tuya serial speeds 9600 bps (0) or 115200 bps (1)
+- Add command ``SetOption98 0/1`` to provide rotary rule triggers (1) instead of controlling light (0)
+- Add command ``SetOption99 0/1`` to enable zero cross detection on PWM dimmer
+- Add support for Energy sensor (Denky) for French Smart Metering meter provided by global Energy Providers, need a adaptater. See dedicated full [blog](http://hallard.me/category/tinfo/) about French teleinformation stuff
+- Add library to be used for decoding Teleinfo (French Metering Smart Meter)
+- Add support for single wire LMT01 temperature Sensor by justifiably (#8713)
+- Add compile time interlock parameters (#8759)
+- Add compile time user template (#8766)
+- Add rotary encoder support for light dimmer and optional color temperature if button1 still pressed (#8670)
+- Add support for switches/relays using an AC detection circuitry e.g. MOES MS-104B or BlitzWolf SS5 (#8606)
+- Add support for Schneider Electric iEM3000 series Modbus energy meter by Marius Bezuidenhout
+- Fix exception or watchdog on rule re-entry (#8757)
+- Change ESP32 USER GPIO template representation decreasing template message size
+- Change define USE_TASMOTA_SLAVE into USE_TASMOTA_CLIENT
+- Change commands ``SlaveSend`` and ``SlaveReset`` into ``ClientSend`` and ``ClientReset``
+- Change IRremoteESP8266 library updated to v2.7.8
+
+### 8.3.1.5 20200616
+
+- Add ESP32 ethernet commands ``EthType 0/1``, ``EthAddress 0..31`` and ``EthClockMode 0..3``
+- Add Zigbee initial support for EmberZNet protocol (raw send/receive only)
+
+### 8.3.1.4 20200615
+
+- Add basic support for ESP32 ethernet adding commands ``Wifi 0/1`` and ``Ethernet 0/1`` both default ON
+
+### 8.3.1.3 20200611
+
+- Add initial support for Telegram bot (#8619)
+- Add support for HP303B Temperature and Pressure sensor by Robert Jaakke (#8638)
+- Add rule trigger ``System#Init`` to allow early rule execution without wifi and mqtt initialized yet
+- Add serial to TCP bridge, ``TCPStart`` and ``TCPBaudRate`` (needs #define USE_TCP_BRIDGE)
+
+### 8.3.1.2 20200522
+
+- Change Energy JSON Total field from ``"Total":[33.736,11.717,16.978]`` to ``"Total":33.736,"TotalTariff":[11.717,16.978]``
+- Change Energy JSON ExportActive field from ``"ExportActive":[33.736,11.717,16.978]`` to ``"ExportActive":33.736,"ExportTariff":[11.717,16.978]``
+- Change Adafruit_SGP30 library from v1.0.3 to v1.2.0 (#8519)
+- Fix escape of non-JSON received serial data (#8329)
+- Add command ``Time 4`` to display timestamp using milliseconds (#8537)
+- Add command ``SetOption94 0/1`` to select MAX31855 or MAX6675 thermocouple support (#8616)
+- Add commands ``LedPwmOn 0..255``, ``LedPwmOff 0..255`` and ``LedPwmMode1 0/1`` to control led brightness by George (#8491)
+- Add Three Phase Export Active Energy to SDM630 driver
+- Add wildcard pattern ``?`` for JSON matching in rules
+- Add support for unique MQTTClient (and inherited fallback topic) by full Mac address using ``mqttclient DVES_%12X`` (#8300)
+- Add Zigbee options to ``ZbSend`` to write and report attributes
+- Add ``CpuFrequency`` to ``status 2``
+- Add ``FlashFrequency`` to ``status 4``
+- Add support for up to two BH1750 sensors controlled by commands ``BH1750Resolution`` and ``BH1750MTime`` (#8139)
+- Add Zigbee auto-responder for common attributes
+- Add support for BL0940 energy monitor as used in Blitzwolf BW-SHP10 (#8175)
 
 ### 8.3.1.1 20200518
 
+- Change IRremoteESP8266 library updated to v2.7.7
 - Add command ``Rule0`` to change global rule parameters
 - Add more functionality to ``Switchmode`` 11 and 12 (#8450)
-
-## Released
+- Add dump of compressed rules over 512 chars and unishox decompress fix
+- Add support for VEML6075 UVA/UVB/UVINDEX Sensor by device111 (#8432)
+- Add support for VEML7700 Ambient light intensity Sensor by device111 (#8432)
 
 ### 8.3.1 20200518
 
@@ -22,8 +152,6 @@
 - Change Mutichannel Gas sensor pow function to approximative pow saving 5k of code space
 - Change Quick Power Cycle detection from 4 to 7 power interrupts (#4066)
 - Fix default state of ``SetOption73 0`` for button decoupling and send multi-press and hold MQTT messages
-
-## Released
 
 ### 8.3.0 20200514
 
@@ -108,8 +236,6 @@
 - Add Zigbee command ``ZbUnbind``
 - Add support for unreachable (unplugged) Zigbee devices in Philips Hue emulation and Alexa
 - Add support for 64x48 SSD1306 OLED (#6740)
-
-## Released
 
 ### 8.2.0 20200321
 

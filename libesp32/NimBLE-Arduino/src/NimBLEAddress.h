@@ -3,7 +3,7 @@
  *
  *  Created: on Jan 24 2020
  *      Author H2zero
- * 
+ *
  * Originally:
  *
  * BLEAddress.h
@@ -24,22 +24,7 @@
 /**************************/
 
 #include <string>
-
-typedef enum {
-    BLE_ADDR_TYPE_PUBLIC        = 0x00,
-    BLE_ADDR_TYPE_RANDOM        = 0x01,
-    BLE_ADDR_TYPE_RPA_PUBLIC    = 0x02,
-    BLE_ADDR_TYPE_RPA_RANDOM    = 0x03,
-} esp_nimble_addr_type_t;
-
-typedef uint8_t esp_ble_addr_type_t ;
-
-/// Bluetooth address length
-#define ESP_BD_ADDR_LEN     6
-
-/// Bluetooth device address
-typedef uint8_t esp_bd_addr_t[ESP_BD_ADDR_LEN];
-
+#include <algorithm>
 
 /**
  * @brief A %BLE device address.
@@ -48,15 +33,24 @@ typedef uint8_t esp_bd_addr_t[ESP_BD_ADDR_LEN];
  */
 class NimBLEAddress {
 public:
+    NimBLEAddress();
     NimBLEAddress(ble_addr_t address);
-    NimBLEAddress(esp_bd_addr_t address);
-    NimBLEAddress(std::string stringAddress);
-    bool           equals(NimBLEAddress otherAddress);
-    uint8_t*       getNative();
-    std::string    toString();
+    NimBLEAddress(uint8_t address[6], uint8_t type = BLE_ADDR_PUBLIC);
+    NimBLEAddress(const std::string &stringAddress, uint8_t type = BLE_ADDR_PUBLIC);
+    NimBLEAddress(const uint64_t &address, uint8_t type = BLE_ADDR_PUBLIC);
+    bool            equals(const NimBLEAddress &otherAddress) const;
+    const uint8_t*  getNative() const;
+    std::string     toString() const;
+    uint8_t         getType() const;
+
+    bool operator   ==(const NimBLEAddress & rhs) const;
+    bool operator   !=(const NimBLEAddress & rhs) const;
+    operator        std::string() const;
+    operator        uint64_t() const;
 
 private:
     uint8_t        m_address[6];
+    uint8_t        m_addrType;
 };
 
 #endif /* CONFIG_BT_ENABLED */

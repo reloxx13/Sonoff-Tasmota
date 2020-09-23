@@ -127,7 +127,7 @@ ssize_t rf_decode_and_write(uint8_t *record, size_t size)
     uint16_t address = h->address_high * 0x100 + h->address_low;
 
     do {
-      err = c2_programming_init();
+      err = c2_programming_init(C2_DEVID_EFM8BB1);
       err = c2_block_write(address, h->data, h->len);
     } while (err != C2_SUCCESS && retries--);
   } else if (h->record_type == IHX_RT_END_OF_FILE) {
@@ -179,7 +179,7 @@ uint8_t rf_erase_flash(void)
   uint8_t err;
 
   for (uint32_t i = 0; i < 4; i++) {  // HACK: Try multiple times as the command sometimes fails (unclear why)
-    err = c2_programming_init();
+    err = c2_programming_init(C2_DEVID_EFM8BB1);
     if (err != C2_SUCCESS) {
       return 10;                 // Failed to init RF chip
     }
@@ -226,9 +226,7 @@ void SonoffBridgeReceivedRaw(void)
     }
   }
   ResponseAppend_P(PSTR("\"}}"));
-  MqttPublishPrefixTopic_P(RESULT_OR_TELE, PSTR(D_CMND_RFRAW));
-
-  XdrvRulesProcess();
+  MqttPublishPrefixTopicRulesProcess_P(RESULT_OR_TELE, PSTR(D_CMND_RFRAW));
 }
 
 /********************************************************************************************/
@@ -298,8 +296,7 @@ void SonoffBridgeReceived(void)
         }
         ResponseTime_P(PSTR(",\"" D_JSON_RFRECEIVED "\":{\"" D_JSON_SYNC "\":%d,\"" D_JSON_LOW "\":%d,\"" D_JSON_HIGH "\":%d,\"" D_JSON_DATA "\":%s,\"" D_CMND_RFKEY "\":%s}}"),
           sync_time, low_time, high_time, stemp, rfkey);
-        MqttPublishPrefixTopic_P(RESULT_OR_TELE, PSTR(D_JSON_RFRECEIVED));
-        XdrvRulesProcess();
+        MqttPublishPrefixTopicRulesProcess_P(RESULT_OR_TELE, PSTR(D_JSON_RFRECEIVED));
   #ifdef USE_DOMOTICZ
         DomoticzSensor(DZ_COUNT, received_id);  // Send rid as Domoticz Counter value
   #endif  // USE_DOMOTICZ

@@ -165,9 +165,10 @@ struct RULES {
   long old_dimm = -1;
 
   uint16_t last_minute = 60;
-  uint16_t vars_event = 0;
-  uint8_t mems_event = 0;
+  uint16_t vars_event = 0;   // Bitmask supporting MAX_RULE_VARS bits
+  uint16_t mems_event = 0;   // Bitmask supporting MAX_RULE_MEMS bits
   bool teleperiod = false;
+  bool busy = false;
 
   char event_data[100];
 } Rules;
@@ -210,15 +211,15 @@ char rules_vars[MAX_RULE_VARS][33] = {{ 0 }};
  */
 /*******************************************************************************************/
 
-#ifdef USE_RULES_COMPRESSION
+#ifdef USE_UNISHOX_COMPRESSION
 // Statically allocate one String per rule
 String k_rules[MAX_RULE_SETS] = { String(), String(), String() };   // Strings are created empty
-Unishox compressor;   // singleton
-#endif // USE_RULES_COMPRESSION
+// Unishox compressor;   // singleton
+#endif // USE_UNISHOX_COMPRESSION
 
 // Returns whether the rule is uncompressed, which means the first byte is not NULL
 inline bool IsRuleUncompressed(uint32_t idx) {
-#ifdef USE_RULES_COMPRESSION
+#ifdef USE_UNISHOX_COMPRESSION
   return Settings.rules[idx][0] ? true : false;      // first byte not NULL, the rule is not empty and not compressed
 #else
   return true;
@@ -227,7 +228,7 @@ inline bool IsRuleUncompressed(uint32_t idx) {
 
 // Returns whether the rule is empty, which requires two consecutive NULL
 inline bool IsRuleEmpty(uint32_t idx) {
-#ifdef USE_RULES_COMPRESSION
+#ifdef USE_UNISHOX_COMPRESSION
   return (Settings.rules[idx][0] == 0) && (Settings.rules[idx][1] == 0) ? true : false;
 #else
   return (Settings.rules[idx][0] == 0) ? true : false;
@@ -236,7 +237,7 @@ inline bool IsRuleEmpty(uint32_t idx) {
 
 // Returns the approximate (+3-0) length of the rule, not counting the trailing NULL
 size_t GetRuleLen(uint32_t idx) {
-  // no need to use #ifdef USE_RULES_COMPRESSION, the compiler will optimize since first test is always true
+  // no need to use #ifdef USE_UNISHOX_COMPRESSION, the compiler will optimize since first test is always true
   if (IsRuleUncompressed(idx)) {
     return strlen(Settings.rules[idx]);
   } else {                        // either empty or compressed
@@ -246,7 +247,7 @@ size_t GetRuleLen(uint32_t idx) {
 
 // Returns the actual Flash storage for the Rule, including trailing NULL
 size_t GetRuleLenStorage(uint32_t idx) {
-#ifdef USE_RULES_COMPRESSION
+#ifdef USE_UNISHOX_COMPRESSION
   if (Settings.rules[idx][0] || !Settings.rules[idx][1]) {    // if first byte is non-NULL it is uncompressed, if second byte is NULL, then it's either uncompressed or empty
     return 1 + strlen(Settings.rules[idx]);   // uncompressed or empty
   } else {
@@ -257,26 +258,15 @@ size_t GetRuleLenStorage(uint32_t idx) {
 #endif
 }
 
-#ifdef USE_RULES_COMPRESSION
+#ifdef USE_UNISHOX_COMPRESSION
 // internal function, do the actual decompression
 void GetRule_decompress(String &rule, const char *rule_head) {
   size_t buf_len = 1 + *rule_head * 8;       // the first byte contains size of buffer for uncompressed rule / 8, buf_len may overshoot by 7
   rule_head++;                               // advance to the actual compressed buffer
 
-  // We use a nasty trick here. To avoid allocating twice the buffer,
-  // we first extend the buffer of the String object to the target size (maybe overshooting by 7 bytes)
-  // then we decompress in this buffer,
-  // and finally assign the raw string to the String, which happens to work: String uses memmove(), so overlapping works
-  rule.reserve(buf_len);
-  char* buf = rule.begin();
-
-  int32_t len_decompressed = compressor.unishox_decompress(rule_head, strlen(rule_head), buf, buf_len);
-  buf[len_decompressed] = 0;    // add NULL terminator
-
-  // AddLog_P2(LOG_LEVEL_INFO, PSTR("RUL: Rawdecompressed: %d"), len_decompressed);
-  rule = buf;       // assign the raw string to the String object (in reality re-writing the same data in the same place)
+  rule = Decompress(rule_head, buf_len);
 }
-#endif // USE_RULES_COMPRESSION
+#endif // USE_UNISHOX_COMPRESSION
 
 //
 // Read rule in memory, uncompress if needed
@@ -286,7 +276,7 @@ String GetRule(uint32_t idx) {
   if (IsRuleUncompressed(idx)) {
     return String(Settings.rules[idx]);
   } else {
-#ifdef USE_RULES_COMPRESSION    // we still do #ifdef to make sure we don't link unnecessary code
+#ifdef USE_UNISHOX_COMPRESSION    // we still do #ifdef to make sure we don't link unnecessary code
 
     String rule("");
     if (Settings.rules[idx][1] == 0) { return rule; }     // the rule is empty
@@ -304,9 +294,10 @@ String GetRule(uint32_t idx) {
     return rule;
 #endif
   }
+  return "";  // Fix GCC10 warning
 }
 
-#ifdef USE_RULES_COMPRESSION
+#ifdef USE_UNISHOX_COMPRESSION
 // internal function, comrpess rule and store a cached version uncompressed (except if SetOption94 1)
 // If out == nullptr, we are in dry-run mode, so don't keep rule in cache
 int32_t SetRule_compress(uint32_t idx, const char *in, size_t in_len, char *out, size_t out_len) {
@@ -323,7 +314,7 @@ int32_t SetRule_compress(uint32_t idx, const char *in, size_t in_len, char *out,
   }
   return len_compressed;
 }
-#endif // USE_RULES_COMPRESSION
+#endif // USE_UNISHOX_COMPRESSION
 
 // Returns:
 //   >= 0 : the actual stored size
@@ -354,7 +345,7 @@ int32_t SetRule(uint32_t idx, const char *content, bool append = false) {
       Settings.rules[idx][1] = 0;
     }
 
-#ifdef USE_RULES_COMPRESSION
+#ifdef USE_UNISHOX_COMPRESSION
     if (0 != len_in + offset) {
       // do a dry-run compression to display how much it would be compressed
       int32_t len_compressed, len_uncompressed;
@@ -364,11 +355,11 @@ int32_t SetRule(uint32_t idx, const char *content, bool append = false) {
       AddLog_P2(LOG_LEVEL_INFO, PSTR("RUL: Stored uncompressed, would compress from %d to %d (-%d%%)"), len_uncompressed, len_compressed, 100 - changeUIntScale(len_compressed, 0, len_uncompressed, 0, 100));
     }
 
-#endif // USE_RULES_COMPRESSION
+#endif // USE_UNISHOX_COMPRESSION
 
     return len_in + offset;
   } else {
-#ifdef USE_RULES_COMPRESSION
+#ifdef USE_UNISHOX_COMPRESSION
     int32_t len_compressed;
     // allocate temp buffer so we don't nuke the rule if it's too big to fit
     char *buf_out = (char*) malloc(MAX_RULE_SIZE + 8);    // take some margin
@@ -401,9 +392,9 @@ int32_t SetRule(uint32_t idx, const char *content, bool append = false) {
     free(buf_out);
     return len_compressed;
 
-#else  // USE_RULES_COMPRESSION
+#else  // USE_UNISHOX_COMPRESSION
     return -1;                                // the rule does not fit and we can't compress
-#endif // USE_RULES_COMPRESSION
+#endif // USE_UNISHOX_COMPRESSION
   }
 
 }
@@ -452,28 +443,38 @@ bool RulesRuleMatch(uint8_t rule_set, String &event, String &rule)
         break;
       }
     }
-    snprintf_P(stemp, sizeof(stemp), PSTR("%%TIME%%"));
-    if (rule_param.startsWith(stemp)) {
+    if (rule_param.startsWith(F("%TIME%"))) {
       rule_param = String(MinutesPastMidnight());
     }
-    snprintf_P(stemp, sizeof(stemp), PSTR("%%UPTIME%%"));
-    if (rule_param.startsWith(stemp)) {
+    if (rule_param.startsWith(F("%UPTIME%"))) {
       rule_param = String(MinutesUptime());
     }
-    snprintf_P(stemp, sizeof(stemp), PSTR("%%TIMESTAMP%%"));
-    if (rule_param.startsWith(stemp)) {
+    if (rule_param.startsWith(F("%TIMESTAMP%"))) {
       rule_param = GetDateAndTime(DT_LOCAL).c_str();
     }
 #if defined(USE_TIMERS) && defined(USE_SUNRISE)
-    snprintf_P(stemp, sizeof(stemp), PSTR("%%SUNRISE%%"));
-    if (rule_param.startsWith(stemp)) {
+    if (rule_param.startsWith(F("%SUNRISE%"))) {
       rule_param = String(SunMinutes(0));
     }
-    snprintf_P(stemp, sizeof(stemp), PSTR("%%SUNSET%%"));
-    if (rule_param.startsWith(stemp)) {
+    if (rule_param.startsWith(F("%SUNSET%"))) {
       rule_param = String(SunMinutes(1));
     }
 #endif  // USE_TIMERS and USE_SUNRISE
+// #ifdef USE_ZIGBEE
+//     if (rule_param.startsWith(F("%ZBDEVICE%"))) {
+//       snprintf_P(stemp, sizeof(stemp), PSTR("0x%04X"), Z_GetLastDevice());
+//       rule_param = String(stemp);
+//     }
+//     if (rule_param.startsWith(F("%ZBGROUP%"))) {
+//       rule_param = String(Z_GetLastGroup());
+//     }
+//     if (rule_param.startsWith(F("%ZBCLUSTER%"))) {
+//       rule_param = String(Z_GetLastCluster());
+//     }
+//     if (rule_param.startsWith(F("%ZBENDPOINT%"))) {
+//       rule_param = String(Z_GetLastEndpoint());
+//     }
+// #endif
     rule_param.toUpperCase();
     strlcpy(rule_svalue, rule_param.c_str(), sizeof(rule_svalue));
 
@@ -496,27 +497,74 @@ bool RulesRuleMatch(uint8_t rule_set, String &event, String &rule)
     rule_name = rule_name.substring(0, pos);           // "SUBTYPE1#CURRENT"
   }
 
-  StaticJsonBuffer<1024> jsonBuf;
+#if 0
+//  StaticJsonBuffer<1280> jsonBuf;                      // Was 1024 until 20200811
+  DynamicJsonBuffer jsonBuf;                           // Was static until 20200812
   JsonObject &root = jsonBuf.parseObject(event);
-  if (!root.success()) { return false; }               // No valid JSON data
+  if (!root.success()) {
+    AddLog_P2(LOG_LEVEL_DEBUG, PSTR("RUL: Event too long (%d)"), event.length());
+    return false;
+  }               // No valid JSON data
   JsonObject *obj = &root;
   String subtype;
   uint32_t i = 0;
   while ((pos = rule_name.indexOf("#")) > 0) {         // "SUBTYPE1#SUBTYPE2#CURRENT"
     subtype = rule_name.substring(0, pos);
-    if (!(*obj)[subtype].success()) { return false; }  // No subtype in JSON data
-    JsonObject &obj2 = (*obj)[subtype];
-    obj = &obj2;
+    const JsonVariant & val = GetCaseInsensitive(*obj, subtype.c_str());
+    if (nullptr == &val) { return false; }             // not found
+    obj = &(val.as<JsonObject>());
+    if (!obj->success()) { return false; }             // not a JsonObject
+
     rule_name = rule_name.substring(pos +1);
     if (i++ > 10) { return false; }                    // Abandon possible loop
+
+    yield();
   }
-  if (!(*obj)[rule_name].success()) { return false; }  // No name in JSON data
+
+  const JsonVariant & val = GetCaseInsensitive(*obj, rule_name.c_str());
+  if (nullptr == &val) { return false; }               // last level not found
   const char* str_value;
   if (rule_name_idx) {
     str_value = (*obj)[rule_name][rule_name_idx -1];   // "CURRENT[1]"
   } else {
     str_value = (*obj)[rule_name];                     // "CURRENT"
   }
+#else
+
+  String buf = event;   // copy the string into a new buffer that will be modified
+  JsonParser parser = JsonParser((char*)buf.c_str());
+  JsonParserObject obj = parser.getRootObject();
+  if (!obj) {
+    AddLog_P2(LOG_LEVEL_DEBUG, PSTR("RUL: Event too long (%d)"), event.length());
+    return false; // No valid JSON data
+  }
+  String subtype;
+  uint32_t i = 0;
+  while ((pos = rule_name.indexOf("#")) > 0) {         // "SUBTYPE1#SUBTYPE2#CURRENT"
+    subtype = rule_name.substring(0, pos);
+    obj = obj[subtype.c_str()].getObject();
+    if (!obj) { return false; }             // not found
+
+    rule_name = rule_name.substring(pos +1);
+    if (i++ > 10) { return false; }                    // Abandon possible loop
+
+    yield();
+  }
+
+  JsonParserToken val = obj[rule_name.c_str()];
+  if (!val) { return false; }               // last level not found
+  const char* str_value;
+  if (rule_name_idx) {
+    if (val.isArray()) {
+      str_value = (val.getArray())[rule_name_idx -1].getStr();
+    } else {
+      str_value = val.getStr();
+    }
+  } else {
+    str_value = val.getStr();                     // "CURRENT"
+  }
+#endif
+
 
 //AddLog_P2(LOG_LEVEL_DEBUG, PSTR("RUL: Name %s, Value |%s|, TrigCnt %d, TrigSt %d, Source %s, Json %s"),
 //  rule_name.c_str(), rule_svalue, Rules.trigger_count[rule_set], bitRead(Rules.triggers[rule_set], Rules.trigger_count[rule_set]), event.c_str(), (str_value) ? str_value : "none");
@@ -560,7 +608,6 @@ bool RulesRuleMatch(uint8_t rule_set, String &event, String &rule)
   } else match = true;
 
 //AddLog_P2(LOG_LEVEL_DEBUG, PSTR("RUL: Match 1 %d"), match);
-
 
   if (bitRead(Settings.rule_once, rule_set)) {
     if (match) {                                       // Only allow match state changes
@@ -708,11 +755,23 @@ bool RuleSetProcess(uint8_t rule_set, String &event_saved)
       RulesVarReplace(commands, F("%UTCTIME%"), String(UtcTime()));
       RulesVarReplace(commands, F("%UPTIME%"), String(MinutesUptime()));
       RulesVarReplace(commands, F("%TIMESTAMP%"), GetDateAndTime(DT_LOCAL));
-      RulesVarReplace(commands, F("%TOPIC%"), SettingsText(SET_MQTT_TOPIC));
+      RulesVarReplace(commands, F("%TOPIC%"), mqtt_topic);
+      snprintf_P(stemp, sizeof(stemp), PSTR("%06X"), ESP_getChipId());
+      RulesVarReplace(commands, F("%DEVICEID%"), stemp);
+      String mac_address = WiFi.macAddress();
+      mac_address.replace(":", "");
+      RulesVarReplace(commands, F("%MACADDR%"), mac_address);
 #if defined(USE_TIMERS) && defined(USE_SUNRISE)
       RulesVarReplace(commands, F("%SUNRISE%"), String(SunMinutes(0)));
       RulesVarReplace(commands, F("%SUNSET%"), String(SunMinutes(1)));
 #endif  // USE_TIMERS and USE_SUNRISE
+#ifdef USE_ZIGBEE
+      snprintf_P(stemp, sizeof(stemp), PSTR("0x%04X"), Z_GetLastDevice());
+      RulesVarReplace(commands, F("%ZBDEVICE%"), String(stemp));
+      RulesVarReplace(commands, F("%ZBGROUP%"), String(Z_GetLastGroup()));
+      RulesVarReplace(commands, F("%ZBCLUSTER%"), String(Z_GetLastCluster()));
+      RulesVarReplace(commands, F("%ZBENDPOINT%"), String(Z_GetLastEndpoint()));
+#endif
 
       char command[commands.length() +1];
       strlcpy(command, commands.c_str(), sizeof(command));
@@ -739,6 +798,9 @@ bool RuleSetProcess(uint8_t rule_set, String &event_saved)
 
 bool RulesProcessEvent(char *json_event)
 {
+  if (Rules.busy) { return false; }
+
+  Rules.busy = true;
   bool serviced = false;
 
 #ifdef USE_DEBUG_DRIVER
@@ -764,6 +826,9 @@ bool RulesProcessEvent(char *json_event)
       if (RuleSetProcess(i, event_saved)) { serviced = true; }
     }
   }
+
+  Rules.busy = false;
+
   return serviced;
 }
 
@@ -774,6 +839,11 @@ bool RulesProcess(void)
 
 void RulesInit(void)
 {
+  // indicates scripter not enabled
+  bitWrite(Settings.rule_once, 7, 0);
+  // and indicates scripter do not use compress
+  bitWrite(Settings.rule_once, 6, 0);
+
   rules_flag.data = 0;
   for (uint32_t i = 0; i < MAX_RULE_SETS; i++) {
     if (0 == GetRuleLen(i)) {
@@ -786,7 +856,7 @@ void RulesInit(void)
 
 void RulesEvery50ms(void)
 {
-  if (Settings.rule_enabled) {  // Any rule enabled
+  if (Settings.rule_enabled && !Rules.busy) {  // Any rule enabled
     char json_event[120];
 
     if (-1 == Rules.new_power) { Rules.new_power = power; }
@@ -877,17 +947,18 @@ void RulesEvery50ms(void)
           rules_flag.data ^= mask;
           json_event[0] = '\0';
           switch (i) {
-            case 0: strncpy_P(json_event, PSTR("{\"System\":{\"Boot\":1}}"), sizeof(json_event)); break;
-            case 1: snprintf_P(json_event, sizeof(json_event), PSTR("{\"Time\":{\"Initialized\":%d}}"), MinutesPastMidnight()); break;
-            case 2: snprintf_P(json_event, sizeof(json_event), PSTR("{\"Time\":{\"Set\":%d}}"), MinutesPastMidnight()); break;
-            case 3: strncpy_P(json_event, PSTR("{\"MQTT\":{\"Connected\":1}}"), sizeof(json_event)); break;
-            case 4: strncpy_P(json_event, PSTR("{\"MQTT\":{\"Disconnected\":1}}"), sizeof(json_event)); break;
-            case 5: strncpy_P(json_event, PSTR("{\"WIFI\":{\"Connected\":1}}"), sizeof(json_event)); break;
-            case 6: strncpy_P(json_event, PSTR("{\"WIFI\":{\"Disconnected\":1}}"), sizeof(json_event)); break;
-            case 7: strncpy_P(json_event, PSTR("{\"HTTP\":{\"Initialized\":1}}"), sizeof(json_event)); break;
+            case 0: strncpy_P(json_event, PSTR("{\"System\":{\"Init\":1}}"), sizeof(json_event)); break;
+            case 1: strncpy_P(json_event, PSTR("{\"System\":{\"Boot\":1}}"), sizeof(json_event)); break;
+            case 2: snprintf_P(json_event, sizeof(json_event), PSTR("{\"Time\":{\"Initialized\":%d}}"), MinutesPastMidnight()); break;
+            case 3: snprintf_P(json_event, sizeof(json_event), PSTR("{\"Time\":{\"Set\":%d}}"), MinutesPastMidnight()); break;
+            case 4: strncpy_P(json_event, PSTR("{\"MQTT\":{\"Connected\":1}}"), sizeof(json_event)); break;
+            case 5: strncpy_P(json_event, PSTR("{\"MQTT\":{\"Disconnected\":1}}"), sizeof(json_event)); break;
+            case 6: strncpy_P(json_event, PSTR("{\"WIFI\":{\"Connected\":1}}"), sizeof(json_event)); break;
+            case 7: strncpy_P(json_event, PSTR("{\"WIFI\":{\"Disconnected\":1}}"), sizeof(json_event)); break;
+            case 8: strncpy_P(json_event, PSTR("{\"HTTP\":{\"Initialized\":1}}"), sizeof(json_event)); break;
 #ifdef USE_SHUTTER
-            case 8: strncpy_P(json_event, PSTR("{\"SHUTTER\":{\"Moved\":1}}"), sizeof(json_event)); break;
-            case 9: strncpy_P(json_event, PSTR("{\"SHUTTER\":{\"Moving\":1}}"), sizeof(json_event)); break;
+            case 9: strncpy_P(json_event, PSTR("{\"SHUTTER\":{\"Moved\":1}}"), sizeof(json_event)); break;
+            case 10: strncpy_P(json_event, PSTR("{\"SHUTTER\":{\"Moving\":1}}"), sizeof(json_event)); break;
 #endif  // USE_SHUTTER
           }
           if (json_event[0]) {
@@ -905,7 +976,7 @@ uint8_t rules_xsns_index = 0;
 
 void RulesEvery100ms(void)
 {
-  if (Settings.rule_enabled && (uptime > 4)) {  // Any rule enabled and allow 4 seconds start-up time for sensors (#3811)
+  if (Settings.rule_enabled && !Rules.busy && (uptime > 4)) {  // Any rule enabled and allow 4 seconds start-up time for sensors (#3811)
     mqtt_data[0] = '\0';
     int tele_period_save = tele_period;
     tele_period = 2;                                   // Do not allow HA updates during next function call
@@ -914,14 +985,14 @@ void RulesEvery100ms(void)
     if (strlen(mqtt_data)) {
       mqtt_data[0] = '{';                              // {"INA219":{"Voltage":4.494,"Current":0.020,"Power":0.089}
       ResponseJsonEnd();
-      RulesProcess();
+      RulesProcessEvent(mqtt_data);
     }
   }
 }
 
 void RulesEverySecond(void)
 {
-  if (Settings.rule_enabled) {  // Any rule enabled
+  if (Settings.rule_enabled && !Rules.busy) {  // Any rule enabled
     char json_event[120];
 
     if (RtcTime.valid) {
@@ -945,7 +1016,7 @@ void RulesEverySecond(void)
 
 void RulesSaveBeforeRestart(void)
 {
-  if (Settings.rule_enabled) {  // Any rule enabled
+  if (Settings.rule_enabled && !Rules.busy) {  // Any rule enabled
     char json_event[32];
 
     strncpy_P(json_event, PSTR("{\"System\":{\"Save\":1}}"), sizeof(json_event));
@@ -998,20 +1069,26 @@ bool RulesMqttData(void)
       if (event_item.Key.length() == 0) {   //If did not specify Key
         value = sData;
       } else {      //If specified Key, need to parse Key/Value from JSON data
-        StaticJsonBuffer<500> jsonBuf;
-        JsonObject& jsonData = jsonBuf.parseObject(sData);
+        JsonParserObject jsonData = JsonParser((char*)sData.c_str()).getRootObject();
+
         String key1 = event_item.Key;
         String key2;
-        if (!jsonData.success()) break;       //Failed to parse JSON data, ignore this message.
+        if (!jsonData) break;       //Failed to parse JSON data, ignore this message.
         int dot;
         if ((dot = key1.indexOf('.')) > 0) {
           key2 = key1.substring(dot+1);
           key1 = key1.substring(0, dot);
-          if (!jsonData[key1][key2].success()) break;   //Failed to get the key/value, ignore this message.
-          value = (const char *)jsonData[key1][key2];
+          JsonParserToken value_tok = jsonData[key1.c_str()].getObject()[key2.c_str()];
+          if (!value_tok) break;   //Failed to get the key/value, ignore this message.
+          value = value_tok.getStr();
+          // if (!jsonData[key1][key2].success()) break;   //Failed to get the key/value, ignore this message.
+          // value = (const char *)jsonData[key1][key2];
         } else {
-          if (!jsonData[key1].success()) break;
-          value = (const char *)jsonData[key1];
+          JsonParserToken value_tok = jsonData[key1.c_str()];
+          if (!value_tok) break;   //Failed to get the key/value, ignore this message.
+          value = value_tok.getStr();
+          // if (!jsonData[key1].success()) break;
+          // value = (const char *)jsonData[key1];
         }
       }
       value.trim();
@@ -1273,6 +1350,16 @@ bool findNextVariableValue(char * &pVarname, float &value)
   } else if (sVarName.equals(F("SUNSET"))) {
     value = SunMinutes(1);
 #endif
+// #ifdef USE_ZIGBEE
+//   // } else if (sVarName.equals(F("ZBDEVICE"))) {
+//   //   value = Z_GetLastDevice();
+//   } else if (sVarName.equals(F("ZBGROUP"))) {
+//     value = Z_GetLastGroup();
+//   } else if (sVarName.equals(F("ZBCLUSTER"))) {
+//     value = Z_GetLastCluster();
+//   } else if (sVarName.equals(F("ZBENDPOINT"))) {
+//     value = Z_GetLastEndpoint();
+// #endif
   } else {
     succeed = false;
   }
@@ -2017,7 +2104,25 @@ void CmndRule(void)
     }
     String rule = GetRule(index - 1);
     size_t rule_len = rule.length();
-    if (rule_len >= MAX_RULE_SIZE) {
+    if (rule_len > MAX_RULE_SIZE - 3) {
+
+      size_t start_index = 0;                                       // start from 0
+      while (start_index < rule_len) {                              // until we reached end of rule
+        size_t last_index = start_index + MAX_RULE_SIZE - 3;        // set max length to what would fit uncompressed, i.e. MAX_RULE_SIZE - 3 (first NULL + length + last NULL)
+        if (last_index < rule_len) {                                // if we didn't reach the end, try to shorten to last space character
+          int32_t next_index = rule.lastIndexOf(" ", last_index);
+          if (next_index > 0) {                                     // if space was found and is not at the first position (i.e. we are progressing)
+            last_index = next_index;                                // shrink to the last space
+          }                                                         // otherwise it means there are no spaces, we need to cut somewhere even if the result cannot be entered back
+        } else {
+          last_index = rule_len;                                    // until the end of the rule
+        }
+        AddLog_P2(LOG_LEVEL_INFO, PSTR("RUL: Rule%d %s%s"),
+                                        index, 0 == start_index ? PSTR("") : PSTR("+"),
+                                        rule.substring(start_index, last_index).c_str());
+        start_index = last_index + 1;
+      }
+
       // we need to split the rule in chunks
       rule = rule.substring(0, MAX_RULE_SIZE);
       rule += F("...");
@@ -2029,7 +2134,7 @@ void CmndRule(void)
       XdrvMailbox.command, index, GetStateText(bitRead(Settings.rule_enabled, index -1)), GetStateText(bitRead(Settings.rule_once, index -1)),
       GetStateText(bitRead(Settings.rule_stop, index -1)),
       rule_len, MAX_RULE_SIZE - GetRuleLenStorage(index - 1),
-      escapeJSONString(rule.c_str()).c_str());
+      EscapeJSONString(rule.c_str()).c_str());
   }
 }
 
